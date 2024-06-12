@@ -1,4 +1,5 @@
 import pytest
+import bitarray as ba
 import numpy as np
 from os.path import abspath
 from dyada.refinement import RefinementDescriptor, generalized_ruler
@@ -45,14 +46,35 @@ def test_one_level():
 
 
 def test_six_d():
-    for l in range(0, 4):
+    for l in range(1, 4):
         r = RefinementDescriptor(6, l)
         assert r.get_num_dimensions() == 6
-        # assert len(r) == 2**6 + 1
-        assert r.get_num_boxes() == 2**(l*6)
+        acc = 1
+        for i in range(l):
+            acc = acc * 2**6 + 1
+        assert len(r) == acc
+        assert r.get_num_boxes() == 2 ** (l * 6)
+        # count length of one-blocks
+        lengths = []
+        current_length = 0
         for i in range(0, len(r.get_data()), 6):
-            assert r.get_data()[i : i + 6].count() in [0, 6]
+            c = r.get_data()[i : i + 6].count()
+            assert c in [0, 6]
+            if c == 6:
+                current_length += 1
+            elif current_length != 0:
+                lengths.append(current_length)
+                current_length = 0
+        assert lengths == generalized_ruler(6, l - 1).tolist()
 
+
+def test_construct_anisotropic():
+    r = RefinementDescriptor(4, [0, 1, 2, 3])
+    assert r.get_num_dimensions() == 4
+    assert len(r) == ((2 + 1) * 4 + 1) * 8 + 1
+    assert r.get_num_boxes() == 2**6
+    assert r.get_data()[: 4 * 5] == ba.bitarray("01110011000100000000")
+    assert r.get_data()[-4 * 6 :] == ba.bitarray("000100000000000100000000")
 
 
 if __name__ == "__main__":

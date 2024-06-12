@@ -22,19 +22,15 @@ class RefinementDescriptor:
         if isinstance(base_resolution_level, int):
             base_resolution_level = [base_resolution_level] * self._num_dimensions
         assert len(base_resolution_level) == self._num_dimensions
-        level_sum = sum(base_resolution_level)
-        self._data = ba.bitarray((2 ** (level_sum + 1) - 1) * self._num_dimensions)
+
         # establish the base resolution level
-        
         dZeros = ba.bitarray(self._num_dimensions)
-        self._data = dZeros.copy()
-        #iterate in reverse from max(level) to 0
+        self._data = dZeros
+        # iterate in reverse from max(level) to 0
         for l in reversed(range(max(base_resolution_level))):
             at_least_l = ba.bitarray([i > l for i in base_resolution_level])
-            factor = 2**at_least_l.count()
+            factor = 2 ** at_least_l.count()
             self._data = at_least_l + self._data * factor
-
-        ic(self._data)
 
     def __len__(self):
         """
@@ -48,15 +44,14 @@ class RefinementDescriptor:
     def get_num_boxes(self):
         # count number of d*(0) bit blocks
         dZeros = ba.bitarray(self._num_dimensions)
-        ic(dZeros)
-        ic(list(self._data[0 : self._num_dimensions :]))
+        # ic(list(self._data[0 : self._num_dimensions :]))
         # todo check back if there will be such a function in bitarray
         count = sum(
             1
             for i in range(0, len(self._data), self._num_dimensions)
             if self._data[i : i + self._num_dimensions] == dZeros
         )
-        return ic(count)
+        return count
 
     def get_data(self):
         return self._data
