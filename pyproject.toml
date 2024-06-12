@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dyada"
+version = "0.0.1"
+dynamic = ["authors"]
+description = "A Code for Memory-Saving Dyadic Adaptivity in Optimization and Simulation"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = ["Programming Language :: Python :: 3"]
+dependencies = ["numpy", "math", "bitarray"]
