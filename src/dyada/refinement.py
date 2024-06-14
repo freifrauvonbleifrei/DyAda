@@ -1,7 +1,5 @@
 import numpy as np
-import math
 import bitarray as ba
-from icecream import ic
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
