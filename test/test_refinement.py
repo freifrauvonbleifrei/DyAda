@@ -74,7 +74,11 @@ def test_construct_anisotropic():
     assert len(r) == ((2 + 1) * 4 + 1) * 8 + 1
     assert r.get_num_boxes() == 2**6
     assert r.get_data()[: 4 * 5] == ba.bitarray("01110011000100000000")
-    assert r.get_data()[-4 * 6 :] == ba.bitarray("000100000000000100000000")
+    assert r.get_data()[4 * -6 :] == ba.bitarray("000100000000000100000000")
+    assert r[:5] == r.get_data()[: 4 * 5]
+    assert r[5] == r.get_data()[4 * 5 : 4 * 6]
+    assert r[-6:] == r.get_data()[4 * -6 :]
+
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
 
 
 class RefinementDescriptor:
-    def __init__(self, num_dimensions, base_resolution_level=0):
+    def __init__(self, num_dimensions: int, base_resolution_level=0):
         self._num_dimensions = num_dimensions
         if isinstance(base_resolution_level, int):
             base_resolution_level = [base_resolution_level] * self._num_dimensions
@@ -55,6 +55,23 @@ class RefinementDescriptor:
 
     def get_data(self):
         return self._data
+
+    def __getitem__(self, index_or_slice):
+        if isinstance(index_or_slice, slice):
+            assert index_or_slice.step == 1 or index_or_slice.step is None
+            start = index_or_slice.start
+            stop = index_or_slice.stop
+            start = 0 if start is None else start
+            stop = len(self) if stop is None else stop
+            return self.get_data()[
+                start * self._num_dimensions : stop * self._num_dimensions
+            ]
+        else:  # it should be an index
+            return self.get_data()[
+                index_or_slice
+                * self._num_dimensions : (index_or_slice + 1)
+                * self._num_dimensions
+            ]
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
