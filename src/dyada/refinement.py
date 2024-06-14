@@ -1,5 +1,6 @@
 import numpy as np
 import bitarray as ba
+from collections import deque
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -70,6 +71,34 @@ class RefinementDescriptor:
                 * self._num_dimensions : (index_or_slice + 1)
                 * self._num_dimensions
             ]
+
+    def get_level(self, index: int) -> int:
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+
+        class LevelCounter:
+            def __init__(self, level, count=0):
+                self.level = level
+                self.count = count
+
+        to_go_up = deque()
+        current_level = 0
+        to_go_up.append(LevelCounter(0, 1))
+        dZeros = ba.bitarray(self._num_dimensions)
+        for i in range(index):
+            current = self[i]
+            to_go_up[-1].count -= 1
+            if current == dZeros:
+                while to_go_up[-1].count == 0:
+                    assert current_level == to_go_up.pop().level
+                    current_level = to_go_up[-1].level
+            else:
+                cnt = current.count()
+                current_level += cnt
+                for u in to_go_up:
+                    assert current_level > u.level
+                to_go_up.append(LevelCounter(current_level, 2**cnt))
+        return current_level
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):

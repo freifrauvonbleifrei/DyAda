@@ -80,6 +80,20 @@ def test_construct_anisotropic():
     assert r[-6:] == r.get_data()[4 * -6 :]
 
 
+def test_get_level_isotropic():
+    r = RefinementDescriptor(4, 3)
+    with pytest.raises(IndexError):
+        r.get_level(len(r))
+    with pytest.raises(IndexError):
+        r.get_level(-1)
+    assert r.get_level(0) == 0
+    assert r.get_level(1) == 4
+    assert r.get_level(2) == 8
+    for i in range(0, 16):
+        assert r.get_level(3 + i) == 12
+        assert r.get_level(len(r) - i - 1) == 12
+    assert r.get_level(len(r) - 16 - 1) == 8
+
 
 if __name__ == "__main__":
     here = abspath(__file__)
