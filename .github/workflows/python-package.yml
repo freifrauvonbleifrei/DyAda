@@ -27,8 +27,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest pytest-cov
+        python -m pip install black flake8 pytest pytest-cov
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Run linters
+      uses: wearerequired/lint-action@v2
+      with:
+        black: true
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
