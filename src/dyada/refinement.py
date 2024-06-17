@@ -1,6 +1,6 @@
 import numpy as np
 import bitarray as ba
-from collections import deque
+from collections import deque, Counter
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -55,22 +55,30 @@ class RefinementDescriptor:
     def get_data(self):
         return self._data
 
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield ba.frozenbitarray(self[i])
+
     def __getitem__(self, index_or_slice):
+        nd = self._num_dimensions
         if isinstance(index_or_slice, slice):
             assert index_or_slice.step == 1 or index_or_slice.step is None
             start = index_or_slice.start
             stop = index_or_slice.stop
             start = 0 if start is None else start
             stop = len(self) if stop is None else stop
-            return self.get_data()[
-                start * self._num_dimensions : stop * self._num_dimensions
-            ]
+            return self.get_data()[start * nd : stop * nd]
         else:  # it should be an index
-            return self.get_data()[
-                index_or_slice
-                * self._num_dimensions : (index_or_slice + 1)
-                * self._num_dimensions
-            ]
+            return self.get_data()[index_or_slice * nd : (index_or_slice + 1) * nd]
+
+    def is_pow2tree(self):
+        """Is this a quadtree / octree / general power-of-2 tree?"""
+        c = Counter(self)
+        return c.keys() == {
+            ba.frozenbitarray(self._num_dimensions),
+            ba.frozenbitarray("1" * self._num_dimensions),
+        }
 
     def get_level(self, index: int) -> int:
         if index < 0 or index >= len(self):

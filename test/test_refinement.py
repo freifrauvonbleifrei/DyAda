@@ -40,9 +40,7 @@ def test_one_level():
         assert r.get_num_boxes() == 2**i
         assert r.get_data().count() == i
         assert r.get_data()[0] == 1
-        # every d-block in data is either 0 or 1
-        for i in range(0, len(r.get_data()), d):
-            assert r.get_data()[i : i + r.get_num_dimensions()].count() in [0, d]
+        assert r.is_pow2tree() == True
 
 
 def test_six_d():
@@ -66,6 +64,8 @@ def test_six_d():
                 lengths.append(current_length)
                 current_length = 0
         assert lengths == generalized_ruler(6, l - 1).tolist()
+        print(r.is_pow2tree())
+        assert r.is_pow2tree() == True
 
 
 def test_construct_anisotropic():
@@ -78,6 +78,7 @@ def test_construct_anisotropic():
     assert r[:5] == r.get_data()[: 4 * 5]
     assert r[5] == r.get_data()[4 * 5 : 4 * 6]
     assert r[-6:] == r.get_data()[4 * -6 :]
+    assert r.is_pow2tree() == False
 
 
 def test_get_level_isotropic():
