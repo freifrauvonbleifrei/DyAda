@@ -38,7 +38,7 @@ jobs:
       - name: Run mypy
         uses: sasanquaneuf/mypy-github-action@releases/v1
         with:
-          checkName: 'lint'   # NOTE: this needs to be the same as the job name
+          checkName: "lint" # NOTE: this needs to be the same as the job name
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build:
@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8","3.10","3.11"]
+        python-version: ["3.8", "3.10", "3.11"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -62,7 +62,7 @@ jobs:
         run: pip install -e .
       - name: Test with pytest
         run: |
-          pytest test/ --doctest-modules --junitxml=junit/test-results.xml --cov=dyada --cov-report=xml --cov-report=html
+          pytest test/ --doctest-modules --junitxml=junit/test-results.xml
 
   coverage:
     runs-on: ubuntu-latest
@@ -78,8 +78,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Install DyAda module
         run: pip install -e .
+      - name: Test with pytest, to create cov report
+        run: |
+          pytest test/ --cov=dyada --cov-report=xml --cov-report=html
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
 
