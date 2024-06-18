@@ -55,7 +55,6 @@ class RefinementDescriptor:
     def get_data(self):
         return self._data
 
-
     def __iter__(self):
         for i in range(len(self)):
             yield ba.frozenbitarray(self[i])
@@ -89,7 +88,7 @@ class RefinementDescriptor:
                 self.level = level
                 self.count = count
 
-        to_go_up = deque()
+        to_go_up: deque = deque()
         current_level = 0
         to_go_up.append(LevelCounter(0, 1))
         dZeros = ba.bitarray(self._num_dimensions)
