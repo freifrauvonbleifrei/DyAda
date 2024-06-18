@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.10", "3.11"]
+        python-version: ["3.10"]
 
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install black flake8 pytest pytest-cov
+          python -m pip install black flake8 pytest pytest-cov mypy
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Run linters
         uses: wearerequired/lint-action@v2
@@ -43,7 +43,12 @@ jobs:
       - name: Test with pytest
         run: |
           pytest test/ --doctest-modules --junitxml=junit/test-results.xml --cov=dyada --cov-report=xml --cov-report=html
-
+      - name: Run mypy
+        uses: sasanquaneuf/mypy-github-action@releases/v1
+        with:
+          checkName: 'build'   # NOTE: this needs to be the same as the job name
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
 
