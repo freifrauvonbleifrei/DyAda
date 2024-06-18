@@ -1,4 +1,5 @@
 # `DyAda`: A Code for Memory-Saving Dyadic Adaptivity in Optimization and Simulation
+![Python package CI](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/badge.svg)  ![Coverage](coverage.svg)
 
 * it's adaptive, but not octree, semicoarsening allowed! -> benefits esp.
 for higher-dimensional problems
