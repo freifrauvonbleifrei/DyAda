@@ -1,6 +1,7 @@
-import numpy as np
 import bitarray as ba
 from collections import deque, Counter
+from dataclasses import dataclass
+import numpy as np
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -83,10 +84,10 @@ class RefinementDescriptor:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
+        @dataclass
         class LevelCounter:
-            def __init__(self, level, count=0):
-                self.level = level
-                self.count = count
+            level: int
+            count: int = 0
 
         to_go_up: deque = deque()
         current_level = 0
