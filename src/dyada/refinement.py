@@ -107,7 +107,7 @@ class RefinementDescriptor:
 
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
-        current_branch: deque[self.LevelCounter] = deque()
+        current_branch: deque = deque()
         dZeros = self.get_d_zeros()
         current_branch.append(self.LevelCounter(dZeros, 1))
         for i in range(index):
@@ -135,7 +135,10 @@ class RefinementDescriptor:
 
 def validate_descriptor(descriptor: RefinementDescriptor):
     assert len(descriptor._data) % descriptor._num_dimensions == 0
-    # TODO more completeness checks
+    branch = descriptor.get_branch(len(descriptor) - 1)
+    assert len(branch) > 0
+    for twig in branch:
+        assert twig.count_to_go_up == 1
 
 
 def get_level_index(

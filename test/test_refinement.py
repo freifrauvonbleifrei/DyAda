@@ -3,7 +3,12 @@ import bitarray as ba
 import numpy as np
 from os.path import abspath
 
-from dyada.refinement import RefinementDescriptor, generalized_ruler, Refinement
+from dyada.refinement import (
+    generalized_ruler,
+    RefinementDescriptor,
+    Refinement,
+    validate_descriptor,
+)
 from dyada.linearization import MortonOrderLinearization
 
 
@@ -22,6 +27,7 @@ def test_construct():
     for i in range(1, 128):
         r = RefinementDescriptor(i)
         assert r
+        validate_descriptor(r)
 
 
 def test_zero_level():
@@ -31,6 +37,7 @@ def test_zero_level():
         assert r.get_data().any() == False
         print(r.get_data())
         assert r.get_num_boxes() == 1
+        validate_descriptor(r)
 
 
 def test_one_level():
@@ -43,6 +50,7 @@ def test_one_level():
         assert r.get_data().count() == i
         assert r.get_data()[0] == 1
         assert r.is_pow2tree() == True
+        validate_descriptor(r)
 
 
 def test_six_d():
@@ -68,6 +76,7 @@ def test_six_d():
         assert lengths == generalized_ruler(6, l - 1).tolist()
         print(r.is_pow2tree())
         assert r.is_pow2tree() == True
+        validate_descriptor(r)
 
 
 def test_construct_anisotropic():
@@ -81,6 +90,7 @@ def test_construct_anisotropic():
     assert r[5] == r.get_data()[4 * 5 : 4 * 6]
     assert r[-6:] == r.get_data()[4 * -6 :]
     assert r.is_pow2tree() == False
+    validate_descriptor(r)
 
 
 def test_get_level_isotropic():
