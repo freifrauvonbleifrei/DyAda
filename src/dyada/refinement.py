@@ -46,7 +46,7 @@ class RefinementDescriptor:
         return self._num_dimensions
 
     def get_d_zeros(self):
-        return ba.bitarray(self._num_dimensions)
+        return ba.frozenbitarray(self._num_dimensions)
 
     def get_num_boxes(self):
         # count number of d*(0) bit blocks
@@ -155,13 +155,17 @@ class Refinement:
                     assert current_branch[-1].count_to_go_up >= 0
             else:
                 current_branch.append(
-                    LevelCounter(current_refinement.copy(), 2 ** current_refinement.count())
+                    LevelCounter(
+                        current_refinement.copy(), 2 ** current_refinement.count()
+                    )
                 )
-                
+
         found_level: np.ndarray = np.array([0] * num_dimensions, dtype=np.uint8)
         for level_count in range(1, len(current_branch)):
-            found_level += np.asarray(list(current_branch[level_count].level_increment), dtype=np.uint8)
-        
+            found_level += np.asarray(
+                list(current_branch[level_count].level_increment), dtype=np.uint8
+            )
+
         # once it's found, we can infer the index from the branch stack
         current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
         decreasing_level_difference = found_level.copy()
@@ -170,7 +174,8 @@ class Refinement:
         for level_count in range(1, len(current_branch)):
             current_refinement = current_branch[level_count].level_increment
             linear_index_at_level = (
-                2 ** current_refinement.count() - current_branch[level_count].count_to_go_up
+                2 ** current_refinement.count()
+                - current_branch[level_count].count_to_go_up
             )
             history_of_level_increments.append(current_refinement)
             history_of_indices.append(linear_index_at_level)
@@ -180,7 +185,9 @@ class Refinement:
             )
             array_index = np.asarray(list(bit_index))
             assert len(array_index) == num_dimensions
-            decreasing_level_difference -= np.asarray(list(current_refinement), dtype=np.uint8)
-            current_index += array_index * 2 ** decreasing_level_difference
+            decreasing_level_difference -= np.asarray(
+                list(current_refinement), dtype=np.uint8
+            )
+            current_index += array_index * 2**decreasing_level_difference
 
         return found_level, current_index
