@@ -17,6 +17,8 @@ def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
 
 
 class RefinementDescriptor:
+    """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
+
     def __init__(self, num_dimensions: int, base_resolution_level=0):
         self._num_dimensions = num_dimensions
         if isinstance(base_resolution_level, int):
@@ -24,8 +26,7 @@ class RefinementDescriptor:
         assert len(base_resolution_level) == self._num_dimensions
 
         # establish the base resolution level
-        dZeros = ba.bitarray(self._num_dimensions)
-        self._data = dZeros
+        self._data = self.get_d_zeros()
         # iterate in reverse from max(level) to 0
         for l in reversed(range(max(base_resolution_level))):
             at_least_l = ba.bitarray([i > l for i in base_resolution_level])
@@ -41,10 +42,12 @@ class RefinementDescriptor:
     def get_num_dimensions(self):
         return self._num_dimensions
 
+    def get_d_zeros(self):
+        return ba.bitarray(self._num_dimensions)
+
     def get_num_boxes(self):
         # count number of d*(0) bit blocks
-        dZeros = ba.bitarray(self._num_dimensions)
-        # ic(list(self._data[0 : self._num_dimensions :]))
+        dZeros = self.get_d_zeros()
         # todo check back if there will be such a function in bitarray
         count = sum(
             1
@@ -87,12 +90,12 @@ class RefinementDescriptor:
         @dataclass
         class LevelCounter:
             level: int
-            count: int = 0
+            count: int
 
         to_go_up: deque = deque()
         current_level = 0
         to_go_up.append(LevelCounter(0, 1))
-        dZeros = ba.bitarray(self._num_dimensions)
+        dZeros = self.get_d_zeros()
         for i in range(index):
             current = self[i]
             to_go_up[-1].count -= 1
