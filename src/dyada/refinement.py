@@ -101,7 +101,7 @@ class RefinementDescriptor:
         level_increment: ba.frozenbitarray
         count_to_go_up: int
 
-    def get_branch(self, index: int) -> deque[LevelCounter]:
+    def get_branch(self, index: int) -> deque:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
