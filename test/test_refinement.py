@@ -89,13 +89,13 @@ def test_get_level_isotropic():
         r.get_level(len(r))
     with pytest.raises(IndexError):
         r.get_level(-1)
-    assert r.get_level(0) == 0
-    assert r.get_level(1) == 4
-    assert r.get_level(2) == 8
+    assert np.array_equal(r.get_level(0)[0], [0, 0, 0, 0])
+    assert np.array_equal(r.get_level(1)[0], [1, 1, 1, 1])
+    assert np.array_equal(r.get_level(2)[0], [2, 2, 2, 2])
     for i in range(0, 16):
-        assert r.get_level(3 + i) == 12
-        assert r.get_level(len(r) - i - 1) == 12
-    assert r.get_level(len(r) - 16 - 1) == 8
+        assert np.array_equal(r.get_level(3 + i)[0], [3, 3, 3, 3])
+        assert np.array_equal(r.get_level(len(r) - i - 1)[0], [3, 3, 3, 3])
+    assert np.array_equal(r.get_level(len(r) - 16 - 1)[0], [2, 2, 2, 2])
 
 
 def test_get_level_index():

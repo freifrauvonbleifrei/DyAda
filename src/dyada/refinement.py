@@ -86,33 +86,45 @@ class RefinementDescriptor:
             ba.frozenbitarray("1" * self._num_dimensions),
         }
 
-    def get_level(self, index: int) -> int:
+    @dataclass
+    class LevelCounter:
+        level_increment: ba.frozenbitarray
+        count_to_go_up: int
+
+    def get_level(self, index: int) -> tuple[npt.NDArray[np.int8], deque[LevelCounter]]:
+        num_dimensions = self.get_num_dimensions()
+
+        # traverse descriptor, for now taken from descriptor
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
-        @dataclass
-        class LevelCounter:
-            level: int
-            count: int
-
-        to_go_up: deque = deque()
-        current_level = 0
-        to_go_up.append(LevelCounter(0, 1))
+        # store/stack how many boxes on this level are left to go up again
+        current_branch: deque[self.LevelCounter] = deque()
         dZeros = self.get_d_zeros()
+        current_branch.append(self.LevelCounter(dZeros, 1))
         for i in range(index):
-            current = self[i]
-            to_go_up[-1].count -= 1
-            if current == dZeros:
-                while to_go_up[-1].count == 0:
-                    assert current_level == to_go_up.pop().level
-                    current_level = to_go_up[-1].level
+            current_refinement = self[i]
+            if current_refinement == dZeros:
+                current_branch[-1].count_to_go_up -= 1
+                assert current_branch[-1].count_to_go_up >= 0
+                while current_branch[-1].count_to_go_up == 0:
+                    current_branch.pop()
+                    current_branch[-1].count_to_go_up -= 1
+                    assert current_branch[-1].count_to_go_up >= 0
             else:
-                cnt = current.count()
-                current_level += cnt
-                for u in to_go_up:
-                    assert current_level > u.level
-                to_go_up.append(LevelCounter(current_level, 2**cnt))
-        return current_level
+                current_branch.append(
+                    self.LevelCounter(
+                        current_refinement.copy(), 2 ** current_refinement.count()
+                    )
+                )
+
+        found_level: np.ndarray = np.array([0] * num_dimensions, dtype=np.uint8)
+        for level_count in range(1, len(current_branch)):
+            found_level += np.asarray(
+                list(current_branch[level_count].level_increment), dtype=np.uint8
+            )
+
+        return found_level, current_branch
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
@@ -126,38 +138,8 @@ def get_level_index(
     index: int,
 ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
     num_dimensions = descriptor.get_num_dimensions()
-    # traverse descriptor, for now taken from descriptor
-    if index < 0 or index >= len(descriptor):
-        raise IndexError("Index out of range")
 
-    @dataclass
-    class LevelCounter:
-        level_increment: ba.frozenbitarray
-        count_to_go_up: int
-
-    # store/stack how many boxes on this level are left to go up again
-    current_branch: deque[LevelCounter] = deque()
-    dZeros = descriptor.get_d_zeros()
-    current_branch.append(LevelCounter(dZeros, 1))
-    for i in range(index):
-        current_refinement = descriptor[i]
-        if current_refinement == dZeros:
-            current_branch[-1].count_to_go_up -= 1
-            assert current_branch[-1].count_to_go_up >= 0
-            while current_branch[-1].count_to_go_up == 0:
-                current_branch.pop()
-                current_branch[-1].count_to_go_up -= 1
-                assert current_branch[-1].count_to_go_up >= 0
-        else:
-            current_branch.append(
-                LevelCounter(current_refinement.copy(), 2 ** current_refinement.count())
-            )
-
-    found_level: np.ndarray = np.array([0] * num_dimensions, dtype=np.uint8)
-    for level_count in range(1, len(current_branch)):
-        found_level += np.asarray(
-            list(current_branch[level_count].level_increment), dtype=np.uint8
-        )
+    found_level, current_branch = descriptor.get_level(index)
 
     # once it's found, we can infer the index from the branch stack
     current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
