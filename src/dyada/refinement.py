@@ -19,6 +19,16 @@ def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
     return current_list
 
 
+def get_level_from_branch(branch: deque) -> np.ndarray:
+    num_dimensions = len(branch[0].level_increment)
+    found_level = np.array([0] * num_dimensions, dtype=np.uint8)
+    for level_count in range(1, len(branch)):
+        found_level += np.asarray(
+            list(branch[level_count].level_increment), dtype=np.uint8
+        )
+    return found_level
+
+
 class RefinementDescriptor:
     """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
 
@@ -91,13 +101,11 @@ class RefinementDescriptor:
         level_increment: ba.frozenbitarray
         count_to_go_up: int
 
-    def get_level(self, index: int) -> tuple[npt.NDArray[np.int8], deque[LevelCounter]]:
-        num_dimensions = self.get_num_dimensions()
-
-        # traverse descriptor, for now taken from descriptor
+    def get_branch(self, index: int) -> deque[LevelCounter]:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
+        # traverse tree
         # store/stack how many boxes on this level are left to go up again
         current_branch: deque[self.LevelCounter] = deque()
         dZeros = self.get_d_zeros()
@@ -117,14 +125,12 @@ class RefinementDescriptor:
                         current_refinement.copy(), 2 ** current_refinement.count()
                     )
                 )
+        return current_branch
 
-        found_level: np.ndarray = np.array([0] * num_dimensions, dtype=np.uint8)
-        for level_count in range(1, len(current_branch)):
-            found_level += np.asarray(
-                list(current_branch[level_count].level_increment), dtype=np.uint8
-            )
-
-        return found_level, current_branch
+    def get_level(self, index: int) -> npt.NDArray[np.int8]:
+        current_branch = self.get_branch(index)
+        found_level = get_level_from_branch(current_branch)
+        return found_level
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
@@ -138,10 +144,10 @@ def get_level_index(
     index: int,
 ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
     num_dimensions = descriptor.get_num_dimensions()
+    current_branch = descriptor.get_branch(index)
+    found_level = get_level_from_branch(current_branch)
 
-    found_level, current_branch = descriptor.get_level(index)
-
-    # once it's found, we can infer the index from the branch stack
+    # once the branch is found, we can infer the vector index from the branch stack
     current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
     decreasing_level_difference = found_level.copy()
     history_of_indices: list[int] = []
