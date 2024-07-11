@@ -120,6 +120,71 @@ def validate_descriptor(descriptor: RefinementDescriptor):
     # TODO more completeness checks
 
 
+def get_level_index(
+    linearization: Linearization,
+    descriptor: RefinementDescriptor,
+    index: int,
+) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
+    num_dimensions = descriptor.get_num_dimensions()
+    # traverse descriptor, for now taken from descriptor
+    if index < 0 or index >= len(descriptor):
+        raise IndexError("Index out of range")
+
+    @dataclass
+    class LevelCounter:
+        level_increment: ba.frozenbitarray
+        count_to_go_up: int
+
+    # store/stack how many boxes on this level are left to go up again
+    current_branch: deque[LevelCounter] = deque()
+    dZeros = descriptor.get_d_zeros()
+    current_branch.append(LevelCounter(dZeros, 1))
+    for i in range(index):
+        current_refinement = descriptor[i]
+        if current_refinement == dZeros:
+            current_branch[-1].count_to_go_up -= 1
+            assert current_branch[-1].count_to_go_up >= 0
+            while current_branch[-1].count_to_go_up == 0:
+                current_branch.pop()
+                current_branch[-1].count_to_go_up -= 1
+                assert current_branch[-1].count_to_go_up >= 0
+        else:
+            current_branch.append(
+                LevelCounter(current_refinement.copy(), 2 ** current_refinement.count())
+            )
+
+    found_level: np.ndarray = np.array([0] * num_dimensions, dtype=np.uint8)
+    for level_count in range(1, len(current_branch)):
+        found_level += np.asarray(
+            list(current_branch[level_count].level_increment), dtype=np.uint8
+        )
+
+    # once it's found, we can infer the index from the branch stack
+    current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
+    decreasing_level_difference = found_level.copy()
+    history_of_indices: list[int] = []
+    history_of_level_increments: list[ba.bitarray] = []
+    for level_count in range(1, len(current_branch)):
+        current_refinement = current_branch[level_count].level_increment
+        linear_index_at_level = (
+            2 ** current_refinement.count() - current_branch[level_count].count_to_go_up
+        )
+        history_of_level_increments.append(current_refinement)
+        history_of_indices.append(linear_index_at_level)
+        bit_index = linearization.get_binary_position_from_index(
+            history_of_indices,
+            history_of_level_increments,
+        )
+        array_index = np.asarray(list(bit_index))
+        assert len(array_index) == num_dimensions
+        decreasing_level_difference -= np.asarray(
+            list(current_refinement), dtype=np.uint8
+        )
+        current_index += array_index * 2**decreasing_level_difference
+
+    return found_level, current_index
+
+
 class Refinement:
     def __init__(self, linearization: Linearization, descriptor: RefinementDescriptor):
         self._linearization = linearization
@@ -127,67 +192,6 @@ class Refinement:
 
     def get_level_index(
         self,
-        # linearization: Linearization, descriptor: RefinementDescriptor,
         index: int,
     ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
-        num_dimensions = self._descriptor.get_num_dimensions()
-        # traverse descriptor, for now taken from descriptor
-        if index < 0 or index >= len(self._descriptor):
-            raise IndexError("Index out of range")
-
-        @dataclass
-        class LevelCounter:
-            level_increment: ba.frozenbitarray
-            count_to_go_up: int
-
-        # store/stack how many boxes on this level are left to go up again
-        current_branch: deque[LevelCounter] = deque()
-        dZeros = self._descriptor.get_d_zeros()
-        current_branch.append(LevelCounter(dZeros, 1))
-        for i in range(index):
-            current_refinement = self._descriptor[i]
-            if current_refinement == dZeros:
-                current_branch[-1].count_to_go_up -= 1
-                assert current_branch[-1].count_to_go_up >= 0
-                while current_branch[-1].count_to_go_up == 0:
-                    current_branch.pop()
-                    current_branch[-1].count_to_go_up -= 1
-                    assert current_branch[-1].count_to_go_up >= 0
-            else:
-                current_branch.append(
-                    LevelCounter(
-                        current_refinement.copy(), 2 ** current_refinement.count()
-                    )
-                )
-
-        found_level: np.ndarray = np.array([0] * num_dimensions, dtype=np.uint8)
-        for level_count in range(1, len(current_branch)):
-            found_level += np.asarray(
-                list(current_branch[level_count].level_increment), dtype=np.uint8
-            )
-
-        # once it's found, we can infer the index from the branch stack
-        current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
-        decreasing_level_difference = found_level.copy()
-        history_of_indices: list[int] = []
-        history_of_level_increments: list[ba.bitarray] = []
-        for level_count in range(1, len(current_branch)):
-            current_refinement = current_branch[level_count].level_increment
-            linear_index_at_level = (
-                2 ** current_refinement.count()
-                - current_branch[level_count].count_to_go_up
-            )
-            history_of_level_increments.append(current_refinement)
-            history_of_indices.append(linear_index_at_level)
-            bit_index = self._linearization.get_binary_position_from_index(
-                history_of_indices,
-                history_of_level_increments,
-            )
-            array_index = np.asarray(list(bit_index))
-            assert len(array_index) == num_dimensions
-            decreasing_level_difference -= np.asarray(
-                list(current_refinement), dtype=np.uint8
-            )
-            current_index += array_index * 2**decreasing_level_difference
-
-        return found_level, current_index
+        return get_level_index(self._linearization, self._descriptor, index)
