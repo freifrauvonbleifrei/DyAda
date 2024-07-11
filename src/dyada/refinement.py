@@ -137,51 +137,42 @@ class Refinement:
 
         @dataclass
         class LevelCounter:
-            level: np.ndarray
-            count: int
+            level_increment: ba.frozenbitarray
+            count_to_go_up: int
 
         # store/stack how many boxes on this level are left to go up again
-        to_go_up: deque = deque()
-        current_level: np.ndarray = np.array([0] * num_dimensions, dtype=int)
-        to_go_up.append(LevelCounter(current_level.copy(), 1))
+        current_branch: deque[LevelCounter] = deque()
         dZeros = self._descriptor.get_d_zeros()
+        current_branch.append(LevelCounter(dZeros, 1))
         for i in range(index):
             current_refinement = self._descriptor[i]
             if current_refinement == dZeros:
-                to_go_up[-1].count -= 1
-                assert to_go_up[-1].count >= 0
-                while to_go_up[-1].count == 0:
-                    last_removed = to_go_up.pop()
-                    assert (current_level == last_removed.level).all()
-                    current_level = to_go_up[-1].level.copy()
-                    to_go_up[-1].count -= 1
-                    assert to_go_up[-1].count >= 0
+                current_branch[-1].count_to_go_up -= 1
+                assert current_branch[-1].count_to_go_up >= 0
+                while current_branch[-1].count_to_go_up == 0:
+                    current_branch.pop()
+                    current_branch[-1].count_to_go_up -= 1
+                    assert current_branch[-1].count_to_go_up >= 0
             else:
-                current_level += np.asarray(list(current_refinement), dtype=np.uint8)
-                for u in to_go_up:
-                    assert np.greater(current_level, u.level).any()
-                to_go_up.append(
-                    LevelCounter(current_level.copy(), 2 ** current_refinement.count())
+                current_branch.append(
+                    LevelCounter(current_refinement.copy(), 2 ** current_refinement.count())
                 )
-        found_level = current_level
-
-        # once it's found, we can infer the index from the to_go_up stack
+                
+        found_level: np.ndarray = np.array([0] * num_dimensions, dtype=np.uint8)
+        for level_count in range(1, len(current_branch)):
+            found_level += np.asarray(list(current_branch[level_count].level_increment), dtype=np.uint8)
+        
+        # once it's found, we can infer the index from the branch stack
         current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
+        decreasing_level_difference = found_level.copy()
         history_of_indices: list[int] = []
         history_of_level_increments: list[ba.bitarray] = []
-        for level_count in range(1, len(to_go_up)):
-            current_level = to_go_up[level_count].level
-            assert len(current_level) == num_dimensions
-            level_increment_np = np.greater(
-                current_level, to_go_up[level_count - 1].level
-            )
-            assert sum(level_increment_np) > 0
-            level_increment = ba.bitarray(level_increment_np.tolist())
-            assert len(level_increment) == num_dimensions
+        for level_count in range(1, len(current_branch)):
+            current_refinement = current_branch[level_count].level_increment
             linear_index_at_level = (
-                2 ** level_increment.count() - to_go_up[level_count].count
+                2 ** current_refinement.count() - current_branch[level_count].count_to_go_up
             )
-            history_of_level_increments.append(level_increment)
+            history_of_level_increments.append(current_refinement)
             history_of_indices.append(linear_index_at_level)
             bit_index = self._linearization.get_binary_position_from_index(
                 history_of_indices,
@@ -189,6 +180,7 @@ class Refinement:
             )
             array_index = np.asarray(list(bit_index))
             assert len(array_index) == num_dimensions
-            current_index += array_index * 2 ** (found_level - current_level)
+            decreasing_level_difference -= np.asarray(list(current_refinement), dtype=np.uint8)
+            current_index += array_index * 2 ** decreasing_level_difference
 
         return found_level, current_index
