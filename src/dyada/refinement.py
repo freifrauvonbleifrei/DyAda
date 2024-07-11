@@ -2,6 +2,9 @@ import bitarray as ba
 from collections import deque, Counter
 from dataclasses import dataclass
 import numpy as np
+import numpy.typing as npt
+
+from dyada.linearization import Linearization
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -114,3 +117,78 @@ class RefinementDescriptor:
 
 def validate_descriptor(descriptor: RefinementDescriptor):
     assert len(descriptor._data) % descriptor._num_dimensions == 0
+    # TODO more completeness checks
+
+
+class Refinement:
+    def __init__(self, linearization: Linearization, descriptor: RefinementDescriptor):
+        self._linearization = linearization
+        self._descriptor = descriptor
+
+    def get_level_index(
+        self,
+        # linearization: Linearization, descriptor: RefinementDescriptor,
+        index: int,
+    ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
+        num_dimensions = self._descriptor.get_num_dimensions()
+        # traverse descriptor, for now taken from descriptor
+        if index < 0 or index >= len(self._descriptor):
+            raise IndexError("Index out of range")
+
+        @dataclass
+        class LevelCounter:
+            level: np.ndarray
+            count: int
+
+        # store/stack how many boxes on this level are left to go up again
+        to_go_up: deque = deque()
+        current_level: np.ndarray = np.array([0] * num_dimensions, dtype=int)
+        to_go_up.append(LevelCounter(current_level.copy(), 1))
+        dZeros = self._descriptor.get_d_zeros()
+        for i in range(index):
+            current_refinement = self._descriptor[i]
+            if current_refinement == dZeros:
+                to_go_up[-1].count -= 1
+                assert to_go_up[-1].count >= 0
+                while to_go_up[-1].count == 0:
+                    last_removed = to_go_up.pop()
+                    assert (current_level == last_removed.level).all()
+                    current_level = to_go_up[-1].level.copy()
+                    to_go_up[-1].count -= 1
+                    assert to_go_up[-1].count >= 0
+            else:
+                current_level += np.asarray(list(current_refinement), dtype=np.uint8)
+                for u in to_go_up:
+                    assert np.greater(current_level, u.level).any()
+                to_go_up.append(
+                    LevelCounter(current_level.copy(), 2 ** current_refinement.count())
+                )
+        found_level = current_level
+
+        # once it's found, we can infer the index from the to_go_up stack
+        current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
+        history_of_indices: list[int] = []
+        history_of_level_increments: list[ba.bitarray] = []
+        for level_count in range(1, len(to_go_up)):
+            current_level = to_go_up[level_count].level
+            assert len(current_level) == num_dimensions
+            level_increment_np = np.greater(
+                current_level, to_go_up[level_count - 1].level
+            )
+            assert sum(level_increment_np) > 0
+            level_increment = ba.bitarray(level_increment_np.tolist())
+            assert len(level_increment) == num_dimensions
+            linear_index_at_level = (
+                2 ** level_increment.count() - to_go_up[level_count].count
+            )
+            history_of_level_increments.append(level_increment)
+            history_of_indices.append(linear_index_at_level)
+            bit_index = self._linearization.get_binary_position_from_index(
+                history_of_indices,
+                history_of_level_increments,
+            )
+            array_index = np.asarray(list(bit_index))
+            assert len(array_index) == num_dimensions
+            current_index += array_index * 2 ** (found_level - current_level)
+
+        return found_level, current_index

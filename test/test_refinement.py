@@ -2,7 +2,9 @@ import pytest
 import bitarray as ba
 import numpy as np
 from os.path import abspath
-from dyada.refinement import RefinementDescriptor, generalized_ruler
+
+from dyada.refinement import RefinementDescriptor, generalized_ruler, Refinement
+from dyada.linearization import MortonOrderLinearization
 
 
 def test_ruler():
@@ -94,6 +96,38 @@ def test_get_level_isotropic():
         assert r.get_level(3 + i) == 12
         assert r.get_level(len(r) - i - 1) == 12
     assert r.get_level(len(r) - 16 - 1) == 8
+
+
+def test_get_level_index():
+    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    level, index = r.get_level_index(0)
+    assert np.array_equal(level, [0, 0]) and np.array_equal(index, [0, 0])
+    level, index = r.get_level_index(1)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [0, 0])
+    level, index = r.get_level_index(2)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 0])
+    level, index = r.get_level_index(3)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 1])
+    level, index = r.get_level_index(4)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [1, 0])
+    level, index = r.get_level_index(5)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 0])
+    level, index = r.get_level_index(6)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 1])
+    level, index = r.get_level_index(7)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [0, 1])
+    level, index = r.get_level_index(8)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 2])
+    level, index = r.get_level_index(9)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 3])
+    level, index = r.get_level_index(10)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [1, 1])
+    level, index = r.get_level_index(11)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 2])
+    level, index = r.get_level_index(12)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 3])
+    with pytest.raises(IndexError):
+        r.get_level_index(13)
 
 
 if __name__ == "__main__":
