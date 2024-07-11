@@ -2,7 +2,14 @@ import pytest
 import bitarray as ba
 import numpy as np
 from os.path import abspath
-from dyada.refinement import RefinementDescriptor, generalized_ruler
+
+from dyada.refinement import (
+    generalized_ruler,
+    RefinementDescriptor,
+    Refinement,
+    validate_descriptor,
+)
+from dyada.linearization import MortonOrderLinearization
 
 
 def test_ruler():
@@ -20,6 +27,7 @@ def test_construct():
     for i in range(1, 128):
         r = RefinementDescriptor(i)
         assert r
+        validate_descriptor(r)
 
 
 def test_zero_level():
@@ -29,6 +37,7 @@ def test_zero_level():
         assert r.get_data().any() == False
         print(r.get_data())
         assert r.get_num_boxes() == 1
+        validate_descriptor(r)
 
 
 def test_one_level():
@@ -41,6 +50,7 @@ def test_one_level():
         assert r.get_data().count() == i
         assert r.get_data()[0] == 1
         assert r.is_pow2tree() == True
+        validate_descriptor(r)
 
 
 def test_six_d():
@@ -66,6 +76,7 @@ def test_six_d():
         assert lengths == generalized_ruler(6, l - 1).tolist()
         print(r.is_pow2tree())
         assert r.is_pow2tree() == True
+        validate_descriptor(r)
 
 
 def test_construct_anisotropic():
@@ -79,6 +90,7 @@ def test_construct_anisotropic():
     assert r[5] == r.get_data()[4 * 5 : 4 * 6]
     assert r[-6:] == r.get_data()[4 * -6 :]
     assert r.is_pow2tree() == False
+    validate_descriptor(r)
 
 
 def test_get_level_isotropic():
@@ -87,13 +99,45 @@ def test_get_level_isotropic():
         r.get_level(len(r))
     with pytest.raises(IndexError):
         r.get_level(-1)
-    assert r.get_level(0) == 0
-    assert r.get_level(1) == 4
-    assert r.get_level(2) == 8
+    assert np.array_equal(r.get_level(0), [0, 0, 0, 0])
+    assert np.array_equal(r.get_level(1), [1, 1, 1, 1])
+    assert np.array_equal(r.get_level(2), [2, 2, 2, 2])
     for i in range(0, 16):
-        assert r.get_level(3 + i) == 12
-        assert r.get_level(len(r) - i - 1) == 12
-    assert r.get_level(len(r) - 16 - 1) == 8
+        assert np.array_equal(r.get_level(3 + i), [3, 3, 3, 3])
+        assert np.array_equal(r.get_level(len(r) - i - 1), [3, 3, 3, 3])
+    assert np.array_equal(r.get_level(len(r) - 16 - 1), [2, 2, 2, 2])
+
+
+def test_get_level_index():
+    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    level, index = r.get_level_index(0)
+    assert np.array_equal(level, [0, 0]) and np.array_equal(index, [0, 0])
+    level, index = r.get_level_index(1)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [0, 0])
+    level, index = r.get_level_index(2)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 0])
+    level, index = r.get_level_index(3)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 1])
+    level, index = r.get_level_index(4)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [1, 0])
+    level, index = r.get_level_index(5)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 0])
+    level, index = r.get_level_index(6)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 1])
+    level, index = r.get_level_index(7)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [0, 1])
+    level, index = r.get_level_index(8)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 2])
+    level, index = r.get_level_index(9)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 3])
+    level, index = r.get_level_index(10)
+    assert np.array_equal(level, [1, 1]) and np.array_equal(index, [1, 1])
+    level, index = r.get_level_index(11)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 2])
+    level, index = r.get_level_index(12)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 3])
+    with pytest.raises(IndexError):
+        r.get_level_index(13)
 
 
 if __name__ == "__main__":

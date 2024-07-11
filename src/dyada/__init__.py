@@ -1,4 +1,4 @@
 import sys
 
 
-assert sys.version_info >= (3, 8), "Use Python 3.8 or newer"
+assert sys.version_info >= (3, 10), "Use Python 3.10 or newer"
