@@ -96,48 +96,80 @@ def test_construct_anisotropic():
 def test_get_level_isotropic():
     r = RefinementDescriptor(4, 3)
     with pytest.raises(IndexError):
-        r.get_level(len(r))
+        r.get_level(len(r), False)
     with pytest.raises(IndexError):
-        r.get_level(-1)
-    assert np.array_equal(r.get_level(0), [0, 0, 0, 0])
-    assert np.array_equal(r.get_level(1), [1, 1, 1, 1])
-    assert np.array_equal(r.get_level(2), [2, 2, 2, 2])
+        r.get_level(-1, False)
+    assert np.array_equal(r.get_level(0, False), [0, 0, 0, 0])
+    assert np.array_equal(r.get_level(1, False), [1, 1, 1, 1])
+    assert np.array_equal(r.get_level(2, False), [2, 2, 2, 2])
     for i in range(0, 16):
-        assert np.array_equal(r.get_level(3 + i), [3, 3, 3, 3])
-        assert np.array_equal(r.get_level(len(r) - i - 1), [3, 3, 3, 3])
-    assert np.array_equal(r.get_level(len(r) - 16 - 1), [2, 2, 2, 2])
+        assert np.array_equal(r.get_level(3 + i, False), [3, 3, 3, 3])
+        assert np.array_equal(r.get_level(len(r) - i - 1, False), [3, 3, 3, 3])
+    assert np.array_equal(r.get_level(len(r) - 16 - 1, False), [2, 2, 2, 2])
+
+
+def test_get_branch():
+    r = RefinementDescriptor(2, [1, 2])
+    assert r.get_branch(2, False) == r.get_branch(0, True)
+    assert r.get_branch(3, False) == r.get_branch(1, True)
+    assert r.get_branch(5, False) == r.get_branch(2, True)
+    assert r.get_branch(6, False) == r.get_branch(3, True)
+    assert r.get_branch(8, False) == r.get_branch(4, True)
+    assert r.get_branch(9, False) == r.get_branch(5, True)
 
 
 def test_get_level_index():
     r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
-    level, index = r.get_level_index(0)
+
+    # with indices that consider the parents
+    level, index = r.get_level_index(0, False)
     assert np.array_equal(level, [0, 0]) and np.array_equal(index, [0, 0])
-    level, index = r.get_level_index(1)
+    level, index = r.get_level_index(1, False)
     assert np.array_equal(level, [1, 1]) and np.array_equal(index, [0, 0])
-    level, index = r.get_level_index(2)
+    level, index = r.get_level_index(2, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 0])
-    level, index = r.get_level_index(3)
+    level, index = r.get_level_index(3, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 1])
-    level, index = r.get_level_index(4)
+    level, index = r.get_level_index(4, False)
     assert np.array_equal(level, [1, 1]) and np.array_equal(index, [1, 0])
-    level, index = r.get_level_index(5)
+    level, index = r.get_level_index(5, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 0])
-    level, index = r.get_level_index(6)
+    level, index = r.get_level_index(6, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 1])
-    level, index = r.get_level_index(7)
+    level, index = r.get_level_index(7, False)
     assert np.array_equal(level, [1, 1]) and np.array_equal(index, [0, 1])
-    level, index = r.get_level_index(8)
+    level, index = r.get_level_index(8, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 2])
-    level, index = r.get_level_index(9)
+    level, index = r.get_level_index(9, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 3])
-    level, index = r.get_level_index(10)
+    level, index = r.get_level_index(10, False)
     assert np.array_equal(level, [1, 1]) and np.array_equal(index, [1, 1])
-    level, index = r.get_level_index(11)
+    level, index = r.get_level_index(11, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 2])
-    level, index = r.get_level_index(12)
+    level, index = r.get_level_index(12, False)
     assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 3])
     with pytest.raises(IndexError):
-        r.get_level_index(13)
+        r.get_level_index(13, False)
+
+    # with indices that consider only leaves / boxes
+    level, index = r.get_level_index(0, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 0])
+    level, index = r.get_level_index(1, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 1])
+    level, index = r.get_level_index(2, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 0])
+    level, index = r.get_level_index(3, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 1])
+    level, index = r.get_level_index(4, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 2])
+    level, index = r.get_level_index(5, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [0, 3])
+    level, index = r.get_level_index(6, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 2])
+    level, index = r.get_level_index(7, True)
+    assert np.array_equal(level, [1, 2]) and np.array_equal(index, [1, 3])
+    with pytest.raises(IndexError):
+        r.get_level_index(8, True)
 
 
 if __name__ == "__main__":
