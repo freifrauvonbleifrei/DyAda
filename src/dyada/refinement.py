@@ -3,6 +3,7 @@ from collections import deque, Counter
 from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
+import operator
 
 from dyada.linearization import Linearization
 
@@ -86,6 +87,7 @@ class RefinementDescriptor:
             stop = len(self) if stop is None else stop
             return self.get_data()[start * nd : stop * nd]
         else:  # it should be an index
+            index_or_slice = operator.index(index_or_slice)
             return self.get_data()[index_or_slice * nd : (index_or_slice + 1) * nd]
 
     def is_pow2tree(self):
