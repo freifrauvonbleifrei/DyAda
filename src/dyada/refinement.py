@@ -103,7 +103,7 @@ class RefinementDescriptor:
         level_increment: ba.frozenbitarray
         count_to_go_up: int
 
-    def get_branch(self, index: int) -> deque[LevelCounter]:
+    def get_branch(self, index: int, is_box_index: bool = True) -> deque[LevelCounter]:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
@@ -112,9 +112,14 @@ class RefinementDescriptor:
         current_branch: deque = deque()
         dZeros = self.get_d_zeros()
         current_branch.append(self.LevelCounter(dZeros, 1))
-        for i in range(index):
+        box_counter = 0
+        i = 0
+        while is_box_index or i < index:
             current_refinement = self[i]
             if current_refinement == dZeros:
+                box_counter += 1
+                if is_box_index and box_counter > index:
+                    break
                 current_branch[-1].count_to_go_up -= 1
                 assert current_branch[-1].count_to_go_up >= 0
                 while current_branch[-1].count_to_go_up == 0:
@@ -127,17 +132,18 @@ class RefinementDescriptor:
                         current_refinement.copy(), 2 ** current_refinement.count()
                     )
                 )
+            i += 1
         return current_branch
 
-    def get_level(self, index: int) -> npt.NDArray[np.int8]:
-        current_branch = self.get_branch(index)
+    def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
+        current_branch = self.get_branch(index, is_box_index)
         found_level = get_level_from_branch(current_branch)
         return found_level
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
     assert len(descriptor._data) % descriptor._num_dimensions == 0
-    branch = descriptor.get_branch(len(descriptor) - 1)
+    branch = descriptor.get_branch(len(descriptor) - 1, False)
     assert len(branch) > 0
     for twig in branch:
         assert twig.count_to_go_up == 1
@@ -147,9 +153,10 @@ def get_level_index(
     linearization: Linearization,
     descriptor: RefinementDescriptor,
     index: int,
+    is_box_index: bool = True,
 ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
     num_dimensions = descriptor.get_num_dimensions()
-    current_branch = descriptor.get_branch(index)
+    current_branch = descriptor.get_branch(index, is_box_index)
     found_level = get_level_from_branch(current_branch)
 
     # once the branch is found, we can infer the vector index from the branch stack
@@ -184,7 +191,11 @@ class Refinement:
         self._descriptor = descriptor
 
     def get_level_index(
-        self,
-        index: int,
+        self, index: int, is_box_index: bool = True
     ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
-        return get_level_index(self._linearization, self._descriptor, index)
+        return get_level_index(
+            self._linearization,
+            self._descriptor,
+            index,
+            is_box_index,
+        )
