@@ -1,5 +1,3 @@
-import pytest
-
 from dyada.coordinates import (
     level_index_from_sequence,
     get_interval_from_sequences,

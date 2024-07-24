@@ -2,8 +2,6 @@ import dataclasses
 import numpy as np
 import numpy.typing as npt
 
-# use this instead of overriding __post_init__ once it supports np.typing
-# from pydantic import validate_arguments
 from typing import NamedTuple, TypeAlias, Sequence
 
 
