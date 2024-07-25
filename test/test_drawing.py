@@ -1,5 +1,6 @@
 from itertools import permutations
 import matplotlib.pyplot as plt
+import pytest
 
 from dyada.coordinates import (
     get_coordinates_from_level_index,
@@ -26,6 +27,12 @@ def test_plot_boxes_2d_matplotlib():
         )
         coordinates = get_coordinates_from_level_index(level_index)
         plot_boxes_2d([coordinates], projection=[3, 4])
+
+    with pytest.raises(AssertionError):
+        plot_boxes_2d([coordinates], projection=[2, 3, 4])
+
+    with pytest.raises(ValueError):
+        plot_boxes_2d([coordinates], backend="unknown")
 
 
 def test_plot_boxes_2d_from_descriptor():
