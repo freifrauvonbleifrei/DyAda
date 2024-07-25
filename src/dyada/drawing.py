@@ -7,7 +7,7 @@ except ImportError:
 
 from typing import Sequence, Union, Mapping, Optional
 
-from dyada.coordinates import CoordinateInterval
+from dyada.coordinates import CoordinateInterval, get_coordinates_from_level_index
 from dyada.structure import depends_on_optional
 
 
@@ -46,7 +46,6 @@ def plot_boxes_2d_matplotlib(
             extent[0],
             extent[1],
             fill=True,
-            transform=fig.transFigure,
             figure=fig,
             color=colors[i % len(colors)],
             **kwargs,
@@ -64,4 +63,12 @@ def plot_boxes_2d_matplotlib(
                 ha="center",
                 va="center",
             )
+    # add title with projection
+    ax1.set_title(f"Dimensions {projection[0]} and {projection[1]}")
     plt.show()
+
+
+def plot_all_boxes_2d(refinement, projection: Sequence[int] = [0, 1], **kwargs) -> None:
+    level_indices = list(refinement.get_all_boxes_level_indices())
+    coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
+    plot_boxes_2d(coordinates, projection=projection, **kwargs)
