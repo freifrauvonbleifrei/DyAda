@@ -10,6 +10,10 @@ class LevelIndex:
     d_level: npt.NDArray[np.int8]
     d_index: npt.NDArray[np.int64]
 
+    def __iter__(self):
+        """make iterable, mainly to allow unpacking in assignments"""
+        return iter(dataclasses.astuple(self))
+
 
 def level_index_from_sequence(
     d_level: Sequence[int], d_index: Sequence[int]

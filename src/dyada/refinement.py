@@ -6,6 +6,9 @@ import numpy.typing as npt
 import operator
 
 from dyada.linearization import Linearization
+from dyada.coordinates import (
+    LevelIndex,
+)
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -154,7 +157,7 @@ def get_level_index(
     descriptor: RefinementDescriptor,
     index: int,
     is_box_index: bool = True,
-) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
+) -> LevelIndex:
     num_dimensions = descriptor.get_num_dimensions()
     current_branch = descriptor.get_branch(index, is_box_index)
     found_level = get_level_from_branch(current_branch)
@@ -182,7 +185,7 @@ def get_level_index(
         )
         current_index += array_index * 2**decreasing_level_difference
 
-    return found_level, current_index
+    return LevelIndex(found_level, current_index)
 
 
 class Refinement:
@@ -190,9 +193,7 @@ class Refinement:
         self._linearization = linearization
         self._descriptor = descriptor
 
-    def get_level_index(
-        self, index: int, is_box_index: bool = True
-    ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
+    def get_level_index(self, index: int, is_box_index: bool = True) -> LevelIndex:
         return get_level_index(
             self._linearization,
             self._descriptor,
