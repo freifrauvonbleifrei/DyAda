@@ -1,7 +1,14 @@
-import matplotlib.pyplot as plt
+import warnings
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    warnings.warn("matplotlib not found, plotting functions will not work")
+
 from typing import Sequence, Union, Mapping, Optional
 
 from dyada.coordinates import CoordinateInterval
+from dyada.structure import depends_on_optional
 
 
 def plot_boxes_2d(
@@ -20,6 +27,7 @@ def plot_boxes_2d(
         raise ValueError(f"Unknown backend: {backend}")
 
 
+@depends_on_optional("matplotlib.pyplot")
 def plot_boxes_2d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
