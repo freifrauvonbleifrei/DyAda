@@ -172,6 +172,15 @@ def test_get_level_index():
         r.get_level_index(8, True)
 
 
+def test_get_all_boxes_level_indices():
+    # same example as test_get_level_index
+    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    expected_indices = ([0, 0], [0, 1], [1, 0], [1, 1], [0, 2], [0, 3], [1, 2], [1, 3])
+    for i, level_index in enumerate(r.get_all_boxes_level_indices()):
+        assert np.array_equal(level_index.d_level, np.asarray([1, 2]))
+        assert np.array_equal(level_index.d_index, np.asarray(expected_indices[i]))
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])
