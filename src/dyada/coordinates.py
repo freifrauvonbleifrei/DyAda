@@ -39,7 +39,7 @@ class CoordinateInterval(NamedTuple):
         )
 
 
-def get_interval_from_sequences(
+def interval_from_sequences(
     lower_bound: Sequence[float], upper_bound: Sequence[float]
 ) -> CoordinateInterval:
     return CoordinateInterval(
