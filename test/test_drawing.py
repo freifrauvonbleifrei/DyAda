@@ -7,8 +7,18 @@ from dyada.coordinates import (
     level_index_from_sequence,
 )
 from dyada.drawing import plot_boxes_2d, plot_all_boxes_2d
-from dyada.refinement import Refinement, RefinementDescriptor
 from dyada.linearization import MortonOrderLinearization
+from dyada.refinement import Refinement, RefinementDescriptor
+from dyada.structure import depends_on_optional
+
+
+def test_depends_on_optional():
+    @depends_on_optional("nonexistent_module")
+    def should_not_run():
+        pass
+
+    with pytest.raises(ImportError):
+        should_not_run()
 
 
 # todo consider comparing images: https://github.com/matplotlib/pytest-mpl
