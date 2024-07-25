@@ -10,6 +10,10 @@ class LevelIndex:
     d_level: npt.NDArray[np.int8]
     d_index: npt.NDArray[np.int64]
 
+    def __iter__(self):
+        """make iterable, mainly to allow unpacking in assignments"""
+        return iter(dataclasses.astuple(self))
+
 
 def level_index_from_sequence(
     d_level: Sequence[int], d_index: Sequence[int]
@@ -39,7 +43,7 @@ class CoordinateInterval(NamedTuple):
         )
 
 
-def get_interval_from_sequences(
+def interval_from_sequences(
     lower_bound: Sequence[float], upper_bound: Sequence[float]
 ) -> CoordinateInterval:
     return CoordinateInterval(
@@ -54,9 +58,14 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
     if (
         any(level_index.d_level < 0)
         or any(level_index.d_index < 0)
-        or any(level_index.d_index >= 2**level_index.d_level)
+        or any(level_index.d_index >= 2 ** np.array(level_index.d_level, dtype=int))
     ):
-        raise ValueError
+        error_string = "Invalid level index: {}".format(level_index)
+        if any(level_index.d_index >= 2 ** np.array(level_index.d_level, dtype=int)):
+            error_string += " (index {} too large, should be < {})".format(
+                level_index.d_index, 2 ** np.array(level_index.d_level, dtype=int)
+            )
+        raise ValueError(error_string)
     get_d_array = lambda x: np.fromiter(
         x,
         dtype=np.float32,
@@ -65,13 +74,13 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
     return CoordinateInterval(
         get_d_array(
             (
-                2 ** float(-l) * i
+                2.0 ** -float(l) * i
                 for l, i in zip(level_index.d_level, level_index.d_index)
             )
         ),
         get_d_array(
             (
-                2 ** float(-l) * (i + 1)
+                2.0 ** -float(l) * (i + 1)
                 for l, i in zip(level_index.d_level, level_index.d_index)
             )
         ),

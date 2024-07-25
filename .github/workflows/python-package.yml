@@ -85,6 +85,9 @@ jobs:
       - name: Test with pytest, to create cov report
         run: |
           pytest test/ --cov=dyada --cov-report=xml --cov-report=html
+      - name: Get coverage, fail if under 90%
+        run: |
+          coverage report --precision=1 --fail-under=90 --show-missing --skip-empty
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
 

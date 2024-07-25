@@ -4,8 +4,13 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import operator
+from typing import Generator
 
 from dyada.linearization import Linearization
+from dyada.coordinates import (
+    get_coordinates_from_level_index,
+    LevelIndex,
+)
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -22,10 +27,10 @@ def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
 
 def get_level_from_branch(branch: deque) -> np.ndarray:
     num_dimensions = len(branch[0].level_increment)
-    found_level = np.array([0] * num_dimensions, dtype=np.uint8)
+    found_level = np.array([0] * num_dimensions, dtype=np.int8)
     for level_count in range(1, len(branch)):
         found_level += np.asarray(
-            list(branch[level_count].level_increment), dtype=np.uint8
+            list(branch[level_count].level_increment), dtype=np.int8
         )
     return found_level
 
@@ -72,6 +77,9 @@ class RefinementDescriptor:
 
     def get_data(self):
         return self._data
+
+    def is_box(self, index: int):
+        return self[index] == self.get_d_zeros()
 
     def __iter__(self):
         for i in range(len(self)):
@@ -154,7 +162,7 @@ def get_level_index(
     descriptor: RefinementDescriptor,
     index: int,
     is_box_index: bool = True,
-) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
+) -> LevelIndex:
     num_dimensions = descriptor.get_num_dimensions()
     current_branch = descriptor.get_branch(index, is_box_index)
     found_level = get_level_from_branch(current_branch)
@@ -182,7 +190,7 @@ def get_level_index(
         )
         current_index += array_index * 2**decreasing_level_difference
 
-    return found_level, current_index
+    return LevelIndex(found_level, current_index)
 
 
 class Refinement:
@@ -190,12 +198,15 @@ class Refinement:
         self._linearization = linearization
         self._descriptor = descriptor
 
-    def get_level_index(
-        self, index: int, is_box_index: bool = True
-    ) -> tuple[npt.NDArray[np.int8], npt.NDArray[np.int64]]:
+    def get_level_index(self, index: int, is_box_index: bool = True) -> LevelIndex:
         return get_level_index(
             self._linearization,
             self._descriptor,
             index,
             is_box_index,
         )
+
+    def get_all_boxes_level_indices(self) -> Generator:
+        for i, _ in enumerate(self._descriptor):
+            if self._descriptor.is_box(i):
+                yield self.get_level_index(i, False)
