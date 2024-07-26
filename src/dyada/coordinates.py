@@ -1,7 +1,6 @@
 import dataclasses
 import numpy as np
 import numpy.typing as npt
-
 from typing import NamedTuple, TypeAlias, Sequence
 
 
