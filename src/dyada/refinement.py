@@ -10,13 +10,13 @@ from dyada.linearization import Linearization
 from dyada.coordinates import (
     get_coordinates_from_level_index,
     LevelIndex,
+    Coordinate,
 )
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
 def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
     assert level >= 0 and level < 256
-    current_list = np.array([], dtype=np.uint8)
     current_list = np.array([1], dtype=np.uint8)
     for i in range(0, level):
         current_list = np.tile(current_list, 2**num_dimensions)
@@ -91,8 +91,8 @@ class RefinementDescriptor:
             assert index_or_slice.step == 1 or index_or_slice.step is None
             start = index_or_slice.start
             stop = index_or_slice.stop
-            start = 0 if start is None else start
-            stop = len(self) if stop is None else stop
+            start = 0 if start is None else operator.index(start)
+            stop = len(self) if stop is None else operator.index(stop)
             return self.get_data()[start * nd : stop * nd]
         else:  # it should be an index
             index_or_slice = operator.index(index_or_slice)
@@ -147,6 +147,18 @@ class RefinementDescriptor:
         current_branch = self.get_branch(index, is_box_index)
         found_level = get_level_from_branch(current_branch)
         return found_level
+
+    def to_box_index(self, index: int) -> int:
+        assert self.is_box(index)
+        # count zeros up to index, zero-indexed
+        count = -1
+        for i in self:
+            if i == self.get_d_zeros():
+                count += 1
+            if index == 0:
+                break
+            index -= 1
+        return count
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):

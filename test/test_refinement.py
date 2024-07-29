@@ -172,6 +172,22 @@ def test_get_level_index():
         r.get_level_index(8, True)
 
 
+def test_to_box_index():
+    # according to the same mapping as in test_get_level_index
+    r = RefinementDescriptor(2, [1, 2])
+    for non_box_index in (0, 1, 4, 7, 10, 13):
+        with pytest.raises(AssertionError):
+            r.to_box_index(non_box_index)
+    assert r.to_box_index(2) == 0
+    assert r.to_box_index(3) == 1
+    assert r.to_box_index(5) == 2
+    assert r.to_box_index(6) == 3
+    assert r.to_box_index(8) == 4
+    assert r.to_box_index(9) == 5
+    assert r.to_box_index(11) == 6
+    assert r.to_box_index(12) == 7
+
+
 def test_get_all_boxes_level_indices():
     # same example as test_get_level_index
     r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
