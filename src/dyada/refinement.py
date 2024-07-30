@@ -119,11 +119,7 @@ class RefinementDescriptor:
                     break
                 advance_branch(current_branch)
             else:
-                current_branch.append(
-                    self.LevelCounter(
-                        current_refinement.copy(), 2 ** current_refinement.count()
-                    )
-                )
+                grow_branch(current_branch, current_refinement)
             i += 1
         return current_branch
 
@@ -158,6 +154,12 @@ def get_empty_branch(num_dimensions: int) -> deque:
     current_branch: deque = deque()
     current_branch.append(RefinementDescriptor.LevelCounter(dZeros, 1))
     return current_branch
+
+
+def grow_branch(branch: deque, level_increment: ba.frozenbitarray) -> None:
+    branch.append(
+        RefinementDescriptor.LevelCounter(level_increment, 2 ** level_increment.count())
+    )
 
 
 def get_level_from_branch(branch: deque) -> np.ndarray:
@@ -243,7 +245,6 @@ class Refinement:
     def get_containing_box(self, coordinate: Coordinate):
         # traverse the tree
         # start at the root, coordinate has to be in the patch
-        current_descriptor_index = 0
         current_branch: deque = get_empty_branch(self._descriptor.get_num_dimensions())
         level_index = self.get_level_index_from_branch(current_branch)
         current_patch_bounds = get_coordinates_from_level_index(level_index)
@@ -251,42 +252,39 @@ class Refinement:
             raise ValueError("Coordinate is not in the domain [0., 1.]^d]")
 
         dZeros = self._descriptor.get_d_zeros()
+        box_index = -1
+        descriptor_iterator = iter(self._descriptor)
 
-        while current_descriptor_index < len(self._descriptor):
+        while True:
+            current_refinement = next(descriptor_iterator)
             level_index = self.get_level_index_from_branch(current_branch)
             current_patch_bounds = get_coordinates_from_level_index(level_index)
 
             # is the coordinate in this patch?
             if current_patch_bounds.contains(coordinate):
-                if self._descriptor.is_box(current_descriptor_index):
+                if current_refinement == dZeros:
                     # found!
+                    box_index += 1
                     break
                 else:
                     # go deeper in this branch
-                    current_branch.append(
-                        self._descriptor.LevelCounter(
-                            self._descriptor[current_descriptor_index].copy(),
-                            2 ** self._descriptor[current_descriptor_index].count(),
-                        )
-                    )
+                    grow_branch(current_branch, current_refinement)
             else:
                 # sweep to the next patch on the same level
                 # = count ones and balance them against found boxes
-                if self._descriptor[current_descriptor_index] != dZeros:
-                    sub_count_boxes_to_close = (
-                        2 ** self._descriptor[current_descriptor_index].count()
-                    )
+                if current_refinement != dZeros:
+                    sub_count_boxes_to_close = 2 ** current_refinement.count()
                     while sub_count_boxes_to_close > 0:
-                        # this fast-forwards the current_descriptor_index
-                        current_descriptor_index += 1
+                        # this fast-forwards the descriptor iterator
+                        current_refinement = next(descriptor_iterator)
                         sub_count_boxes_to_close -= 1
-                        if self._descriptor[current_descriptor_index] != dZeros:
-                            sub_count_boxes_to_close += (
-                                2 ** self._descriptor[current_descriptor_index].count()
-                            )
+                        if current_refinement != dZeros:
+                            sub_count_boxes_to_close += 2 ** current_refinement.count()
+                        else:
+                            box_index += 1
                     assert sub_count_boxes_to_close == 0
+                else:
+                    box_index += 1
                 advance_branch(current_branch)
 
-            current_descriptor_index += 1
-
-        return self._descriptor.to_box_index(current_descriptor_index)
+        return box_index
