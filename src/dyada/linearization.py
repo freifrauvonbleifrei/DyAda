@@ -15,69 +15,6 @@ class Linearization(ABC):
         history_of_level_increments: Sequence[ba.bitarray],
     ) -> ba.bitarray: ...
 
-
-def float_to_bits(f: float) -> int:
-    # cf. https://stackoverflow.com/a/59594903
-    [d] = struct.unpack("=Q", struct.pack("=d", f))
-    return d
-
-
-def most_significant_different_bit(a: float, b: float) -> int:
-    """returns the most significant differing bit of two mantissa arguments"""
-    xored_bits = float_to_bits(a) ^ float_to_bits(b)
-    # actually: -(64 - 12) + xored_bits.bit_length() - 1
-    return -53 + xored_bits.bit_length()
-
-
-def modified_frexp(f: float) -> tuple[float, int]:
-    """to get the mantissa and exponent of a float like in IEEE 754 (with mantissa > 1.0)"""
-    if f == 0.0:
-        return 0.0, 0
-    assert f > 0.0
-    mantissa, exponent = np.frexp(f)
-    # double the mantissa until it is larger than or equal to 1.0
-    while mantissa < 1.0:
-        mantissa *= 2.0
-        exponent -= 1
-    return mantissa, exponent
-
-
-# todo: consider to fuse and vectorize with previous and next function
-def xormsb(a: float, b: float) -> int:
-    if a == b:
-        return np.finfo(np.float32).minexp - 1
-    mantissa_a, exponent_a = modified_frexp(a)
-    mantissa_b, exponent_b = modified_frexp(b)
-    if exponent_a == exponent_b:
-        z = most_significant_different_bit(mantissa_a, mantissa_b)
-        result = exponent_a + z
-    else:
-        result = max(exponent_a, exponent_b)
-    return result
-
-
-def get_most_significant_dimension(p: Coordinate, q: Coordinate) -> int:
-    """this whole Morton order algorithm is from Connor and Kumar,
-    https://ieeexplore.ieee.org/abstract/document/5383353"""
-    assert len(p) == len(q)
-    highest_different_bit_so_far = np.finfo(np.float32).minexp - 1
-    deciding_dimension = 0
-    for i in range(len(p)):
-        highest_different_bit = xormsb(p[i], q[i])
-        if highest_different_bit > highest_different_bit_so_far:
-            highest_different_bit_so_far = highest_different_bit
-            deciding_dimension = i
-    return deciding_dimension
-
-
-def compare_morton_order(p: Coordinate, q: Coordinate) -> int:
-    deciding_dimension = get_most_significant_dimension(p, q)
-    if p[deciding_dimension] < q[deciding_dimension]:
-        return -1
-    else:
-        return 1
-
-
 class MortonOrderLinearization(Linearization):
     @staticmethod
     def get_binary_position_from_index(
