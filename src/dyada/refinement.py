@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import operator
-from typing import Generator, Union
+from typing import Generator, Iterator, Union
 
 from dyada.linearization import Linearization
 from dyada.coordinates import (
@@ -39,7 +39,8 @@ class RefinementDescriptor:
         # iterate in reverse from max(level) to 0
         for l in reversed(range(max(base_resolution_level))):
             at_least_l = ba.bitarray([i > l for i in base_resolution_level])
-            factor = 2 ** at_least_l.count()
+            # power of two by bitshift
+            factor = 1 << at_least_l.count()
             self._data = at_least_l + self._data * factor
 
     def __len__(self):
@@ -142,6 +143,32 @@ class RefinementDescriptor:
             index -= 1
         return count
 
+    def skip_to_next_neighbor(
+        self, descriptor_iterator: Iterator, current_refinement: ba.frozenbitarray
+    ) -> int:
+        """Advances the iterator until it points behind the current patch and all its children,
+        returns the number of boxes it skipped."""
+        # sweep to the next patch on the same level
+        # = count ones and balance them against found boxes
+        added_box_index = 0
+        dZeros = self.get_d_zeros()
+        if current_refinement != dZeros:
+            # power of two by bitshift
+            sub_count_boxes_to_close = 1 << current_refinement.count()
+            while sub_count_boxes_to_close > 0:
+                # this fast-forwards the descriptor iterator
+                current_refinement = next(descriptor_iterator)
+                sub_count_boxes_to_close -= 1
+                if current_refinement != dZeros:
+                    # power of two by bitshift
+                    sub_count_boxes_to_close += 1 << current_refinement.count()
+                else:
+                    added_box_index += 1
+            assert sub_count_boxes_to_close == 0
+        else:
+            added_box_index += 1
+        return added_box_index
+
 
 def validate_descriptor(descriptor: RefinementDescriptor):
     assert len(descriptor._data) % descriptor._num_dimensions == 0
@@ -162,8 +189,9 @@ def get_empty_branch(num_dimensions: int) -> Branch:
 
 
 def grow_branch(branch: Branch, level_increment: ba.frozenbitarray) -> None:
+    # power of two by bitshift
     branch.append(
-        RefinementDescriptor.LevelCounter(level_increment, 2 ** level_increment.count())
+        RefinementDescriptor.LevelCounter(level_increment, 1 << level_increment.count())
     )
 
 
@@ -200,9 +228,10 @@ def get_level_index_from_branch(
     history_of_level_increments: list[ba.bitarray] = []
     for level_count in range(1, len(branch)):
         current_refinement = branch[level_count].level_increment
-        linear_index_at_level = (
-            2 ** current_refinement.count() - branch[level_count].count_to_go_up
-        )
+        # power of two by bitshift
+        linear_index_at_level = (1 << current_refinement.count()) - branch[
+            level_count
+        ].count_to_go_up
         history_of_level_increments.append(current_refinement)
         history_of_indices.append(linear_index_at_level)
         bit_index = linearization.get_binary_position_from_index(
@@ -214,7 +243,8 @@ def get_level_index_from_branch(
         decreasing_level_difference -= np.asarray(
             list(current_refinement), dtype=np.uint8
         )
-        current_index += array_index * 2**decreasing_level_difference
+        # power of two by bitshift
+        current_index += array_index * 1 << decreasing_level_difference
 
     return LevelIndex(found_level, current_index)
 
@@ -277,24 +307,9 @@ class Refinement:
                         # go deeper in this branch
                         grow_branch(current_branch, current_refinement)
                 else:
-                    # sweep to the next patch on the same level
-                    # = count ones and balance them against found boxes
-                    # todo this is quite internal to the descriptor, find a way to cleanly move it there
-                    if current_refinement != dZeros:
-                        sub_count_boxes_to_close = 2 ** current_refinement.count()
-                        while sub_count_boxes_to_close > 0:
-                            # this fast-forwards the descriptor iterator
-                            current_refinement = next(descriptor_iterator)
-                            sub_count_boxes_to_close -= 1
-                            if current_refinement != dZeros:
-                                sub_count_boxes_to_close += (
-                                    2 ** current_refinement.count()
-                                )
-                            else:
-                                box_index += 1
-                        assert sub_count_boxes_to_close == 0
-                    else:
-                        box_index += 1
+                    box_index += self._descriptor.skip_to_next_neighbor(
+                        descriptor_iterator, current_refinement
+                    )
                     advance_branch(current_branch)
 
             found_box_indices.append(box_index)
