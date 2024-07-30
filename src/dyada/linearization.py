@@ -35,9 +35,9 @@ def modified_frexp(f: float) -> tuple[float, int]:
         return 0.0, 0
     assert f > 0.0
     mantissa, exponent = np.frexp(f)
-    # double mantissa until it is larger than or equal to 1.0
+    # double the mantissa until it is larger than or equal to 1.0
     while mantissa < 1.0:
-        mantissa *= 2
+        mantissa *= 2.0
         exponent -= 1
     return mantissa, exponent
 
@@ -57,6 +57,8 @@ def xormsb(a: float, b: float) -> int:
 
 
 def get_most_significant_dimension(p: Coordinate, q: Coordinate) -> int:
+    """this whole Morton order algorithm is from Connor and Kumar,
+    https://ieeexplore.ieee.org/abstract/document/5383353"""
     assert len(p) == len(q)
     highest_different_bit_so_far = np.finfo(np.float32).minexp - 1
     deciding_dimension = 0
