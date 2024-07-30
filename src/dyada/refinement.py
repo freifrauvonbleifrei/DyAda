@@ -101,13 +101,15 @@ class RefinementDescriptor:
         level_increment: ba.frozenbitarray
         count_to_go_up: int
 
-    def get_branch(self, index: int, is_box_index: bool = True) -> deque[LevelCounter]:
+    Branch = deque[LevelCounter]
+
+    def get_branch(self, index: int, is_box_index: bool = True) -> Branch:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
-        current_branch: deque = get_empty_branch(self._num_dimensions)
+        current_branch: Branch = get_empty_branch(self._num_dimensions)
         dZeros = self.get_d_zeros()
         box_counter = 0
         i = 0
@@ -149,20 +151,23 @@ def validate_descriptor(descriptor: RefinementDescriptor):
         assert twig.count_to_go_up == 1
 
 
-def get_empty_branch(num_dimensions: int) -> deque:
+Branch = RefinementDescriptor.Branch
+
+
+def get_empty_branch(num_dimensions: int) -> Branch:
     dZeros = ba.frozenbitarray([0] * num_dimensions)
-    current_branch: deque = deque()
+    current_branch: Branch = deque()
     current_branch.append(RefinementDescriptor.LevelCounter(dZeros, 1))
     return current_branch
 
 
-def grow_branch(branch: deque, level_increment: ba.frozenbitarray) -> None:
+def grow_branch(branch: Branch, level_increment: ba.frozenbitarray) -> None:
     branch.append(
         RefinementDescriptor.LevelCounter(level_increment, 2 ** level_increment.count())
     )
 
 
-def get_level_from_branch(branch: deque) -> np.ndarray:
+def get_level_from_branch(branch: Branch) -> np.ndarray:
     num_dimensions = len(branch[0].level_increment)
     found_level = np.array([0] * num_dimensions, dtype=np.int8)
     for level_count in range(1, len(branch)):
@@ -172,7 +177,7 @@ def get_level_from_branch(branch: deque) -> np.ndarray:
     return found_level
 
 
-def advance_branch(branch: deque) -> None:
+def advance_branch(branch: Branch) -> None:
     """Advance the branch to the next sibling, in-place"""
     branch[-1].count_to_go_up -= 1
     assert branch[-1].count_to_go_up >= 0
@@ -183,7 +188,7 @@ def advance_branch(branch: deque) -> None:
 
 
 def get_level_index_from_branch(
-    linearization: Linearization, branch: deque
+    linearization: Linearization, branch: Branch
 ) -> LevelIndex:
     num_dimensions = len(branch[0].level_increment)
     found_level = get_level_from_branch(branch)
@@ -229,7 +234,7 @@ class Refinement:
         self._linearization = linearization
         self._descriptor = descriptor
 
-    def get_level_index_from_branch(self, branch: deque) -> LevelIndex:
+    def get_level_index_from_branch(self, branch: Branch) -> LevelIndex:
         return get_level_index_from_branch(self._linearization, branch)
 
     def get_level_index(self, index: int, is_box_index: bool = True) -> LevelIndex:
@@ -245,7 +250,7 @@ class Refinement:
     def get_containing_box(self, coordinate: Coordinate):
         # traverse the tree
         # start at the root, coordinate has to be in the patch
-        current_branch: deque = get_empty_branch(self._descriptor.get_num_dimensions())
+        current_branch: Branch = get_empty_branch(self._descriptor.get_num_dimensions())
         level_index = self.get_level_index_from_branch(current_branch)
         current_patch_bounds = get_coordinates_from_level_index(level_index)
         if not current_patch_bounds.contains(coordinate):
