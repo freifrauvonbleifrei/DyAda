@@ -259,7 +259,7 @@ def get_level_index_from_linear_index(
     return get_level_index_from_branch(linearization, current_branch)
 
 
-class Refinement:
+class Discretization:
     def __init__(self, linearization: Linearization, descriptor: RefinementDescriptor):
         self._linearization = linearization
         self._descriptor = descriptor

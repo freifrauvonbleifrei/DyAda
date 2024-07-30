@@ -6,7 +6,7 @@ from os.path import abspath
 from dyada.refinement import (
     generalized_ruler,
     RefinementDescriptor,
-    Refinement,
+    Discretization,
     validate_descriptor,
 )
 from dyada.linearization import MortonOrderLinearization
@@ -119,7 +119,7 @@ def test_get_branch():
 
 
 def test_get_level_index():
-    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
 
     # with indices that consider the parents
     level, index = r.get_level_index(0, False)
@@ -190,7 +190,7 @@ def test_to_box_index():
 
 def test_get_all_boxes_level_indices():
     # same example as test_get_level_index
-    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
     expected_indices = ([0, 0], [0, 1], [1, 0], [1, 1], [0, 2], [0, 3], [1, 2], [1, 3])
     for i, level_index in enumerate(r.get_all_boxes_level_indices()):
         assert np.array_equal(level_index.d_level, np.asarray([1, 2]))
@@ -198,7 +198,7 @@ def test_get_all_boxes_level_indices():
 
 
 def test_get_box_from_coordinate():
-    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
     # check the midpoints of each box
     assert r.get_containing_box(np.array([0.25, 0.125])) == 0
     assert r.get_containing_box(np.array([0.25, 0.375])) == 1
