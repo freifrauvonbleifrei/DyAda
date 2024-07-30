@@ -197,6 +197,25 @@ def test_get_all_boxes_level_indices():
         assert np.array_equal(level_index.d_index, np.asarray(expected_indices[i]))
 
 
+def test_get_box_from_coordinate():
+    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    # check the midpoints of each box
+    assert r.get_containing_box(np.array([0.25, 0.125])) == 0
+    assert r.get_containing_box(np.array([0.25, 0.375])) == 1
+    assert r.get_containing_box(np.array([0.75, 0.125])) == 2
+    assert r.get_containing_box(np.array([0.75, 0.375])) == 3
+    assert r.get_containing_box(np.array([0.25, 0.625])) == 4
+    assert r.get_containing_box(np.array([0.25, 0.875])) == 5
+    assert r.get_containing_box(np.array([0.75, 0.625])) == 6
+    assert r.get_containing_box(np.array([0.75, 0.875])) == 7
+    with pytest.raises(ValueError):
+        r.get_containing_box(np.array([0.0, 1.5]))
+    with pytest.raises(ValueError):
+        r.get_containing_box(np.array([1.5, 0.0]))
+    with pytest.raises(ValueError):
+        r.get_containing_box(np.array([1.5, 1.5]))
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])

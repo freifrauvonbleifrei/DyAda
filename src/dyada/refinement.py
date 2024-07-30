@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import operator
-from typing import Generator
+from typing import Generator, Optional
 
 from dyada.linearization import Linearization
 from dyada.coordinates import (
@@ -174,9 +174,12 @@ def get_level_index(
     descriptor: RefinementDescriptor,
     index: int,
     is_box_index: bool = True,
+    branch: Optional[deque] = None,
 ) -> LevelIndex:
     num_dimensions = descriptor.get_num_dimensions()
-    current_branch = descriptor.get_branch(index, is_box_index)
+    current_branch = (
+        branch if branch is not None else descriptor.get_branch(index, is_box_index)
+    )
     found_level = get_level_from_branch(current_branch)
 
     # once the branch is found, we can infer the vector index from the branch stack
@@ -210,15 +213,79 @@ class Refinement:
         self._linearization = linearization
         self._descriptor = descriptor
 
-    def get_level_index(self, index: int, is_box_index: bool = True) -> LevelIndex:
+    def get_level_index(
+        self, index: int, is_box_index: bool = True, branch: Optional[deque] = None
+    ) -> LevelIndex:
         return get_level_index(
-            self._linearization,
-            self._descriptor,
-            index,
-            is_box_index,
+            self._linearization, self._descriptor, index, is_box_index, branch
         )
 
     def get_all_boxes_level_indices(self) -> Generator:
         for i, _ in enumerate(self._descriptor):
             if self._descriptor.is_box(i):
                 yield self.get_level_index(i, False)
+
+    def get_containing_box(self, coordinate: Coordinate):
+        # traverse the tree
+        # start at the root, coordinate has to be in the patch
+        current_descriptor_index = 0
+        current_branch: deque = deque()
+        dZeros = self._descriptor.get_d_zeros()
+        current_branch.append(self._descriptor.LevelCounter(dZeros, 1))
+        level_index = self.get_level_index(
+            current_descriptor_index, False, current_branch
+        )
+        current_patch_bounds = get_coordinates_from_level_index(level_index)
+        if not current_patch_bounds.contains(coordinate):
+            raise ValueError("Coordinate is not in the domain [0., 1.]^d]")
+
+        while current_descriptor_index < len(self._descriptor):
+            level_index = self.get_level_index(
+                current_descriptor_index, False, current_branch
+            )
+            current_patch_bounds = get_coordinates_from_level_index(level_index)
+
+            # is the coordinate in this patch?
+            if current_patch_bounds.contains(coordinate):
+                if self._descriptor.is_box(current_descriptor_index):
+                    # found!
+                    break
+                else:
+                    # go deeper in this branch
+                    current_branch.append(
+                        self._descriptor.LevelCounter(
+                            self._descriptor[current_descriptor_index].copy(),
+                            2 ** self._descriptor[current_descriptor_index].count(),
+                        )
+                    )
+            else:
+                # sweep to the next patch on the same level
+                # = count ones and balance them against found boxes
+                if self._descriptor[current_descriptor_index] != dZeros:
+                    sub_count_boxes_to_close = (
+                        2 ** self._descriptor[current_descriptor_index].count()
+                    )
+                    while sub_count_boxes_to_close > 0:
+                        ic(sub_count_boxes_to_close)
+                        # this fast-forwards the current_descriptor_index
+                        current_descriptor_index += 1
+                        assert current_descriptor_index < len(self._descriptor)
+                        sub_count_boxes_to_close -= 1
+                        if self._descriptor[current_descriptor_index] != dZeros:
+                            sub_count_boxes_to_close += (
+                                2 ** self._descriptor[current_descriptor_index].count()
+                            )
+                    assert sub_count_boxes_to_close == 0
+
+                # stolen from get_branch
+                current_branch[-1].count_to_go_up -= 1
+                assert current_branch[-1].count_to_go_up >= 0
+                while current_branch[-1].count_to_go_up == 0:
+                    current_branch.pop()
+                    assert len(current_branch) > 0
+                    current_branch[-1].count_to_go_up -= 1
+                    assert current_branch[-1].count_to_go_up >= 0
+
+            current_descriptor_index += 1
+
+        return self._descriptor.to_box_index(current_descriptor_index)
