@@ -25,16 +25,6 @@ def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
     return current_list
 
 
-def get_level_from_branch(branch: deque) -> np.ndarray:
-    num_dimensions = len(branch[0].level_increment)
-    found_level = np.array([0] * num_dimensions, dtype=np.int8)
-    for level_count in range(1, len(branch)):
-        found_level += np.asarray(
-            list(branch[level_count].level_increment), dtype=np.int8
-        )
-    return found_level
-
-
 class RefinementDescriptor:
     """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
 
@@ -117,9 +107,8 @@ class RefinementDescriptor:
 
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
-        current_branch: deque = deque()
+        current_branch: deque = get_empty_branch(self._num_dimensions)
         dZeros = self.get_d_zeros()
-        current_branch.append(self.LevelCounter(dZeros, 1))
         box_counter = 0
         i = 0
         while is_box_index or i < index:
@@ -128,12 +117,7 @@ class RefinementDescriptor:
                 box_counter += 1
                 if is_box_index and box_counter > index:
                     break
-                current_branch[-1].count_to_go_up -= 1
-                assert current_branch[-1].count_to_go_up >= 0
-                while current_branch[-1].count_to_go_up == 0:
-                    current_branch.pop()
-                    current_branch[-1].count_to_go_up -= 1
-                    assert current_branch[-1].count_to_go_up >= 0
+                advance_branch(current_branch)
             else:
                 current_branch.append(
                     self.LevelCounter(
@@ -169,28 +153,48 @@ def validate_descriptor(descriptor: RefinementDescriptor):
         assert twig.count_to_go_up == 1
 
 
-def get_level_index(
-    linearization: Linearization,
-    descriptor: RefinementDescriptor,
-    index: int,
-    is_box_index: bool = True,
-    branch: Optional[deque] = None,
+def get_empty_branch(num_dimensions: int) -> deque:
+    dZeros = ba.frozenbitarray([0] * num_dimensions)
+    current_branch: deque = deque()
+    current_branch.append(RefinementDescriptor.LevelCounter(dZeros, 1))
+    return current_branch
+
+
+def get_level_from_branch(branch: deque) -> np.ndarray:
+    num_dimensions = len(branch[0].level_increment)
+    found_level = np.array([0] * num_dimensions, dtype=np.int8)
+    for level_count in range(1, len(branch)):
+        found_level += np.asarray(
+            list(branch[level_count].level_increment), dtype=np.int8
+        )
+    return found_level
+
+
+def advance_branch(branch: deque) -> None:
+    """Advance the branch to the next sibling, in-place"""
+    branch[-1].count_to_go_up -= 1
+    assert branch[-1].count_to_go_up >= 0
+    while branch[-1].count_to_go_up == 0:
+        branch.pop()
+        branch[-1].count_to_go_up -= 1
+        assert branch[-1].count_to_go_up >= 0
+
+
+def get_level_index_from_branch(
+    linearization: Linearization, branch: deque
 ) -> LevelIndex:
-    num_dimensions = descriptor.get_num_dimensions()
-    current_branch = (
-        branch if branch is not None else descriptor.get_branch(index, is_box_index)
-    )
-    found_level = get_level_from_branch(current_branch)
+    num_dimensions = len(branch[0].level_increment)
+    found_level = get_level_from_branch(branch)
 
     # once the branch is found, we can infer the vector index from the branch stack
     current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
     decreasing_level_difference = found_level.copy()
     history_of_indices: list[int] = []
     history_of_level_increments: list[ba.bitarray] = []
-    for level_count in range(1, len(current_branch)):
-        current_refinement = current_branch[level_count].level_increment
+    for level_count in range(1, len(branch)):
+        current_refinement = branch[level_count].level_increment
         linear_index_at_level = (
-            2 ** current_refinement.count() - current_branch[level_count].count_to_go_up
+            2 ** current_refinement.count() - branch[level_count].count_to_go_up
         )
         history_of_level_increments.append(current_refinement)
         history_of_indices.append(linear_index_at_level)
@@ -208,16 +212,27 @@ def get_level_index(
     return LevelIndex(found_level, current_index)
 
 
+def get_level_index_from_linear_index(
+    linearization: Linearization,
+    descriptor: RefinementDescriptor,
+    linear_index: int,
+    is_box_index: bool = True,
+) -> LevelIndex:
+    current_branch = descriptor.get_branch(linear_index, is_box_index)
+    return get_level_index_from_branch(linearization, current_branch)
+
+
 class Refinement:
     def __init__(self, linearization: Linearization, descriptor: RefinementDescriptor):
         self._linearization = linearization
         self._descriptor = descriptor
 
-    def get_level_index(
-        self, index: int, is_box_index: bool = True, branch: Optional[deque] = None
-    ) -> LevelIndex:
-        return get_level_index(
-            self._linearization, self._descriptor, index, is_box_index, branch
+    def get_level_index_from_branch(self, branch: deque) -> LevelIndex:
+        return get_level_index_from_branch(self._linearization, branch)
+
+    def get_level_index(self, index: int, is_box_index: bool = True) -> LevelIndex:
+        return get_level_index_from_linear_index(
+            self._linearization, self._descriptor, index, is_box_index
         )
 
     def get_all_boxes_level_indices(self) -> Generator:
@@ -229,20 +244,16 @@ class Refinement:
         # traverse the tree
         # start at the root, coordinate has to be in the patch
         current_descriptor_index = 0
-        current_branch: deque = deque()
-        dZeros = self._descriptor.get_d_zeros()
-        current_branch.append(self._descriptor.LevelCounter(dZeros, 1))
-        level_index = self.get_level_index(
-            current_descriptor_index, False, current_branch
-        )
+        current_branch: deque = get_empty_branch(self._descriptor.get_num_dimensions())
+        level_index = self.get_level_index_from_branch(current_branch)
         current_patch_bounds = get_coordinates_from_level_index(level_index)
         if not current_patch_bounds.contains(coordinate):
             raise ValueError("Coordinate is not in the domain [0., 1.]^d]")
 
+        dZeros = self._descriptor.get_d_zeros()
+
         while current_descriptor_index < len(self._descriptor):
-            level_index = self.get_level_index(
-                current_descriptor_index, False, current_branch
-            )
+            level_index = self.get_level_index_from_branch(current_branch)
             current_patch_bounds = get_coordinates_from_level_index(level_index)
 
             # is the coordinate in this patch?
@@ -274,15 +285,7 @@ class Refinement:
                                 2 ** self._descriptor[current_descriptor_index].count()
                             )
                     assert sub_count_boxes_to_close == 0
-
-                # stolen from get_branch
-                current_branch[-1].count_to_go_up -= 1
-                assert current_branch[-1].count_to_go_up >= 0
-                while current_branch[-1].count_to_go_up == 0:
-                    current_branch.pop()
-                    assert len(current_branch) > 0
-                    current_branch[-1].count_to_go_up -= 1
-                    assert current_branch[-1].count_to_go_up >= 0
+                advance_branch(current_branch)
 
             current_descriptor_index += 1
 
