@@ -208,6 +208,35 @@ def test_get_box_from_coordinate():
     assert r.get_containing_box(np.array([0.25, 0.875])) == 5
     assert r.get_containing_box(np.array([0.75, 0.625])) == 6
     assert r.get_containing_box(np.array([0.75, 0.875])) == 7
+
+    # now along the edges
+    assert r.get_containing_box(np.array([0.0, 0.0])) == 0
+    assert r.get_containing_box(np.array([0.0, 0.25])) == (0, 1)
+    assert r.get_containing_box(np.array([0.0, 0.5])) == (1, 4)
+    assert r.get_containing_box(np.array([0.0, 0.75])) == (4, 5)
+    assert r.get_containing_box(np.array([0.0, 1.0])) == 5
+    assert r.get_containing_box(np.array([0.25, 0.0])) == 0
+    assert r.get_containing_box(np.array([0.25, 0.25])) == (0, 1)
+    assert r.get_containing_box(np.array([0.25, 0.5])) == (1, 4)
+    assert r.get_containing_box(np.array([0.25, 0.75])) == (4, 5)
+    assert r.get_containing_box(np.array([0.25, 1.0])) == 5
+    assert r.get_containing_box(np.array([0.5, 0.0])) == (0, 2)
+    assert r.get_containing_box(np.array([0.5, 0.25])) == (0, 1, 2, 3)
+    assert r.get_containing_box(np.array([0.5, 0.5])) == (1, 3, 4, 6)
+    assert r.get_containing_box(np.array([0.5, 0.75])) == (4, 5, 6, 7)
+    assert r.get_containing_box(np.array([0.5, 1.0])) == (5, 7)
+    assert r.get_containing_box(np.array([0.75, 0.0])) == 2
+    assert r.get_containing_box(np.array([0.75, 0.25])) == (2, 3)
+    assert r.get_containing_box(np.array([0.75, 0.5])) == (3, 6)
+    assert r.get_containing_box(np.array([0.75, 0.75])) == (6, 7)
+    assert r.get_containing_box(np.array([0.75, 1.0])) == 7
+    assert r.get_containing_box(np.array([1.0, 0.0])) == 2
+    assert r.get_containing_box(np.array([1.0, 0.25])) == (2, 3)
+    assert r.get_containing_box(np.array([1.0, 0.5])) == (3, 6)
+    assert r.get_containing_box(np.array([1.0, 0.75])) == (6, 7)
+    assert r.get_containing_box(np.array([1.0, 1.0])) == 7
+
+    # outside the domain
     with pytest.raises(ValueError):
         r.get_containing_box(np.array([0.0, 1.5]))
     with pytest.raises(ValueError):

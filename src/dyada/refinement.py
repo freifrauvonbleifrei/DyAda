@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import operator
-from typing import Generator, Optional
+from typing import Generator, Union
 
 from dyada.linearization import Linearization
 from dyada.coordinates import (
@@ -247,49 +247,70 @@ class Refinement:
             if self._descriptor.is_box(i):
                 yield self.get_level_index(i, False)
 
-    def get_containing_box(self, coordinate: Coordinate):
+    def get_containing_box(self, coordinate: Coordinate) -> Union[int, tuple[int, ...]]:
         # traverse the tree
         # start at the root, coordinate has to be in the patch
         current_branch: Branch = get_empty_branch(self._descriptor.get_num_dimensions())
         level_index = self.get_level_index_from_branch(current_branch)
-        current_patch_bounds = get_coordinates_from_level_index(level_index)
-        if not current_patch_bounds.contains(coordinate):
+        first_patch_bounds = get_coordinates_from_level_index(level_index)
+        if not first_patch_bounds.contains(coordinate):
             raise ValueError("Coordinate is not in the domain [0., 1.]^d]")
 
         dZeros = self._descriptor.get_d_zeros()
+        found_box_indices = []
         box_index = -1
         descriptor_iterator = iter(self._descriptor)
 
         while True:
-            current_refinement = next(descriptor_iterator)
-            level_index = self.get_level_index_from_branch(current_branch)
-            current_patch_bounds = get_coordinates_from_level_index(level_index)
+            while True:
+                current_refinement = next(descriptor_iterator)
+                level_index = self.get_level_index_from_branch(current_branch)
+                current_patch_bounds = get_coordinates_from_level_index(level_index)
 
-            # is the coordinate in this patch?
-            if current_patch_bounds.contains(coordinate):
-                if current_refinement == dZeros:
-                    # found!
-                    box_index += 1
-                    break
+                # is the coordinate in this patch?
+                if current_patch_bounds.contains(coordinate):
+                    if current_refinement == dZeros:
+                        # found!
+                        box_index += 1
+                        break
+                    else:
+                        # go deeper in this branch
+                        grow_branch(current_branch, current_refinement)
                 else:
-                    # go deeper in this branch
-                    grow_branch(current_branch, current_refinement)
-            else:
-                # sweep to the next patch on the same level
-                # = count ones and balance them against found boxes
-                if current_refinement != dZeros:
-                    sub_count_boxes_to_close = 2 ** current_refinement.count()
-                    while sub_count_boxes_to_close > 0:
-                        # this fast-forwards the descriptor iterator
-                        current_refinement = next(descriptor_iterator)
-                        sub_count_boxes_to_close -= 1
-                        if current_refinement != dZeros:
-                            sub_count_boxes_to_close += 2 ** current_refinement.count()
-                        else:
-                            box_index += 1
-                    assert sub_count_boxes_to_close == 0
-                else:
-                    box_index += 1
+                    # sweep to the next patch on the same level
+                    # = count ones and balance them against found boxes
+                    # todo this is quite internal to the descriptor, find a way to cleanly move it there
+                    if current_refinement != dZeros:
+                        sub_count_boxes_to_close = 2 ** current_refinement.count()
+                        while sub_count_boxes_to_close > 0:
+                            # this fast-forwards the descriptor iterator
+                            current_refinement = next(descriptor_iterator)
+                            sub_count_boxes_to_close -= 1
+                            if current_refinement != dZeros:
+                                sub_count_boxes_to_close += (
+                                    2 ** current_refinement.count()
+                                )
+                            else:
+                                box_index += 1
+                        assert sub_count_boxes_to_close == 0
+                    else:
+                        box_index += 1
+                    advance_branch(current_branch)
+
+            found_box_indices.append(box_index)
+            if np.any(
+                current_patch_bounds.upper_bound == coordinate,
+                where=current_patch_bounds.upper_bound < 1.0,
+            ):
+                # if any of the "upper" faces of the patch touches the coordinate,
+                # there is still more to find
                 advance_branch(current_branch)
+            else:
+                # all found!
+                break
 
-        return box_index
+        return (
+            tuple(found_box_indices)
+            if len(found_box_indices) > 1
+            else found_box_indices[0]
+        )
