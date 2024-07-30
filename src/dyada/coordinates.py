@@ -44,7 +44,7 @@ class CoordinateInterval(NamedTuple):
     def contains(self, coordinate: Coordinate) -> bool:
         return np.all(self.lower_bound <= coordinate) and np.all(
             coordinate <= self.upper_bound
-        )
+        )  # type: ignore
 
 
 def interval_from_sequences(
