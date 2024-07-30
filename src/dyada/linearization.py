@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
+import numpy as np
+import struct
 from typing import Sequence
+
+from dyada.coordinates import Coordinate
 
 
 class Linearization(ABC):

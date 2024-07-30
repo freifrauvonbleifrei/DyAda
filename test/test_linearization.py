@@ -1,7 +1,9 @@
 import bitarray as ba
 import pytest
 
-from dyada.linearization import MortonOrderLinearization
+from dyada.linearization import (
+    MortonOrderLinearization,
+)
 
 
 def test_get_position_morton_order():

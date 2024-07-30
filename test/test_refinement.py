@@ -172,6 +172,22 @@ def test_get_level_index():
         r.get_level_index(8, True)
 
 
+def test_to_box_index():
+    # according to the same mapping as in test_get_level_index
+    r = RefinementDescriptor(2, [1, 2])
+    for non_box_index in (0, 1, 4, 7, 10, 13):
+        with pytest.raises(AssertionError):
+            r.to_box_index(non_box_index)
+    assert r.to_box_index(2) == 0
+    assert r.to_box_index(3) == 1
+    assert r.to_box_index(5) == 2
+    assert r.to_box_index(6) == 3
+    assert r.to_box_index(8) == 4
+    assert r.to_box_index(9) == 5
+    assert r.to_box_index(11) == 6
+    assert r.to_box_index(12) == 7
+
+
 def test_get_all_boxes_level_indices():
     # same example as test_get_level_index
     r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
@@ -179,6 +195,54 @@ def test_get_all_boxes_level_indices():
     for i, level_index in enumerate(r.get_all_boxes_level_indices()):
         assert np.array_equal(level_index.d_level, np.asarray([1, 2]))
         assert np.array_equal(level_index.d_index, np.asarray(expected_indices[i]))
+
+
+def test_get_box_from_coordinate():
+    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    # check the midpoints of each box
+    assert r.get_containing_box(np.array([0.25, 0.125])) == 0
+    assert r.get_containing_box(np.array([0.25, 0.375])) == 1
+    assert r.get_containing_box(np.array([0.75, 0.125])) == 2
+    assert r.get_containing_box(np.array([0.75, 0.375])) == 3
+    assert r.get_containing_box(np.array([0.25, 0.625])) == 4
+    assert r.get_containing_box(np.array([0.25, 0.875])) == 5
+    assert r.get_containing_box(np.array([0.75, 0.625])) == 6
+    assert r.get_containing_box(np.array([0.75, 0.875])) == 7
+
+    # now along the edges
+    assert r.get_containing_box(np.array([0.0, 0.0])) == 0
+    assert r.get_containing_box(np.array([0.0, 0.25])) == (0, 1)
+    assert r.get_containing_box(np.array([0.0, 0.5])) == (1, 4)
+    assert r.get_containing_box(np.array([0.0, 0.75])) == (4, 5)
+    assert r.get_containing_box(np.array([0.0, 1.0])) == 5
+    assert r.get_containing_box(np.array([0.25, 0.0])) == 0
+    assert r.get_containing_box(np.array([0.25, 0.25])) == (0, 1)
+    assert r.get_containing_box(np.array([0.25, 0.5])) == (1, 4)
+    assert r.get_containing_box(np.array([0.25, 0.75])) == (4, 5)
+    assert r.get_containing_box(np.array([0.25, 1.0])) == 5
+    assert r.get_containing_box(np.array([0.5, 0.0])) == (0, 2)
+    assert r.get_containing_box(np.array([0.5, 0.25])) == (0, 1, 2, 3)
+    assert r.get_containing_box(np.array([0.5, 0.5])) == (1, 3, 4, 6)
+    assert r.get_containing_box(np.array([0.5, 0.75])) == (4, 5, 6, 7)
+    assert r.get_containing_box(np.array([0.5, 1.0])) == (5, 7)
+    assert r.get_containing_box(np.array([0.75, 0.0])) == 2
+    assert r.get_containing_box(np.array([0.75, 0.25])) == (2, 3)
+    assert r.get_containing_box(np.array([0.75, 0.5])) == (3, 6)
+    assert r.get_containing_box(np.array([0.75, 0.75])) == (6, 7)
+    assert r.get_containing_box(np.array([0.75, 1.0])) == 7
+    assert r.get_containing_box(np.array([1.0, 0.0])) == 2
+    assert r.get_containing_box(np.array([1.0, 0.25])) == (2, 3)
+    assert r.get_containing_box(np.array([1.0, 0.5])) == (3, 6)
+    assert r.get_containing_box(np.array([1.0, 0.75])) == (6, 7)
+    assert r.get_containing_box(np.array([1.0, 1.0])) == 7
+
+    # outside the domain
+    with pytest.raises(ValueError):
+        r.get_containing_box(np.array([0.0, 1.5]))
+    with pytest.raises(ValueError):
+        r.get_containing_box(np.array([1.5, 0.0]))
+    with pytest.raises(ValueError):
+        r.get_containing_box(np.array([1.5, 1.5]))
 
 
 if __name__ == "__main__":

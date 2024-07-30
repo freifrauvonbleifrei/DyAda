@@ -1,7 +1,6 @@
 import dataclasses
 import numpy as np
 import numpy.typing as npt
-
 from typing import NamedTuple, TypeAlias, Sequence
 
 
@@ -41,6 +40,11 @@ class CoordinateInterval(NamedTuple):
         return np.all(self.lower_bound == other.lower_bound) and np.all(
             self.upper_bound == other.upper_bound
         )
+
+    def contains(self, coordinate: Coordinate) -> bool:
+        return np.all(self.lower_bound <= coordinate) and np.all(
+            coordinate <= self.upper_bound
+        )  # type: ignore
 
 
 def interval_from_sequences(
