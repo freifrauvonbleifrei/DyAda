@@ -266,10 +266,8 @@ class Refinement:
                         2 ** self._descriptor[current_descriptor_index].count()
                     )
                     while sub_count_boxes_to_close > 0:
-                        ic(sub_count_boxes_to_close)
                         # this fast-forwards the current_descriptor_index
                         current_descriptor_index += 1
-                        assert current_descriptor_index < len(self._descriptor)
                         sub_count_boxes_to_close -= 1
                         if self._descriptor[current_descriptor_index] != dZeros:
                             sub_count_boxes_to_close += (
