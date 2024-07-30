@@ -8,6 +8,7 @@ from dyada.refinement import (
     RefinementDescriptor,
     Discretization,
     validate_descriptor,
+    PlannedAdaptiveRefinement,
 )
 from dyada.linearization import MortonOrderLinearization
 
@@ -243,6 +244,19 @@ def test_get_box_from_coordinate():
         r.get_containing_box(np.array([1.5, 0.0]))
     with pytest.raises(ValueError):
         r.get_containing_box(np.array([1.5, 1.5]))
+
+
+def test_refine():
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(0, ba.bitarray("01"))
+    p.plan_refinement(1, ba.bitarray("10"))
+    p.plan_refinement(2, ba.bitarray("11"))
+    p.plan_refinement(4, ba.bitarray("11"))
+    p.plan_refinement(6, ba.bitarray("01"))
+
+    # p.apply_refinements() #TODO
+    assert validate_descriptor(r.descriptor)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import operator
+from queue import PriorityQueue
 from typing import Generator, Iterator, Union
 
 from dyada.linearization import Linearization
@@ -176,6 +177,7 @@ def validate_descriptor(descriptor: RefinementDescriptor):
     assert len(branch) > 0
     for twig in branch:
         assert twig.count_to_go_up == 1
+    return True
 
 
 Branch = RefinementDescriptor.Branch
@@ -264,6 +266,10 @@ class Discretization:
         self._linearization = linearization
         self._descriptor = descriptor
 
+    @property
+    def descriptor(self):
+        return self._descriptor
+
     def get_level_index_from_branch(self, branch: Branch) -> LevelIndex:
         return get_level_index_from_branch(self._linearization, branch)
 
@@ -329,3 +335,25 @@ class Discretization:
             if len(found_box_indices) > 1
             else found_box_indices[0]
         )
+
+
+class PlannedAdaptiveRefinement:
+    def __init__(self, discretization: Discretization):
+        self._discretization = discretization
+        # initialize priority queue
+        self._planned_refinement_queue: PriorityQueue = PriorityQueue()
+
+    def plan_refinement(self, box_index: int, dimensions_to_refine) -> None:
+        dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
+        # obtain level sum to know the priority, highest level comes first
+        level_sum = sum(self._discretization.descriptor.get_level(box_index, True))
+        self._planned_refinement_queue.put(
+            (-level_sum, (box_index, dimensions_to_refine))
+        )
+
+    def apply_refinements(self) -> RefinementDescriptor:
+        # todo: magic
+        raise NotImplementedError
+        self.apply_refinements.__code__ = (
+            lambda: None
+        ).__code__  # disable the function after running once
