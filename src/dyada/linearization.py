@@ -15,6 +15,7 @@ class Linearization(ABC):
         history_of_level_increments: Sequence[ba.bitarray],
     ) -> ba.bitarray: ...
 
+
 class MortonOrderLinearization(Linearization):
     @staticmethod
     def get_binary_position_from_index(
