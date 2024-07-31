@@ -149,12 +149,13 @@ class RefinementDescriptor:
 
     def skip_to_next_neighbor(
         self, descriptor_iterator: Iterator, current_refinement: ba.frozenbitarray
-    ) -> int:
-        """Advances the iterator until it points behind the current patch and all its children,
-        returns the number of boxes it skipped."""
+    ) -> tuple[int, int]:
+        """Advances the iterator until it points to the end of the current patch and all its children,
+        returns the number of boxes (plus one) or patches it skipped."""
         # sweep to the next patch on the same level
         # = count ones and balance them against found boxes
         added_box_index = 0
+        added_hierarchical_index = 0
         dZeros = self.get_d_zeros()
         if current_refinement != dZeros:
             # power of two by bitshift
@@ -162,6 +163,7 @@ class RefinementDescriptor:
             while sub_count_boxes_to_close > 0:
                 # this fast-forwards the descriptor iterator
                 current_refinement = next(descriptor_iterator)
+                added_hierarchical_index += 1
                 sub_count_boxes_to_close -= 1
                 if current_refinement != dZeros:
                     # power of two by bitshift
@@ -171,7 +173,7 @@ class RefinementDescriptor:
             assert sub_count_boxes_to_close == 0
         else:
             added_box_index += 1
-        return added_box_index
+        return added_box_index, added_hierarchical_index
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
@@ -318,7 +320,7 @@ class Discretization:
                 else:
                     box_index += self._descriptor.skip_to_next_neighbor(
                         descriptor_iterator, current_refinement
-                    )
+                    )[0]
                     advance_branch(current_branch)
 
             found_box_indices.append(box_index)
