@@ -111,12 +111,28 @@ def test_get_level_isotropic():
 
 def test_get_branch():
     r = RefinementDescriptor(2, [1, 2])
-    assert r.get_branch(2, False) == r.get_branch(0, True)
-    assert r.get_branch(3, False) == r.get_branch(1, True)
-    assert r.get_branch(5, False) == r.get_branch(2, True)
-    assert r.get_branch(6, False) == r.get_branch(3, True)
-    assert r.get_branch(8, False) == r.get_branch(4, True)
-    assert r.get_branch(9, False) == r.get_branch(5, True)
+    assert r.get_branch(2, False)[0] == r.get_branch(0, True)[0]
+    assert r.get_branch(3, False)[0] == r.get_branch(1, True)[0]
+    assert r.get_branch(5, False)[0] == r.get_branch(2, True)[0]
+    assert r.get_branch(6, False)[0] == r.get_branch(3, True)[0]
+    assert r.get_branch(8, False)[0] == r.get_branch(4, True)[0]
+    assert r.get_branch(9, False)[0] == r.get_branch(5, True)[0]
+    assert r.get_branch(9, False)[0] == deque(
+        [
+            RefinementDescriptor.LevelCounter(
+                level_increment=ba.frozenbitarray("00"),
+                count_to_go_up=1,
+            ),
+            RefinementDescriptor.LevelCounter(
+                level_increment=ba.frozenbitarray("11"),
+                count_to_go_up=2,
+            ),
+            RefinementDescriptor.LevelCounter(
+                level_increment=ba.frozenbitarray("01"),
+                count_to_go_up=1,
+            ),
+        ]
+    )
 
 
 def test_get_level_index():

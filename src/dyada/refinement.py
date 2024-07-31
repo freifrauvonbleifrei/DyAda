@@ -105,7 +105,9 @@ class RefinementDescriptor:
 
     Branch = deque[LevelCounter]
 
-    def get_branch(self, index: int, is_box_index: bool = True) -> Branch:
+    def get_branch(
+        self, index: int, is_box_index: bool = True
+    ) -> tuple[Branch, Iterator]:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
@@ -115,8 +117,9 @@ class RefinementDescriptor:
         dZeros = self.get_d_zeros()
         box_counter = 0
         i = 0
+        current_iterator = iter(self)
         while is_box_index or i < index:
-            current_refinement = self[i]
+            current_refinement = next(current_iterator)
             if current_refinement == dZeros:
                 box_counter += 1
                 if is_box_index and box_counter > index:
@@ -125,10 +128,10 @@ class RefinementDescriptor:
             else:
                 grow_branch(current_branch, current_refinement)
             i += 1
-        return current_branch
+        return current_branch, current_iterator
 
     def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
-        current_branch = self.get_branch(index, is_box_index)
+        current_branch, _ = self.get_branch(index, is_box_index)
         found_level = get_level_from_branch(current_branch)
         return found_level
 
@@ -173,7 +176,7 @@ class RefinementDescriptor:
 
 def validate_descriptor(descriptor: RefinementDescriptor):
     assert len(descriptor._data) % descriptor._num_dimensions == 0
-    branch = descriptor.get_branch(len(descriptor) - 1, False)
+    branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
     assert len(branch) > 0
     for twig in branch:
         assert twig.count_to_go_up == 1
@@ -257,7 +260,7 @@ def get_level_index_from_linear_index(
     linear_index: int,
     is_box_index: bool = True,
 ) -> LevelIndex:
-    current_branch = descriptor.get_branch(linear_index, is_box_index)
+    current_branch, _ = descriptor.get_branch(linear_index, is_box_index)
     return get_level_index_from_branch(linearization, current_branch)
 
 
