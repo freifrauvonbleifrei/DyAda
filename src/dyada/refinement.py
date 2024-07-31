@@ -153,9 +153,10 @@ class RefinementDescriptor:
         for i in self:
             if i == self.get_d_zeros():
                 box_index -= 1
-            if box_index == 0:
+            if box_index < 0:
                 break
             linear_index += 1
+        assert self.is_box(linear_index)
         return linear_index
 
     def get_siblings(self, hierarchical_index: int) -> list[int]:

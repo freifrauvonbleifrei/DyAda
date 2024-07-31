@@ -206,6 +206,21 @@ def test_to_box_index():
     assert r.to_box_index(12) == 7
 
 
+def test_to_hierarchical_index():
+    # according to the same mapping as in test_get_level_index
+    r = RefinementDescriptor(2, [1, 2])
+    assert r.to_hierarchical_index(0) == 2
+    assert r.to_hierarchical_index(1) == 3
+    assert r.to_hierarchical_index(2) == 5
+    assert r.to_hierarchical_index(3) == 6
+    assert r.to_hierarchical_index(4) == 8
+    assert r.to_hierarchical_index(5) == 9
+    assert r.to_hierarchical_index(6) == 11
+    assert r.to_hierarchical_index(7) == 12
+    with pytest.raises(AssertionError):
+        r.to_hierarchical_index(8)
+
+
 def test_get_siblings():
     r = RefinementDescriptor(2, [1, 2])
     assert r.get_siblings(0) == []
