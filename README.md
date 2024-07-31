@@ -4,6 +4,6 @@
 * it's adaptive, but not octree, semicoarsening allowed! -> benefits esp.
 for higher-dimensional problems
 * key components: your data + a refinement descriptor + a linearization
-operator + (optional) an explicit tree for faster lookup
-* linearization is flexible: can be Morton Z order, or a tree, or your own implementation
+operator + (optional) an explicit tree for faster lookup (not yet implemented)
+* linearization is flexible: can be Morton Z order, or a tree order (not yet implemented), or your own ordering
 
