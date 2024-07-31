@@ -1,5 +1,6 @@
 import pytest
 import bitarray as ba
+from collections import deque
 import numpy as np
 from os.path import abspath
 
