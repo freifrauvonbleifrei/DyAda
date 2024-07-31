@@ -206,6 +206,24 @@ def test_to_box_index():
     assert r.to_box_index(12) == 7
 
 
+def test_get_siblings():
+    r = RefinementDescriptor(2, [1, 2])
+    assert r.get_siblings(0) == []
+    assert r.get_siblings(1) == [4, 7, 10]
+    assert r.get_siblings(2) == [3]
+    assert r.get_siblings(5) == [6]
+    assert r.get_siblings(8) == [9]
+    assert r.get_siblings(11) == [12]
+
+    not_first_sibling = [3, 4, 6, 7, 9, 10, 12]
+    for s in not_first_sibling:
+        with pytest.raises(ValueError):
+            r.get_siblings(s)
+
+    with pytest.raises(IndexError):
+        r.get_siblings(13)
+
+
 def test_get_all_boxes_level_indices():
     # same example as test_get_level_index
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))

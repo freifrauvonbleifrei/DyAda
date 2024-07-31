@@ -147,6 +147,41 @@ class RefinementDescriptor:
             index -= 1
         return count
 
+    def to_hierarchical_index(self, box_index: int) -> int:
+        linear_index = 0
+        # count down box index
+        for i in self:
+            if i == self.get_d_zeros():
+                box_index -= 1
+            if box_index == 0:
+                break
+            linear_index += 1
+        return linear_index
+
+    def get_siblings(self, hierarchical_index: int) -> list[int]:
+        siblings: list[int] = []
+        branch, branch_iterator = self.get_branch(hierarchical_index, False)
+        if len(branch) < 2:
+            # we are at the root
+            return siblings
+        # assumes we get called on the first index of a sibling group
+        total_num_siblings = 1 << branch[-1].level_increment.count()
+        if branch[-1].count_to_go_up != total_num_siblings:
+            raise ValueError(
+                "This is not the first sibling: " + str(hierarchical_index)
+            )
+
+        running_index = hierarchical_index
+        for i in range(total_num_siblings - 1):
+            next(branch_iterator)
+            _, added_hierarchical_index = self.skip_to_next_neighbor(
+                branch_iterator, self[hierarchical_index]
+            )
+            running_index += added_hierarchical_index + 1
+            siblings.append(running_index)
+
+        return siblings
+
     def skip_to_next_neighbor(
         self, descriptor_iterator: Iterator, current_refinement: ba.frozenbitarray
     ) -> tuple[int, int]:
