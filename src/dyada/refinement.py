@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 import operator
 from queue import PriorityQueue
-from typing import Generator, Iterator, Union
+from typing import Generator, Iterator, Sequence, Union
 
 from dyada.linearization import Linearization
 from dyada.coordinates import (
@@ -26,6 +26,21 @@ def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
     return current_list
 
 
+def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
+    num_dimensions = len(added_level)
+    data = ba.bitarray(num_dimensions)
+    
+    # iterate in reverse from max(level) to 0...
+    for l in reversed(range(max(added_level))):
+        at_least_l = ba.bitarray([i > l for i in added_level])
+        # power of two by bitshift
+        factor = 1 << at_least_l.count()
+        # ...while duplicating the current data as new children
+        data = at_least_l + data * factor
+        
+    return data
+
+
 class RefinementDescriptor:
     """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
 
@@ -36,13 +51,7 @@ class RefinementDescriptor:
         assert len(base_resolution_level) == self._num_dimensions
 
         # establish the base resolution level
-        self._data = self.get_d_zeros()
-        # iterate in reverse from max(level) to 0
-        for l in reversed(range(max(base_resolution_level))):
-            at_least_l = ba.bitarray([i > l for i in base_resolution_level])
-            # power of two by bitshift
-            factor = 1 << at_least_l.count()
-            self._data = at_least_l + self._data * factor
+        self._data = get_regular_refined(base_resolution_level)
 
     def __len__(self):
         """
