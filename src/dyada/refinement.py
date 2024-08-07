@@ -524,13 +524,13 @@ class PlannedAdaptiveRefinement:
         self, new_descriptor: RefinementDescriptor, data_interval: tuple[int, int]
     ):
         minimum_marked = min(self._markers.keys(), default=-1)
-        
+
         if data_interval[0] <= minimum_marked and minimum_marked < data_interval[1]:
             # copy up to marked
             new_descriptor._data.extend(
                 self._discretization.descriptor[data_interval[0] : minimum_marked]
             )
-            
+
             # deal with refinement
             if self._discretization.descriptor.is_box(minimum_marked):
                 # if the marked item is a box, refine directly
