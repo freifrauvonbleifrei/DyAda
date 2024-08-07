@@ -339,6 +339,10 @@ def test_refine_simplest():
     )
     assert p._upward_queue.empty()
 
+    new_descriptor = p.create_new_descriptor()
+    assert new_descriptor._data == ba.bitarray("10010000100000")
+    assert validate_descriptor(new_descriptor)
+
 
 if __name__ == "__main__":
     here = abspath(__file__)

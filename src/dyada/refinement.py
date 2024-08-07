@@ -520,11 +520,59 @@ class PlannedAdaptiveRefinement:
 
             self._upward_queue.task_done()
 
+    def add_refined_data(
+        self, new_descriptor: RefinementDescriptor, data_interval: tuple[int, int]
+    ):
+        minimum_marked = min(self._markers.keys(), default=-1)
+        
+        if data_interval[0] <= minimum_marked and minimum_marked < data_interval[1]:
+            # copy up to marked
+            new_descriptor._data.extend(
+                self._discretization.descriptor[data_interval[0] : minimum_marked]
+            )
+            
+            # deal with refinement
+            if self._discretization.descriptor.is_box(minimum_marked):
+                # if the marked item is a box, refine directly
+                new_descriptor._data.extend(
+                    get_regular_refined(self._markers[minimum_marked])  # type: ignore
+                )
+                last_processed = minimum_marked
+
+            else:
+                raise NotImplementedError("Not yet!")
+            self._markers.pop(minimum_marked)
+            # call again with remaining interval
+            self.add_refined_data(
+                new_descriptor, (last_processed + 1, data_interval[1])
+            )
+
+        else:
+            # copy all and return
+            new_descriptor._data.extend(
+                self._discretization.descriptor._data[
+                    data_interval[0] : data_interval[1]
+                ]
+            )
+            return
+
+    def create_new_descriptor(self) -> RefinementDescriptor:
+        new_descriptor = RefinementDescriptor(
+            self._discretization.descriptor.get_num_dimensions()
+        )
+        new_descriptor._data = ba.bitarray()
+        self.add_refined_data(new_descriptor, (0, len(self._discretization.descriptor)))
+
+        assert len(new_descriptor._data) >= len(self._discretization.descriptor)
+        return new_descriptor
+
     def apply_refinements(self) -> RefinementDescriptor:
         # todo: magic
         self.populate_queue()
         self.upwards_sweep()
-        raise NotImplementedError
+
+        new_descriptor = self.create_new_descriptor()
+        return new_descriptor
         self.apply_refinements.__code__ = (
             lambda: None
         ).__code__  # disable the function after running once
