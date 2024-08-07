@@ -256,8 +256,8 @@ def get_level_from_branch(branch: Branch) -> np.ndarray:
     num_dimensions = len(branch[0].level_increment)
     found_level = np.array([0] * num_dimensions, dtype=np.int8)
     for level_count in range(1, len(branch)):
-        found_level += np.asarray(
-            list(branch[level_count].level_increment), dtype=np.int8
+        found_level += np.fromiter(
+            branch[level_count].level_increment, dtype=np.int8, count=num_dimensions
         )
     return found_level
 
@@ -295,10 +295,10 @@ def get_level_index_from_branch(
             history_of_indices,
             history_of_level_increments,
         )
-        array_index = np.asarray(list(bit_index))
+        array_index = np.fromiter(bit_index, dtype=np.int8, count=num_dimensions)
         assert len(array_index) == num_dimensions
-        decreasing_level_difference -= np.asarray(
-            list(current_refinement), dtype=np.uint8
+        decreasing_level_difference -= np.fromiter(
+            current_refinement, dtype=np.uint8, count=num_dimensions
         )
         # power of two by bitshift
         current_index += array_index * 1 << decreasing_level_difference
