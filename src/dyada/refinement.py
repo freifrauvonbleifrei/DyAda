@@ -1,5 +1,5 @@
 import bitarray as ba
-from collections import deque, Counter
+from collections import defaultdict, deque, Counter
 from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
@@ -29,7 +29,7 @@ def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
 def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
     num_dimensions = len(added_level)
     data = ba.bitarray(num_dimensions)
-    
+
     # iterate in reverse from max(level) to 0...
     for l in reversed(range(max(added_level))):
         at_least_l = ba.bitarray([i > l for i in added_level])
@@ -37,7 +37,7 @@ def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
         factor = 1 << at_least_l.count()
         # ...while duplicating the current data as new children
         data = at_least_l + data * factor
-        
+
     return data
 
 
@@ -191,6 +191,11 @@ class RefinementDescriptor:
             siblings.append(running_index)
 
         return siblings
+
+    def get_children(self, parent_index: int) -> list[int]:
+        first_child_index = parent_index + 1
+        child_indices = [first_child_index] + self.get_siblings(first_child_index)
+        return child_indices
 
     def skip_to_next_neighbor(
         self, descriptor_iterator: Iterator, current_refinement: ba.frozenbitarray
@@ -390,19 +395,135 @@ class Discretization:
 class PlannedAdaptiveRefinement:
     def __init__(self, discretization: Discretization):
         self._discretization = discretization
-        # initialize priority queue
-        self._planned_refinement_queue: PriorityQueue = PriorityQueue()
+        # initialize planned refinement list and data structures used later
+        self._planned_refinements: PriorityQueue = PriorityQueue()
+
+        def get_d_zeros_as_array():
+            return np.zeros(
+                self._discretization.descriptor.get_num_dimensions(), dtype=np.int8
+            )
+
+        self._markers: defaultdict[int, npt.NDArray[np.int8]] = defaultdict(
+            get_d_zeros_as_array
+        )
+        self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
 
     def plan_refinement(self, box_index: int, dimensions_to_refine) -> None:
         dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
-        # obtain level sum to know the priority, highest level comes first
-        level_sum = sum(self._discretization.descriptor.get_level(box_index, True))
-        self._planned_refinement_queue.put(
-            (-level_sum, (box_index, dimensions_to_refine))
-        )
+        # get hierarchical index
+        linear_index = self._discretization.descriptor.to_hierarchical_index(box_index)
+        # store by linear index
+        self._planned_refinements.put((linear_index, dimensions_to_refine))
+
+    def populate_queue(self) -> None:
+        assert len(self._markers) == 0 and self._upward_queue.empty()
+
+        # put initial markers
+        for linear_index, dimensions_to_refine in self._planned_refinements.queue:
+            self._markers[linear_index] += np.fromiter(
+                dimensions_to_refine,
+                dtype=np.int8,
+                count=self._discretization.descriptor.get_num_dimensions(),
+            )
+
+        # put into the upward queue
+        for linear_index in self._markers.keys():
+            # obtain level sum to know the priority, highest level should come first
+            level_sum = sum(
+                self._discretization.descriptor.get_level(linear_index, False)
+            )
+            self._upward_queue.put((-level_sum, linear_index))
+
+        self._planned_refinements = PriorityQueue()
+
+    def move_marker_to_parent(
+        self, marker: npt.NDArray[np.int8], sibling_indices
+    ) -> None:
+        assert len(sibling_indices) > 1 and sibling_indices.bit_count() == 1
+        sibling_indices = sorted(sibling_indices)
+        # subtract from the current sibling markers
+        for sibling in sibling_indices:
+            self._markers[sibling] -= marker
+            if np.all(self._markers[sibling] == np.zeros(marker.shape, dtype=np.int8)):
+                self._markers.pop(sibling)
+
+        # and add it to the parent's marker
+        parent = sibling_indices[0] - 1
+        self._markers[parent] += marker
+
+    def move_marker_to_descendants(
+        self, ancestor_index, marker: npt.NDArray[np.int8], descendants_indices=None
+    ):
+        if descendants_indices is None:
+            # assume we want the direct children
+            descendants_indices = self._discretization.descriptor.get_children(
+                ancestor_index
+            )
+        assert len(descendants_indices) > 1 and descendants_indices.bit_count() == 1
+        assert ancestor_index < min(descendants_indices)
+        # subtract from the ancestor
+        self._markers[ancestor_index] -= marker
+        if np.all(
+            self._markers[ancestor_index] == np.zeros(marker.shape, dtype=np.int8)
+        ):
+            self._markers.pop(ancestor_index)
+
+        # and add to the descendants' markers
+        for descendant in descendants_indices:
+            self._markers[descendant] += marker
+
+    def upwards_sweep(self) -> None:
+        num_dimensions = self._discretization.descriptor.get_num_dimensions()
+        # traverse the tree from down (high level sums) to the coarser levels
+        while not self._upward_queue.empty():
+            level_sum, linear_index = self._upward_queue.get()
+
+            # check if refinement can be moved up the branch (even partially);
+            # this requires that all siblings are or would be refined
+            siblings = [linear_index] + self._discretization.descriptor.get_siblings(
+                linear_index
+            )
+
+            all_siblings_refinements = [
+                np.fromiter(
+                    self._discretization.descriptor[sibling],
+                    dtype=np.int8,
+                    count=num_dimensions,
+                )
+                for sibling in siblings
+            ]
+
+            for i, sibling in enumerate(siblings):
+                if sibling in self._markers:
+                    all_siblings_refinements[i] += self._markers[sibling]
+
+            # check where the siblings are all refined
+            possible_to_move_up = np.min(all_siblings_refinements, axis=0)
+            assert possible_to_move_up.shape == (num_dimensions,)
+            assert np.all(possible_to_move_up >= 0)
+
+            if np.any(possible_to_move_up > 0):
+                self.move_marker_to_parent(possible_to_move_up, siblings)
+
+                # put the parent into the upward queue
+                parent_level_sum = level_sum + (
+                    len(all_siblings_refinements).bit_length() - 1
+                )
+                assert parent_level_sum > level_sum and parent_level_sum <= 0
+                parent = siblings[0] - 1
+                self._upward_queue.put((parent_level_sum, parent))
+
+            # if any siblings were in the upward queue, remove them too
+            for sibling in siblings:
+                if (level_sum, sibling) in self._upward_queue.queue:
+                    self._upward_queue.queue.remove((level_sum, sibling))
+
+            self._upward_queue.task_done()
 
     def apply_refinements(self) -> RefinementDescriptor:
         # todo: magic
+        self.populate_queue()
+        self.upwards_sweep()
         raise NotImplementedError
         self.apply_refinements.__code__ = (
             lambda: None

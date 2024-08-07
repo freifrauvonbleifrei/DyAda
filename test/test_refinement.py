@@ -69,6 +69,7 @@ def test_six_d():
         current_length = 0
         for i in range(0, len(r.get_data()), 6):
             c = r.get_data()[i : i + 6].count()
+            # either all-zero or all-one
             assert c in [0, 6]
             if c == 6:
                 current_length += 1
@@ -307,6 +308,36 @@ def test_refine():
 
     # p.apply_refinements() #TODO
     assert validate_descriptor(r.descriptor)
+
+
+def test_refine_simplest():
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(1, ba.bitarray("10"))
+    p.plan_refinement(0, ba.bitarray("01"))
+
+    assert p._planned_refinements.queue == [
+        (1, ba.bitarray("01")),
+        (2, ba.bitarray("10")),
+    ]
+
+    # don't do this at home -- call p.apply_refinements() directly
+    p.populate_queue()
+    assert p._planned_refinements.empty()
+    assert (
+        len(p._markers) == 2
+        and all(p._markers[1] == [0, 1])
+        and all(p._markers[2] == [1, 0])
+    )
+    assert p._upward_queue.queue == [(-1, 1), (-1, 2)]
+
+    p.upwards_sweep()
+    assert (
+        len(p._markers) == 2
+        and all(p._markers[1] == [0, 1])
+        and all(p._markers[2] == [1, 0])
+    )
+    assert p._upward_queue.empty()
 
 
 if __name__ == "__main__":
