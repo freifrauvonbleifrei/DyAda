@@ -1,6 +1,7 @@
 import bitarray as ba
 from collections import defaultdict, deque, Counter
 from dataclasses import dataclass
+from functools import cached_property
 import numpy as np
 import numpy.typing as npt
 import operator
@@ -62,12 +63,13 @@ class RefinementDescriptor:
     def get_num_dimensions(self):
         return self._num_dimensions
 
-    def get_d_zeros(self):
+    @cached_property
+    def d_zeros(self):
         return ba.frozenbitarray(self._num_dimensions)
 
     def get_num_boxes(self):
         # count number of d*(0) bit blocks
-        dZeros = self.get_d_zeros()
+        dZeros = self.d_zeros
         # todo check back if there will be such a function in bitarray
         count = sum(
             1
@@ -80,7 +82,7 @@ class RefinementDescriptor:
         return self._data
 
     def is_box(self, index: int):
-        return self[index] == self.get_d_zeros()
+        return self[index] == self.d_zeros
 
     def __iter__(self):
         for i in range(len(self)):
@@ -123,13 +125,12 @@ class RefinementDescriptor:
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
         current_branch: Branch = get_empty_branch(self._num_dimensions)
-        dZeros = self.get_d_zeros()
         box_counter = 0
         i = 0
         current_iterator = iter(self)
         while is_box_index or i < index:
             current_refinement = next(current_iterator)
-            if current_refinement == dZeros:
+            if current_refinement == self.d_zeros:
                 box_counter += 1
                 if is_box_index and box_counter > index:
                     break
@@ -149,7 +150,7 @@ class RefinementDescriptor:
         # count zeros up to index, zero-indexed
         count = -1
         for i in self:
-            if i == self.get_d_zeros():
+            if i == self.d_zeros:
                 count += 1
             if index == 0:
                 break
@@ -160,7 +161,7 @@ class RefinementDescriptor:
         linear_index = 0
         # count down box index
         for i in self:
-            if i == self.get_d_zeros():
+            if i == self.d_zeros:
                 box_index -= 1
             if box_index < 0:
                 break
@@ -206,8 +207,7 @@ class RefinementDescriptor:
         # = count ones and balance them against found boxes
         added_box_index = 0
         added_hierarchical_index = 0
-        dZeros = self.get_d_zeros()
-        if current_refinement != dZeros:
+        if current_refinement != self.d_zeros:
             # power of two by bitshift
             sub_count_boxes_to_close = 1 << current_refinement.count()
             while sub_count_boxes_to_close > 0:
@@ -215,7 +215,7 @@ class RefinementDescriptor:
                 current_refinement = next(descriptor_iterator)
                 added_hierarchical_index += 1
                 sub_count_boxes_to_close -= 1
-                if current_refinement != dZeros:
+                if current_refinement != self.d_zeros:
                     # power of two by bitshift
                     sub_count_boxes_to_close += 1 << current_refinement.count()
                 else:
@@ -347,7 +347,6 @@ class Discretization:
         if not first_patch_bounds.contains(coordinate):
             raise ValueError("Coordinate is not in the domain [0., 1.]^d]")
 
-        dZeros = self._descriptor.get_d_zeros()
         found_box_indices = []
         box_index = -1
         descriptor_iterator = iter(self._descriptor)
@@ -360,7 +359,7 @@ class Discretization:
 
                 # is the coordinate in this patch?
                 if current_patch_bounds.contains(coordinate):
-                    if current_refinement == dZeros:
+                    if current_refinement == self._descriptor.d_zeros:
                         # found!
                         box_index += 1
                         break
