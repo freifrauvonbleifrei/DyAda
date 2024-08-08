@@ -1,13 +1,15 @@
 import pytest
 import bitarray as ba
+from collections import deque
 import numpy as np
 from os.path import abspath
 
 from dyada.refinement import (
     generalized_ruler,
     RefinementDescriptor,
-    Refinement,
+    Discretization,
     validate_descriptor,
+    PlannedAdaptiveRefinement,
 )
 from dyada.linearization import MortonOrderLinearization
 
@@ -67,6 +69,7 @@ def test_six_d():
         current_length = 0
         for i in range(0, len(r.get_data()), 6):
             c = r.get_data()[i : i + 6].count()
+            # either all-zero or all-one
             assert c in [0, 6]
             if c == 6:
                 current_length += 1
@@ -110,16 +113,32 @@ def test_get_level_isotropic():
 
 def test_get_branch():
     r = RefinementDescriptor(2, [1, 2])
-    assert r.get_branch(2, False) == r.get_branch(0, True)
-    assert r.get_branch(3, False) == r.get_branch(1, True)
-    assert r.get_branch(5, False) == r.get_branch(2, True)
-    assert r.get_branch(6, False) == r.get_branch(3, True)
-    assert r.get_branch(8, False) == r.get_branch(4, True)
-    assert r.get_branch(9, False) == r.get_branch(5, True)
+    assert r.get_branch(2, False)[0] == r.get_branch(0, True)[0]
+    assert r.get_branch(3, False)[0] == r.get_branch(1, True)[0]
+    assert r.get_branch(5, False)[0] == r.get_branch(2, True)[0]
+    assert r.get_branch(6, False)[0] == r.get_branch(3, True)[0]
+    assert r.get_branch(8, False)[0] == r.get_branch(4, True)[0]
+    assert r.get_branch(9, False)[0] == r.get_branch(5, True)[0]
+    assert r.get_branch(9, False)[0] == deque(
+        [
+            RefinementDescriptor.LevelCounter(
+                level_increment=ba.frozenbitarray("00"),
+                count_to_go_up=1,
+            ),
+            RefinementDescriptor.LevelCounter(
+                level_increment=ba.frozenbitarray("11"),
+                count_to_go_up=2,
+            ),
+            RefinementDescriptor.LevelCounter(
+                level_increment=ba.frozenbitarray("01"),
+                count_to_go_up=1,
+            ),
+        ]
+    )
 
 
 def test_get_level_index():
-    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
 
     # with indices that consider the parents
     level, index = r.get_level_index(0, False)
@@ -188,9 +207,42 @@ def test_to_box_index():
     assert r.to_box_index(12) == 7
 
 
+def test_to_hierarchical_index():
+    # according to the same mapping as in test_get_level_index
+    r = RefinementDescriptor(2, [1, 2])
+    assert r.to_hierarchical_index(0) == 2
+    assert r.to_hierarchical_index(1) == 3
+    assert r.to_hierarchical_index(2) == 5
+    assert r.to_hierarchical_index(3) == 6
+    assert r.to_hierarchical_index(4) == 8
+    assert r.to_hierarchical_index(5) == 9
+    assert r.to_hierarchical_index(6) == 11
+    assert r.to_hierarchical_index(7) == 12
+    with pytest.raises(AssertionError):
+        r.to_hierarchical_index(8)
+
+
+def test_get_siblings():
+    r = RefinementDescriptor(2, [1, 2])
+    assert r.get_siblings(0) == []
+    assert r.get_siblings(1) == [4, 7, 10]
+    assert r.get_siblings(2) == [3]
+    assert r.get_siblings(5) == [6]
+    assert r.get_siblings(8) == [9]
+    assert r.get_siblings(11) == [12]
+
+    not_first_sibling = [3, 4, 6, 7, 9, 10, 12]
+    for s in not_first_sibling:
+        with pytest.raises(ValueError):
+            r.get_siblings(s)
+
+    with pytest.raises(IndexError):
+        r.get_siblings(13)
+
+
 def test_get_all_boxes_level_indices():
     # same example as test_get_level_index
-    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
     expected_indices = ([0, 0], [0, 1], [1, 0], [1, 1], [0, 2], [0, 3], [1, 2], [1, 3])
     for i, level_index in enumerate(r.get_all_boxes_level_indices()):
         assert np.array_equal(level_index.d_level, np.asarray([1, 2]))
@@ -198,7 +250,7 @@ def test_get_all_boxes_level_indices():
 
 
 def test_get_box_from_coordinate():
-    r = Refinement(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
     # check the midpoints of each box
     assert r.get_containing_box(np.array([0.25, 0.125])) == 0
     assert r.get_containing_box(np.array([0.25, 0.375])) == 1
@@ -243,6 +295,53 @@ def test_get_box_from_coordinate():
         r.get_containing_box(np.array([1.5, 0.0]))
     with pytest.raises(ValueError):
         r.get_containing_box(np.array([1.5, 1.5]))
+
+
+def test_refine():
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(0, ba.bitarray("01"))
+    p.plan_refinement(1, ba.bitarray("10"))
+    p.plan_refinement(2, ba.bitarray("11"))
+    p.plan_refinement(4, ba.bitarray("11"))
+    p.plan_refinement(6, ba.bitarray("01"))
+
+    # p.apply_refinements() #TODO
+    assert validate_descriptor(r.descriptor)
+
+
+def test_refine_simplest():
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(1, ba.bitarray("10"))
+    p.plan_refinement(0, ba.bitarray("01"))
+
+    assert p._planned_refinements.queue == [
+        (1, ba.bitarray("01")),
+        (2, ba.bitarray("10")),
+    ]
+
+    # don't do this at home -- call p.apply_refinements() directly
+    p.populate_queue()
+    assert p._planned_refinements.empty()
+    assert (
+        len(p._markers) == 2
+        and all(p._markers[1] == [0, 1])
+        and all(p._markers[2] == [1, 0])
+    )
+    assert p._upward_queue.queue == [(-1, 1), (-1, 2)]
+
+    p.upwards_sweep()
+    assert (
+        len(p._markers) == 2
+        and all(p._markers[1] == [0, 1])
+        and all(p._markers[2] == [1, 0])
+    )
+    assert p._upward_queue.empty()
+
+    new_descriptor = p.create_new_descriptor()
+    assert new_descriptor._data == ba.bitarray("10010000100000")
+    assert validate_descriptor(new_descriptor)
 
 
 if __name__ == "__main__":

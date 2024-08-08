@@ -8,7 +8,7 @@ from dyada.coordinates import (
 )
 from dyada.drawing import plot_boxes_2d, plot_all_boxes_2d
 from dyada.linearization import MortonOrderLinearization
-from dyada.refinement import Refinement, RefinementDescriptor
+from dyada.refinement import Discretization, RefinementDescriptor
 from dyada.structure import depends_on_optional
 
 
@@ -47,7 +47,7 @@ def test_plot_boxes_2d_matplotlib():
 
 def test_plot_boxes_2d_from_descriptor():
     descriptor = RefinementDescriptor(4, [0, 1, 2, 3])
-    r = Refinement(MortonOrderLinearization(), descriptor)
+    r = Discretization(MortonOrderLinearization(), descriptor)
     with plt.ion():  # turns off blocking figures for test
         # try all combinations of projections
         for projection in permutations(range(4), 2):

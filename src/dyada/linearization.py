@@ -1,10 +1,6 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
-import numpy as np
-import struct
 from typing import Sequence
-
-from dyada.coordinates import Coordinate
 
 
 class Linearization(ABC):
@@ -15,6 +11,14 @@ class Linearization(ABC):
         history_of_level_increments: Sequence[ba.bitarray],
     ) -> ba.bitarray: ...
 
+    @staticmethod
+    @abstractmethod
+    def get_index_from_binary_position(
+        binary_position: ba.bitarray,
+        history_of_indices: Sequence[int],
+        history_of_level_increments: Sequence[ba.bitarray],
+    ) -> int: ...
+
 
 class MortonOrderLinearization(Linearization):
     @staticmethod
@@ -22,6 +26,8 @@ class MortonOrderLinearization(Linearization):
         history_of_indices: Sequence[int],
         history_of_level_increments: Sequence[ba.bitarray],
     ) -> ba.bitarray:
+        assert len(history_of_indices) == len(history_of_level_increments)
+
         this_level_increment = history_of_level_increments[-1]
         assert this_level_increment.count() > 0
         index_in_box = history_of_indices[-1]
@@ -36,3 +42,25 @@ class MortonOrderLinearization(Linearization):
                 binary_position[dim_index] = index_in_box & 1
                 index_in_box >>= 1
         return binary_position
+
+    @staticmethod
+    def get_index_from_binary_position(
+        binary_position: ba.bitarray,
+        history_of_indices: Sequence[int],
+        history_of_level_increments: Sequence[ba.bitarray],
+    ) -> int:
+        assert len(history_of_indices) == len(history_of_level_increments) - 1
+
+        this_level_increment = history_of_level_increments[-1]
+        assert this_level_increment.count() > 0
+        assert len(binary_position) == len(this_level_increment)
+        number_of_dimensions = len(this_level_increment)
+        index_in_box = 0
+
+        # first dimension is the most contiguous
+        for dim_index in reversed(range(number_of_dimensions)):
+            index_in_box <<= 1
+            if binary_position[dim_index]:
+                index_in_box += 1
+
+        return index_in_box
