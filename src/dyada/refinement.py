@@ -50,6 +50,7 @@ class RefinementDescriptor:
         if isinstance(base_resolution_level, int):
             base_resolution_level = [base_resolution_level] * self._num_dimensions
         assert len(base_resolution_level) == self._num_dimensions
+        _ = self.d_zeros
 
         # establish the base resolution level
         self._data = get_regular_refined(base_resolution_level)
@@ -156,7 +157,7 @@ class RefinementDescriptor:
             return -1, current_iterator
         # have to start from beginning, note when we go down matching twigs
         current_branch: Branch = get_empty_branch(self._num_dimensions)
-        twig_index = 0
+        twig_index = 1
         for i in range(len(self)):
             current_refinement = next(current_iterator)
             if current_refinement == self.d_zeros:
@@ -164,7 +165,7 @@ class RefinementDescriptor:
             else:
                 grow_branch(current_branch, current_refinement)
             # if this matches the child at the twig index, count up the twig index
-            while (
+            if (
                 twig_index < len(child_branch) - 1
                 and current_branch[twig_index] == child_branch[twig_index]
             ):
@@ -519,44 +520,45 @@ class PlannedAdaptiveRefinement:
         # traverse the tree from down (high level sums) to the coarser levels
         while not self._upward_queue.empty():
             level_sum, linear_index = self._upward_queue.get()
+            # only continue upwards if not yet at the root
+            if linear_index != 0:
+                # check if refinement can be moved up the branch (even partially);
+                # this requires that all siblings are or would be refined
+                siblings = self._discretization.descriptor.get_siblings(linear_index)
 
-            # check if refinement can be moved up the branch (even partially);
-            # this requires that all siblings are or would be refined
-            siblings = self._discretization.descriptor.get_siblings(linear_index)
+                all_siblings_refinements = [
+                    np.fromiter(
+                        self._discretization.descriptor[sibling],
+                        dtype=np.int8,
+                        count=num_dimensions,
+                    )
+                    for sibling in siblings
+                ]
 
-            all_siblings_refinements = [
-                np.fromiter(
-                    self._discretization.descriptor[sibling],
-                    dtype=np.int8,
-                    count=num_dimensions,
-                )
-                for sibling in siblings
-            ]
+                for i, sibling in enumerate(siblings):
+                    if sibling in self._markers:
+                        all_siblings_refinements[i] += self._markers[sibling]
 
-            for i, sibling in enumerate(siblings):
-                if sibling in self._markers:
-                    all_siblings_refinements[i] += self._markers[sibling]
+                # check where the siblings are all refined
+                possible_to_move_up = np.min(all_siblings_refinements, axis=0)
+                assert possible_to_move_up.shape == (num_dimensions,)
+                assert np.all(possible_to_move_up >= 0)
 
-            # check where the siblings are all refined
-            possible_to_move_up = np.min(all_siblings_refinements, axis=0)
-            assert possible_to_move_up.shape == (num_dimensions,)
-            assert np.all(possible_to_move_up >= 0)
+                if np.any(possible_to_move_up > 0):
+                    self.move_marker_to_parent(possible_to_move_up, siblings)
 
-            if np.any(possible_to_move_up > 0):
-                self.move_marker_to_parent(possible_to_move_up, siblings)
+                    # put the parent into the upward queue
+                    parent_level_sum = level_sum + (
+                        len(all_siblings_refinements).bit_length() - 1
+                    )
+                    assert parent_level_sum > level_sum and parent_level_sum <= 0
+                    parent = siblings[0] - 1
+                    self._upward_queue.put((parent_level_sum, parent))
 
-                # put the parent into the upward queue
-                parent_level_sum = level_sum + (
-                    len(all_siblings_refinements).bit_length() - 1
-                )
-                assert parent_level_sum > level_sum and parent_level_sum <= 0
-                parent = siblings[0] - 1
-                self._upward_queue.put((parent_level_sum, parent))
-
-            # if any siblings were in the upward queue, remove them too
-            for sibling in siblings:
-                if (level_sum, sibling) in self._upward_queue.queue:
-                    self._upward_queue.queue.remove((level_sum, sibling))
+                # if any siblings were in the upward queue, remove them too
+                for sibling in siblings:
+                    if (level_sum, sibling) in self._upward_queue.queue:
+                        self._upward_queue.queue.remove((level_sum, sibling))
 
             self._upward_queue.task_done()
 
