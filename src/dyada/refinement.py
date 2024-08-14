@@ -140,6 +140,47 @@ class RefinementDescriptor:
             i += 1
         return current_branch, current_iterator
 
+    def get_parent(self, child_branch: Branch) -> tuple[int, Iterator]:
+        """Find the parent index of a lost child node by advancing and
+        growing a branch until it matches the child's branch sufficiently.
+
+        Args:
+            child_branch (Branch): the branch belonging to the child index
+
+        Returns:
+            tuple[int, Iterator]: the index of the parent and
+                the iterator to one-past-the-parent
+        """
+        current_iterator = iter(self)
+        if len(child_branch) < 2:
+            return -1, current_iterator
+        # have to start from beginning, note when we go down matching twigs
+        current_branch: Branch = get_empty_branch(self._num_dimensions)
+        twig_index = 0
+        for i in range(len(self)):
+            current_refinement = next(current_iterator)
+            if current_refinement == self.d_zeros:
+                advance_branch(current_branch)
+            else:
+                grow_branch(current_branch, current_refinement)
+            # if this matches the child at the twig index, count up the twig index
+            while (
+                twig_index < len(child_branch) - 1
+                and current_branch[twig_index] == child_branch[twig_index]
+            ):
+                twig_index += 1
+            if twig_index == len(child_branch) - 1 and len(current_branch) == len(
+                child_branch
+            ):
+                # technically the branch_iterator and branch will be too far advanced now,
+                # if we needed to return it we could prune the last entry
+                break
+        return i, current_iterator
+
+    def get_oldest_sibling(self, younger_branch: Branch) -> tuple[int, Iterator]:
+        parent_index, parent_iterator = self.get_parent(younger_branch)
+        return parent_index + 1, parent_iterator
+
     def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
         current_branch, _ = self.get_branch(index, is_box_index)
         found_level = get_level_from_branch(current_branch)
@@ -170,32 +211,34 @@ class RefinementDescriptor:
         return linear_index
 
     def get_siblings(self, hierarchical_index: int) -> list[int]:
-        siblings: list[int] = []
+        siblings: set[int] = {hierarchical_index}
         branch, branch_iterator = self.get_branch(hierarchical_index, False)
         if len(branch) < 2:
             # we are at the root
-            return siblings
+            return list(siblings)
         # assumes we get called on the first index of a sibling group
+        # not valid!!!
         total_num_siblings = 1 << branch[-1].level_increment.count()
-        if branch[-1].count_to_go_up != total_num_siblings:
-            raise ValueError(
-                "This is not the first sibling: " + str(hierarchical_index)
-            )
+        num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
+        if num_older_siblings > 0:
+            hierarchical_index, branch_iterator = self.get_oldest_sibling(branch.copy())
+            siblings.add(hierarchical_index)
 
         running_index = hierarchical_index
-        for i in range(total_num_siblings - 1):
+        for _ in range(total_num_siblings - 1):
             next(branch_iterator)
             _, added_hierarchical_index = self.skip_to_next_neighbor(
                 branch_iterator, self[hierarchical_index]
             )
             running_index += added_hierarchical_index + 1
-            siblings.append(running_index)
+            siblings.add(running_index)
 
-        return siblings
+        assert hierarchical_index in siblings
+        return sorted(list(siblings))
 
     def get_children(self, parent_index: int) -> list[int]:
         first_child_index = parent_index + 1
-        child_indices = [first_child_index] + self.get_siblings(first_child_index)
+        child_indices = self.get_siblings(first_child_index)
         return child_indices
 
     def skip_to_next_neighbor(
@@ -438,7 +481,7 @@ class PlannedAdaptiveRefinement:
     def move_marker_to_parent(
         self, marker: npt.NDArray[np.int8], sibling_indices
     ) -> None:
-        assert len(sibling_indices) > 1 and sibling_indices.bit_count() == 1
+        assert len(sibling_indices) > 1 and len(sibling_indices).bit_count() == 1
         sibling_indices = sorted(sibling_indices)
         # subtract from the current sibling markers
         for sibling in sibling_indices:
@@ -479,9 +522,7 @@ class PlannedAdaptiveRefinement:
 
             # check if refinement can be moved up the branch (even partially);
             # this requires that all siblings are or would be refined
-            siblings = [linear_index] + self._discretization.descriptor.get_siblings(
-                linear_index
-            )
+            siblings = self._discretization.descriptor.get_siblings(linear_index)
 
             all_siblings_refinements = [
                 np.fromiter(

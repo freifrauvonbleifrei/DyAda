@@ -224,17 +224,21 @@ def test_to_hierarchical_index():
 
 def test_get_siblings():
     r = RefinementDescriptor(2, [1, 2])
-    assert r.get_siblings(0) == []
-    assert r.get_siblings(1) == [4, 7, 10]
-    assert r.get_siblings(2) == [3]
-    assert r.get_siblings(5) == [6]
-    assert r.get_siblings(8) == [9]
-    assert r.get_siblings(11) == [12]
 
-    not_first_sibling = [3, 4, 6, 7, 9, 10, 12]
-    for s in not_first_sibling:
-        with pytest.raises(ValueError):
-            r.get_siblings(s)
+    families = {
+        -1: [0],
+        0: [1, 4, 7, 10],
+        1: [2, 3],
+        4: [5, 6],
+        7: [8, 9],
+        10: [11, 12],
+    }
+    for parent, siblings in families.items():
+        for sibling in siblings:
+            ic(parent, sibling)
+            sibling_branch = r.get_branch(sibling, False)[0]
+            assert r.get_parent(sibling_branch)[0] == parent
+            assert r.get_siblings(sibling) == siblings
 
     with pytest.raises(IndexError):
         r.get_siblings(13)
