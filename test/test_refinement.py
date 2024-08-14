@@ -235,7 +235,6 @@ def test_get_siblings():
     }
     for parent, siblings in families.items():
         for sibling in siblings:
-            ic(parent, sibling)
             sibling_branch = r.get_branch(sibling, False)[0]
             assert r.get_parent(sibling_branch)[0] == parent
             assert r.get_siblings(sibling) == siblings
