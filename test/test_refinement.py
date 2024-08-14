@@ -4,11 +4,13 @@ from collections import deque
 import numpy as np
 from os.path import abspath
 
-from dyada.refinement import (
+from dyada.descriptor import (
     generalized_ruler,
     RefinementDescriptor,
-    Discretization,
     validate_descriptor,
+)
+from dyada.refinement import (
+    Discretization,
     PlannedAdaptiveRefinement,
 )
 from dyada.linearization import MortonOrderLinearization
