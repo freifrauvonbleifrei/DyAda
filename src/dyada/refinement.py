@@ -16,11 +16,8 @@ from dyada.coordinates import (
 from dyada.descriptor import (
     Branch,
     RefinementDescriptor,
-    advance_branch,
-    get_empty_branch,
     get_level_from_branch,
     get_regular_refined,
-    grow_branch,
 )
 from dyada.linearization import Linearization
 
@@ -94,7 +91,7 @@ class Discretization:
     def get_containing_box(self, coordinate: Coordinate) -> Union[int, tuple[int, ...]]:
         # traverse the tree
         # start at the root, coordinate has to be in the patch
-        current_branch: Branch = get_empty_branch(self._descriptor.get_num_dimensions())
+        current_branch = Branch(self._descriptor.get_num_dimensions())
         level_index = self.get_level_index_from_branch(current_branch)
         first_patch_bounds = get_coordinates_from_level_index(level_index)
         if not first_patch_bounds.contains(coordinate):
@@ -118,12 +115,12 @@ class Discretization:
                         break
                     else:
                         # go deeper in this branch
-                        grow_branch(current_branch, current_refinement)
+                        current_branch.grow_branch(current_refinement)
                 else:
                     box_index += self._descriptor.skip_to_next_neighbor(
                         descriptor_iterator, current_refinement
                     )[0]
-                    advance_branch(current_branch)
+                    current_branch.advance_branch()
 
             found_box_indices.append(box_index)
             if np.any(
@@ -132,7 +129,7 @@ class Discretization:
             ):
                 # if any of the "upper" faces of the patch touches the coordinate,
                 # there is still more to find
-                advance_branch(current_branch)
+                current_branch.advance_branch()
             else:
                 # all found!
                 break

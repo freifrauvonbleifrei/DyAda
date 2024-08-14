@@ -34,6 +34,31 @@ def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
     return data
 
 
+@dataclass
+class LevelCounter:
+    level_increment: ba.frozenbitarray
+    count_to_go_up: int
+
+
+class Branch(deque[LevelCounter]):
+    def __init__(self, num_dimensions: int):
+        dZeros = ba.frozenbitarray([0] * num_dimensions)
+        self.append(LevelCounter(dZeros, 1))
+
+    def advance_branch(self) -> None:
+        """Advance the branch to the next sibling, in-place"""
+        self[-1].count_to_go_up -= 1
+        assert self[-1].count_to_go_up >= 0
+        while self[-1].count_to_go_up == 0:
+            self.pop()
+            self[-1].count_to_go_up -= 1
+            assert self[-1].count_to_go_up >= 0
+
+    def grow_branch(self, level_increment: ba.frozenbitarray) -> None:
+        # power of two by bitshift
+        self.append(LevelCounter(level_increment, 1 << level_increment.count()))
+
+
 class RefinementDescriptor:
     """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
 
@@ -102,83 +127,6 @@ class RefinementDescriptor:
             ba.frozenbitarray("1" * self._num_dimensions),
         }
 
-    @dataclass
-    class LevelCounter:
-        level_increment: ba.frozenbitarray
-        count_to_go_up: int
-
-    Branch = deque[LevelCounter]
-
-    def get_branch(
-        self, index: int, is_box_index: bool = True
-    ) -> tuple[Branch, Iterator]:
-        if index < 0 or index >= len(self):
-            raise IndexError("Index out of range")
-
-        # traverse tree
-        # store/stack how many boxes on this level are left to go up again
-        current_branch: Branch = get_empty_branch(self._num_dimensions)
-        box_counter = 0
-        i = 0
-        current_iterator = iter(self)
-        while is_box_index or i < index:
-            current_refinement = next(current_iterator)
-            if current_refinement == self.d_zeros:
-                box_counter += 1
-                if is_box_index and box_counter > index:
-                    break
-                advance_branch(current_branch)
-            else:
-                grow_branch(current_branch, current_refinement)
-            i += 1
-        return current_branch, current_iterator
-
-    def get_parent(self, child_branch: Branch) -> tuple[int, Iterator]:
-        """Find the parent index of a lost child node by advancing and
-        growing a branch until it matches the child's branch sufficiently.
-
-        Args:
-            child_branch (Branch): the branch belonging to the child index
-
-        Returns:
-            tuple[int, Iterator]: the index of the parent and
-                the iterator to one-past-the-parent
-        """
-        current_iterator = iter(self)
-        if len(child_branch) < 2:
-            return -1, current_iterator
-        # have to start from beginning, note when we go down matching twigs
-        current_branch: Branch = get_empty_branch(self._num_dimensions)
-        twig_index = 1
-        for i in range(len(self)):
-            current_refinement = next(current_iterator)
-            if current_refinement == self.d_zeros:
-                advance_branch(current_branch)
-            else:
-                grow_branch(current_branch, current_refinement)
-            # if this matches the child at the twig index, count up the twig index
-            if (
-                twig_index < len(child_branch) - 1
-                and current_branch[twig_index] == child_branch[twig_index]
-            ):
-                twig_index += 1
-            if twig_index == len(child_branch) - 1 and len(current_branch) == len(
-                child_branch
-            ):
-                # technically the branch_iterator and branch will be too far advanced now,
-                # if we needed to return it we could prune the last entry
-                break
-        return i, current_iterator
-
-    def get_oldest_sibling(self, younger_branch: Branch) -> tuple[int, Iterator]:
-        parent_index, parent_iterator = self.get_parent(younger_branch)
-        return parent_index + 1, parent_iterator
-
-    def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
-        current_branch, _ = self.get_branch(index, is_box_index)
-        found_level = get_level_from_branch(current_branch)
-        return found_level
-
     def to_box_index(self, index: int) -> int:
         assert self.is_box(index)
         # count zeros up to index, zero-indexed
@@ -203,6 +151,76 @@ class RefinementDescriptor:
         assert self.is_box(linear_index)
         return linear_index
 
+    def get_branch(
+        self, index: int, is_box_index: bool = True
+    ) -> tuple[Branch, Iterator]:
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+
+        # traverse tree
+        # store/stack how many boxes on this level are left to go up again
+        current_branch = Branch(self._num_dimensions)
+        box_counter = 0
+        i = 0
+        current_iterator = iter(self)
+        while is_box_index or i < index:
+            current_refinement = next(current_iterator)
+            if current_refinement == self.d_zeros:
+                box_counter += 1
+                if is_box_index and box_counter > index:
+                    break
+                current_branch.advance_branch()
+            else:
+                current_branch.grow_branch(current_refinement)
+            i += 1
+        return current_branch, current_iterator
+
+    def get_parent(self, child_branch: Branch) -> tuple[int, Iterator]:
+        """Find the parent index of a lost child node by advancing and
+        growing a branch until it matches the child's branch sufficiently.
+
+        Args:
+            child_branch (Branch): the branch belonging to the child index
+
+        Returns:
+            tuple[int, Iterator]: the index of the parent and
+                the iterator to one-past-the-parent
+        """
+        current_iterator = iter(self)
+        if len(child_branch) < 2:
+            return -1, current_iterator
+        # have to start from beginning, note when we go down matching twigs
+        current_branch = Branch(self._num_dimensions)
+        twig_index = 1
+        for i in range(len(self)):
+            current_refinement = next(current_iterator)
+            if current_refinement == self.d_zeros:
+                current_branch.advance_branch()
+            else:
+                current_branch.grow_branch(current_refinement)
+            # if this matches the child at the twig index, count up the twig index
+            if (
+                twig_index < len(child_branch) - 1
+                and current_branch[twig_index] == child_branch[twig_index]
+            ):
+                twig_index += 1
+            if twig_index == len(child_branch) - 1 and len(current_branch) == len(
+                child_branch
+            ):
+                # technically the branch_iterator and branch will be too far advanced now,
+                # if we needed to return it we could prune the last entry
+                break
+        return i, current_iterator
+
+    def get_oldest_sibling(self, younger_branch: Branch) -> tuple[int, Iterator]:
+        parent_index, parent_iterator = self.get_parent(younger_branch)
+        return parent_index + 1, parent_iterator
+
+    def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
+        current_branch, _ = self.get_branch(index, is_box_index)
+        found_level = get_level_from_branch(current_branch)
+        return found_level
+
     def get_siblings(self, hierarchical_index: int) -> list[int]:
         siblings: set[int] = {hierarchical_index}
         branch, branch_iterator = self.get_branch(hierarchical_index, False)
@@ -214,7 +232,7 @@ class RefinementDescriptor:
         total_num_siblings = 1 << branch[-1].level_increment.count()
         num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
         if num_older_siblings > 0:
-            hierarchical_index, branch_iterator = self.get_oldest_sibling(branch.copy())
+            hierarchical_index, branch_iterator = self.get_oldest_sibling(branch)
             siblings.add(hierarchical_index)
 
         running_index = hierarchical_index
@@ -271,23 +289,6 @@ def validate_descriptor(descriptor: RefinementDescriptor):
     return True
 
 
-Branch = RefinementDescriptor.Branch
-
-
-def get_empty_branch(num_dimensions: int) -> Branch:
-    dZeros = ba.frozenbitarray([0] * num_dimensions)
-    current_branch: Branch = deque()
-    current_branch.append(RefinementDescriptor.LevelCounter(dZeros, 1))
-    return current_branch
-
-
-def grow_branch(branch: Branch, level_increment: ba.frozenbitarray) -> None:
-    # power of two by bitshift
-    branch.append(
-        RefinementDescriptor.LevelCounter(level_increment, 1 << level_increment.count())
-    )
-
-
 def get_level_from_branch(branch: Branch) -> np.ndarray:
     num_dimensions = len(branch[0].level_increment)
     found_level = np.array([0] * num_dimensions, dtype=np.int8)
@@ -296,13 +297,3 @@ def get_level_from_branch(branch: Branch) -> np.ndarray:
             branch[level_count].level_increment, dtype=np.int8, count=num_dimensions
         )
     return found_level
-
-
-def advance_branch(branch: Branch) -> None:
-    """Advance the branch to the next sibling, in-place"""
-    branch[-1].count_to_go_up -= 1
-    assert branch[-1].count_to_go_up >= 0
-    while branch[-1].count_to_go_up == 0:
-        branch.pop()
-        branch[-1].count_to_go_up -= 1
-        assert branch[-1].count_to_go_up >= 0

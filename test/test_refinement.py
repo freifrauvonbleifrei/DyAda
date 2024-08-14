@@ -6,6 +6,7 @@ from os.path import abspath
 
 from dyada.descriptor import (
     generalized_ruler,
+    LevelCounter,
     RefinementDescriptor,
     validate_descriptor,
 )
@@ -123,15 +124,15 @@ def test_get_branch():
     assert r.get_branch(9, False)[0] == r.get_branch(5, True)[0]
     assert r.get_branch(9, False)[0] == deque(
         [
-            RefinementDescriptor.LevelCounter(
+            LevelCounter(
                 level_increment=ba.frozenbitarray("00"),
                 count_to_go_up=1,
             ),
-            RefinementDescriptor.LevelCounter(
+            LevelCounter(
                 level_increment=ba.frozenbitarray("11"),
                 count_to_go_up=2,
             ),
-            RefinementDescriptor.LevelCounter(
+            LevelCounter(
                 level_increment=ba.frozenbitarray("01"),
                 count_to_go_up=1,
             ),
