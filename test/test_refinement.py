@@ -303,7 +303,7 @@ def test_get_box_from_coordinate():
         r.get_containing_box(np.array([1.5, 1.5]))
 
 
-def test_refine():
+def test_refine_2d_only_leaves():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(0, ba.bitarray("01"))
@@ -316,7 +316,19 @@ def test_refine():
     assert validate_descriptor(r.descriptor)
 
 
-def test_refine_simplest():
+def test_refine_3d_only_leaves():
+    descriptor = RefinementDescriptor(3, [1, 0, 1])
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(0, ba.bitarray("101"))
+    p.plan_refinement(1, ba.bitarray("001"))
+    p.plan_refinement(2, ba.bitarray("010"))
+    new_descriptor = p.apply_refinements()
+    assert new_descriptor.get_num_boxes() == 9
+    assert validate_descriptor(new_descriptor)
+
+
+def test_refine_simplest_not_only_leaves():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(1, ba.bitarray("10"))
