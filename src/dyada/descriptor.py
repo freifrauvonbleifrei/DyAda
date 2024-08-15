@@ -41,6 +41,15 @@ class LevelCounter:
 
 
 class Branch(deque[LevelCounter]):
+    """A branch points us to a location in a tree: it is a stack (implemented
+    as deque) of LevelCounter "twigs" of level increments and a count that goes
+    down as we progress in the number of siblings (this count is always
+    initialized to the number of children of the node with the respective
+    level_increment/refinement).
+    Note that the refinement of the considered node itself is not part of
+    the branch, there is only the parent refinement.
+    """
+
     def __init__(self, num_dimensions: int):
         dZeros = ba.frozenbitarray([0] * num_dimensions)
         self.append(LevelCounter(dZeros, 1))
@@ -55,6 +64,7 @@ class Branch(deque[LevelCounter]):
             assert self[-1].count_to_go_up >= 0
 
     def grow_branch(self, level_increment: ba.frozenbitarray) -> None:
+        """Go deeper in the branch hierarchy / add a twig"""
         # power of two by bitshift
         self.append(LevelCounter(level_increment, 1 << level_increment.count()))
 
@@ -175,6 +185,7 @@ class RefinementDescriptor:
             i += 1
         return current_branch, current_iterator
 
+    # now a collection of branch-based family-finding functions
     def get_parent(self, child_branch: Branch) -> tuple[int, Iterator]:
         """Find the parent index of a lost child node by advancing and
         growing a branch until it matches the child's branch sufficiently.
@@ -216,19 +227,12 @@ class RefinementDescriptor:
         parent_index, parent_iterator = self.get_parent(younger_branch)
         return parent_index + 1, parent_iterator
 
-    def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
-        current_branch, _ = self.get_branch(index, is_box_index)
-        found_level = get_level_from_branch(current_branch)
-        return found_level
-
     def get_siblings(self, hierarchical_index: int) -> list[int]:
         siblings: set[int] = {hierarchical_index}
         branch, branch_iterator = self.get_branch(hierarchical_index, False)
         if len(branch) < 2:
             # we are at the root
             return list(siblings)
-        # assumes we get called on the first index of a sibling group
-        # not valid!!!
         total_num_siblings = 1 << branch[-1].level_increment.count()
         num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
         if num_older_siblings > 0:
@@ -251,6 +255,11 @@ class RefinementDescriptor:
         first_child_index = parent_index + 1
         child_indices = self.get_siblings(first_child_index)
         return child_indices
+
+    def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
+        current_branch, _ = self.get_branch(index, is_box_index)
+        found_level = get_level_from_branch(current_branch)
+        return found_level
 
     def skip_to_next_neighbor(
         self, descriptor_iterator: Iterator, current_refinement: ba.frozenbitarray
