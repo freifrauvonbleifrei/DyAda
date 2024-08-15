@@ -274,7 +274,7 @@ class PlannedAdaptiveRefinement:
         self, new_descriptor: RefinementDescriptor, data_interval: tuple[int, int]
     ):
         linearization = self._discretization._linearization
-        
+
         # filter the markers to the current interval
         filtered_markers = {
             k: v
