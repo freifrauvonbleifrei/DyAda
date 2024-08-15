@@ -298,9 +298,7 @@ class PlannedAdaptiveRefinement:
         else:
             # copy all and return
             new_descriptor._data.extend(
-                self._discretization.descriptor[
-                    data_interval[0] : data_interval[1]
-                ]
+                self._discretization.descriptor[data_interval[0] : data_interval[1]]
             )
             return
 
