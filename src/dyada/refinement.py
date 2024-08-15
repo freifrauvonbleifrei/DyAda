@@ -208,7 +208,9 @@ class PlannedAdaptiveRefinement:
             descendants_indices = self._discretization.descriptor.get_children(
                 ancestor_index
             )
-        assert len(descendants_indices) > 1 and descendants_indices.bit_count() == 1
+        assert (
+            len(descendants_indices) > 1 and len(descendants_indices).bit_count() == 1
+        )
         assert ancestor_index < min(descendants_indices)
         # subtract from the ancestor
         self._markers[ancestor_index] -= marker
@@ -271,7 +273,15 @@ class PlannedAdaptiveRefinement:
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor, data_interval: tuple[int, int]
     ):
-        minimum_marked = min(self._markers.keys(), default=-1)
+        linearization = self._discretization._linearization
+        
+        # filter the markers to the current interval
+        filtered_markers = {
+            k: v
+            for k, v in self._markers.items()
+            if data_interval[0] <= k and k < data_interval[1]
+        }
+        minimum_marked = min(filtered_markers.keys(), default=-1)
 
         if data_interval[0] <= minimum_marked and minimum_marked < data_interval[1]:
             # copy up to marked
