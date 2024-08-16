@@ -68,6 +68,22 @@ class Branch(deque[LevelCounter]):
         # power of two by bitshift
         self.append(LevelCounter(level_increment, 1 << level_increment.count()))
 
+    def __repr__(self) -> str:
+        return f"Branch({self})"
+
+    def to_history(self) -> tuple[list[int], list[ba.frozenbitarray]]:
+        history_of_indices: list[int] = []
+        history_of_level_increments: list[ba.frozenbitarray] = []
+        for level_count in range(1, len(self)):
+            current_refinement = self[level_count].level_increment
+            # power of two by bitshift
+            linear_index_at_level = (1 << current_refinement.count()) - self[
+                level_count
+            ].count_to_go_up
+            history_of_level_increments.append(current_refinement)
+            history_of_indices.append(linear_index_at_level)
+        return history_of_indices, history_of_level_increments
+
 
 class RefinementDescriptor:
     """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
@@ -252,6 +268,8 @@ class RefinementDescriptor:
         return sorted(list(siblings))
 
     def get_children(self, parent_index: int) -> list[int]:
+        if self.is_box(parent_index):
+            return []
         first_child_index = parent_index + 1
         child_indices = self.get_siblings(first_child_index)
         return child_indices

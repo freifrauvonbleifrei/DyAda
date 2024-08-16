@@ -31,24 +31,16 @@ def get_level_index_from_branch(
     # once the branch is found, we can infer the vector index from the branch stack
     current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
     decreasing_level_difference = found_level.copy()
-    history_of_indices: list[int] = []
-    history_of_level_increments: list[ba.bitarray] = []
+    history_of_indices, history_of_level_increments = branch.to_history()
     for level_count in range(1, len(branch)):
-        current_refinement = branch[level_count].level_increment
-        # power of two by bitshift
-        linear_index_at_level = (1 << current_refinement.count()) - branch[
-            level_count
-        ].count_to_go_up
-        history_of_level_increments.append(current_refinement)
-        history_of_indices.append(linear_index_at_level)
         bit_index = linearization.get_binary_position_from_index(
-            history_of_indices,
-            history_of_level_increments,
+            history_of_indices[:level_count],
+            history_of_level_increments[:level_count],
         )
         array_index = np.fromiter(bit_index, dtype=np.int8, count=num_dimensions)
         assert len(array_index) == num_dimensions
         decreasing_level_difference -= np.fromiter(
-            current_refinement, dtype=np.uint8, count=num_dimensions
+            branch[level_count].level_increment, dtype=np.uint8, count=num_dimensions
         )
         # power of two by bitshift
         current_index += array_index * 1 << decreasing_level_difference
