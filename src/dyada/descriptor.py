@@ -5,6 +5,7 @@ from functools import cached_property
 import numpy as np
 import numpy.typing as npt
 import operator
+from reprlib import repr
 from typing import Iterator, Sequence
 
 
@@ -69,7 +70,10 @@ class Branch(deque[LevelCounter]):
         self.append(LevelCounter(level_increment, 1 << level_increment.count()))
 
     def __repr__(self) -> str:
-        return f"Branch({self})"
+        contents = ""
+        for twig in self:
+            contents += f"{twig.level_increment}({twig.count_to_go_up})-"
+        return f"Branch({contents})"
 
     def to_history(self) -> tuple[list[int], list[ba.frozenbitarray]]:
         history_of_indices: list[int] = []
@@ -127,6 +131,9 @@ class RefinementDescriptor:
 
     def is_box(self, index: int):
         return self[index] == self.d_zeros
+
+    def __repr__(self) -> str:
+        return f"RefinementDescriptor({repr([b.to01() for b in self])})"
 
     def __iter__(self):
         for i in range(len(self)):
