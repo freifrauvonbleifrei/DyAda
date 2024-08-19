@@ -40,7 +40,6 @@ def test_zero_level():
         r = RefinementDescriptor(i, 0)
         assert len(r) == 1
         assert r.get_data().any() == False
-        print(r.get_data())
         assert r.get_num_boxes() == 1
         validate_descriptor(r)
 
@@ -80,7 +79,6 @@ def test_six_d():
                 lengths.append(current_length)
                 current_length = 0
         assert lengths == generalized_ruler(6, l - 1).tolist()
-        print(r.is_pow2tree())
         assert r.is_pow2tree() == True
         validate_descriptor(r)
 
@@ -307,12 +305,13 @@ def test_refine_2d_only_leaves():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(0, ba.bitarray("01"))
+    p.plan_refinement(0, ba.bitarray("01"))
     p.plan_refinement(1, ba.bitarray("10"))
     p.plan_refinement(2, ba.bitarray("11"))
     p.plan_refinement(4, ba.bitarray("11"))
     p.plan_refinement(6, ba.bitarray("01"))
 
-    # p.apply_refinements() #TODO
+    p.apply_refinements()
     assert validate_descriptor(r.descriptor)
 
 
@@ -331,35 +330,33 @@ def test_refine_3d_only_leaves():
 def test_refine_simplest_not_only_leaves():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
     p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(1, ba.bitarray("10"))
     p.plan_refinement(0, ba.bitarray("01"))
 
     assert p._planned_refinements.queue == [
         (1, ba.bitarray("01")),
-        (2, ba.bitarray("10")),
     ]
 
     # don't do this at home -- call p.apply_refinements() directly
     p.populate_queue()
     assert p._planned_refinements.empty()
-    assert (
-        len(p._markers) == 2
-        and all(p._markers[1] == [0, 1])
-        and all(p._markers[2] == [1, 0])
-    )
-    assert p._upward_queue.queue == [(-1, 1), (-1, 2)]
+    assert len(p._markers) == 1 and all(p._markers[1] == [0, 1])
+    assert p._upward_queue.queue == [(-1, 1)]
 
     p.upwards_sweep()
-    assert (
-        len(p._markers) == 2
-        and all(p._markers[1] == [0, 1])
-        and all(p._markers[2] == [1, 0])
-    )
+    assert len(p._markers) == 1 and all(p._markers[1] == [0, 1])
     assert p._upward_queue.empty()
 
     new_descriptor = p.create_new_descriptor()
-    assert new_descriptor._data == ba.bitarray("10010000100000")
+    assert new_descriptor._data == ba.bitarray("1001000000")
     assert validate_descriptor(new_descriptor)
+
+    r = Discretization(MortonOrderLinearization(), new_descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(2, ba.bitarray("01"))
+
+    new_descriptor_2 = p.apply_refinements()
+    assert new_descriptor_2._data == RefinementDescriptor(2, [1, 1])._data
+    assert validate_descriptor(new_descriptor_2)
 
 
 if __name__ == "__main__":
