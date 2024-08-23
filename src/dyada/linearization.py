@@ -54,13 +54,17 @@ class MortonOrderLinearization(Linearization):
         this_level_increment = history_of_level_increments[-1]
         assert this_level_increment.count() > 0
         assert len(binary_position) == len(this_level_increment)
+        for i in range(len(binary_position)):
+            if binary_position[i]:
+                assert this_level_increment[i]
         number_of_dimensions = len(this_level_increment)
         index_in_box = 0
 
         # first dimension is the most contiguous
         for dim_index in reversed(range(number_of_dimensions)):
-            index_in_box <<= 1
-            if binary_position[dim_index]:
-                index_in_box += 1
+            if this_level_increment[dim_index]:
+                index_in_box <<= 1
+                if binary_position[dim_index]:
+                    index_in_box += 1
 
         return index_in_box
