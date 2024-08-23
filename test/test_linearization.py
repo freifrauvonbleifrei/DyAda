@@ -109,7 +109,11 @@ def test_get_index_morton_order():
     position = lin.get_index_from_binary_position(
         ba.bitarray("01"), [], [level_increment]
     )
-    assert position == 2
+    assert position == 1
+    with pytest.raises(AssertionError):
+        lin.get_index_from_binary_position(ba.bitarray("10"), [], [level_increment])
+    with pytest.raises(AssertionError):
+        lin.get_index_from_binary_position(ba.bitarray("11"), [], [level_increment])
 
     level_increment = ba.bitarray("10")
     position = lin.get_index_from_binary_position(
