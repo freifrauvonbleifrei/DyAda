@@ -198,7 +198,7 @@ class PlannedAdaptiveRefinement:
         if descendants_indices is None:
             # assume we want the direct children
             descendants_indices = self._discretization.descriptor.get_children(
-                ancestor_index
+                ancestor_index, and_after=False
             )
         if len(descendants_indices) == 0:
             assert np.all(marker == np.zeros(marker.shape, dtype=np.int8))
@@ -282,9 +282,8 @@ class PlannedAdaptiveRefinement:
     def refine_with_children(
         self,
         new_descriptor: RefinementDescriptor,
-        parent_index,
-        children_indices,
-        index_after_children,
+        parent_index: int,
+        children_intervals: list[tuple[int, int]],
     ) -> list[RefinementCommission]:
 
         linearization = self._discretization._linearization
@@ -296,8 +295,7 @@ class PlannedAdaptiveRefinement:
         # anything > 1 is split off and pushed down to children's markers
         remaining_marker = parent_added_refinement.copy()
         remaining_marker[remaining_marker > 0] -= 1
-        for child in children_indices:
-            self.move_marker_to_descendants(parent_index, remaining_marker)
+        self.move_marker_to_descendants(parent_index, remaining_marker)
         parent_added_refinement[parent_added_refinement > 0] = 1
         parent_added_refinement_bits = ba.bitarray(list(parent_added_refinement))
 
@@ -312,13 +310,11 @@ class PlannedAdaptiveRefinement:
         ]
 
         new_child_factor = 1 << parent_added_refinement_bits.count()
-
-        # if the number of children matches the refinement: adopt grandchildren and interleave
         grandchildren: list[list[tuple[int, int]]] = [
-            [] for _ in range(len(children_indices))
+            [] for _ in range(len(children_intervals))
         ]
-        children_and_end = [*children_indices, index_after_children]
-        for i, child in enumerate(children_indices):
+        for i, child_interval in enumerate(children_intervals):
+            child = child_interval[0]
             grandchildren_indices, index_after_grandchildren = (
                 old_descriptor.get_children(child, and_after=True)
             )
@@ -327,22 +323,33 @@ class PlannedAdaptiveRefinement:
             for begin, after_end in pairwise(grandchildren_indices):
                 grandchildren[i].append((begin, after_end))
 
+        future_branch, _ = new_descriptor.get_branch(parent_index, False)
+        (
+            future_history_of_indices,
+            future_history_of_level_increments,
+        ) = future_branch.to_history()
+        future_history_of_level_increments.append(parent_final_refinement)
+
         # generate all binary strings of length num_dimensions
         def binary_position_gen(num_dimensions: int):
             for zero_ones in product(*tee(range(2), num_dimensions)):
                 yield ba.frozenbitarray(zero_ones)
 
-        for i, child in enumerate(children_indices):
+        for i, child_interval in enumerate(children_intervals):
+            child = child_interval[0]
             child_current_refinement = old_descriptor[child]
             # if any upward refinement bits are set, there needs to be some
             # mixed refinement / reordering of the grandchildren
             upward_refinement_bits = (
-                parent_current_refinement & child_current_refinement
+                ~parent_current_refinement
+                & child_current_refinement
+                & parent_final_refinement
             )
             if (
                 len(grandchildren[i]) == new_child_factor
-                and upward_refinement_bits.count() == 0
+                and upward_refinement_bits == child_current_refinement
             ):
+                # if this is the case, adopt the grandchildren
                 # get branch of first grandchild...
                 branch, _ = old_descriptor.get_branch(grandchildren[i][0][0], False)
                 # to find the respective indices in the inner and outer boxes
@@ -352,12 +359,6 @@ class PlannedAdaptiveRefinement:
                     history_of_level_increments[:-1],
                 )
                 assert child_current_refinement == history_of_level_increments[-1]
-                future_branch, _ = new_descriptor.get_branch(parent_index, False)
-                (
-                    future_history_of_indices,
-                    future_history_of_level_increments,
-                ) = future_branch.to_history()
-                future_history_of_level_increments.append(parent_final_refinement)
 
                 for j, grandchild in enumerate(grandchildren[i]):
                     history_of_indices[-1] = j
@@ -410,12 +411,6 @@ class PlannedAdaptiveRefinement:
                     history_of_level_increments,
                 )
                 child_added_refinement_bits = parent_added_refinement_bits
-                future_branch, _ = new_descriptor.get_branch(parent_index, False)
-                (
-                    future_history_of_indices,
-                    future_history_of_level_increments,
-                ) = future_branch.to_history()
-                future_history_of_level_increments.append(parent_final_refinement)
 
                 num_grandchildren = 1 << child_added_refinement_bits.count()
 
@@ -520,11 +515,12 @@ class PlannedAdaptiveRefinement:
                 children, index_after_children = old_descriptor.get_children(
                     minimum_marked, and_after=True
                 )
+                children_and_end = [*children, index_after_children]
+                children_intervals = []
+                for begin, after_end in pairwise(children_and_end):
+                    children_intervals.append((begin, after_end))
                 reordered_new_children = self.refine_with_children(
-                    new_descriptor,
-                    minimum_marked,
-                    children,
-                    index_after_children,
+                    new_descriptor, minimum_marked, children_intervals
                 )
 
                 for child_interval in reordered_new_children:
@@ -533,6 +529,7 @@ class PlannedAdaptiveRefinement:
                     max(component for component in child_interval_)
                     for child_interval_ in reordered_new_children
                 )
+
             if (last_processed + 1) != data_interval.upper:
                 assert (last_processed + 1) < data_interval.upper
                 # call again with remaining interval
