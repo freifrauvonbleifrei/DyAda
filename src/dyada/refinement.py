@@ -397,13 +397,16 @@ class PlannedAdaptiveRefinement:
                         assert (
                             child_current_refinement == history_of_level_increments[-1]
                         )
-                        future_history_of_level_increments = (
-                            history_of_level_increments.copy()
+                        future_branch, _ = new_descriptor.get_branch(
+                            minimum_marked, False
                         )
-                        future_history_of_level_increments = (
-                            future_history_of_level_increments[:-1]
+                        (
+                            future_history_of_indices,
+                            future_history_of_level_increments,
+                        ) = future_branch.to_history()
+                        future_history_of_level_increments.append(
+                            marked_final_refinement
                         )
-                        future_history_of_level_increments[-1] = marked_final_refinement
 
                         for j, grandchild in enumerate(grandchildren[i]):
                             history_of_indices[-1] = j
@@ -429,7 +432,7 @@ class PlannedAdaptiveRefinement:
                             grandchild_index_in_new_box = (
                                 linearization.get_index_from_binary_position(
                                     interleaved_binary_position,
-                                    history_of_indices[:-2],
+                                    future_history_of_indices,
                                     future_history_of_level_increments,
                                 )
                             )
@@ -468,8 +471,16 @@ class PlannedAdaptiveRefinement:
                             )
                         )
                         child_added_refinement_bits = marked_added_refinement_bits
-                        future_history_of_level_increments = history_of_level_increments
-                        future_history_of_level_increments[-1] = marked_final_refinement
+                        future_branch, _ = new_descriptor.get_branch(
+                            minimum_marked, False
+                        )
+                        (
+                            future_history_of_indices,
+                            future_history_of_level_increments,
+                        ) = future_branch.to_history()
+                        future_history_of_level_increments.append(
+                            marked_final_refinement
+                        )
 
                         num_grandchildren = 1 << child_added_refinement_bits.count()
 
@@ -506,7 +517,7 @@ class PlannedAdaptiveRefinement:
                             grandchild_index_in_new_box = (
                                 linearization.get_index_from_binary_position(
                                     interleaved_binary_position,
-                                    history_of_indices[:-2],
+                                    future_history_of_indices,
                                     future_history_of_level_increments,
                                 )
                             )
