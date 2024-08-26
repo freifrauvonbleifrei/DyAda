@@ -250,12 +250,15 @@ class RefinementDescriptor:
         parent_index, parent_iterator = self.get_parent(younger_branch)
         return parent_index + 1, parent_iterator
 
-    def get_siblings(self, hierarchical_index: int) -> list[int]:
+    def get_siblings(self, hierarchical_index: int, and_after: bool = False):
         siblings: set[int] = {hierarchical_index}
         branch, branch_iterator = self.get_branch(hierarchical_index, False)
         if len(branch) < 2:
             # we are at the root
-            return list(siblings)
+            if and_after:
+                return list(siblings), len(self)
+            else:
+                return list(siblings)
         total_num_siblings = 1 << branch[-1].level_increment.count()
         num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
         if num_older_siblings > 0:
@@ -265,21 +268,34 @@ class RefinementDescriptor:
         running_index = hierarchical_index
         for _ in range(total_num_siblings - 1):
             next(branch_iterator)
-            _, added_hierarchical_index = self.skip_to_next_neighbor(
-                branch_iterator, self[hierarchical_index]
+            running_index += (
+                self.skip_to_next_neighbor(branch_iterator, self[hierarchical_index])[1]
+                + 1
             )
-            running_index += added_hierarchical_index + 1
             siblings.add(running_index)
-
         assert hierarchical_index in siblings
-        return sorted(list(siblings))
+        if and_after:
+            # iterate to the end of the current patch
+            next(branch_iterator)
+            try:
+                running_index += (
+                    self.skip_to_next_neighbor(
+                        branch_iterator, self[hierarchical_index]
+                    )[1]
+                    + 1
+                )
+            except StopIteration:
+                running_index = len(self)
+                pass
+            return sorted(list(siblings)), running_index
+        else:
+            return sorted(list(siblings))
 
-    def get_children(self, parent_index: int) -> list[int]:
+    def get_children(self, parent_index: int, and_after: bool = False):
         if self.is_box(parent_index):
-            return []
+            return [], parent_index + 1
         first_child_index = parent_index + 1
-        child_indices = self.get_siblings(first_child_index)
-        return child_indices
+        return self.get_siblings(first_child_index, and_after=and_after)
 
     def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
         current_branch, _ = self.get_branch(index, is_box_index)

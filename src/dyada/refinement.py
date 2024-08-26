@@ -228,7 +228,9 @@ class PlannedAdaptiveRefinement:
             if linear_index != 0:
                 # check if refinement can be moved up the branch (even partially);
                 # this requires that all siblings are or would be refined
-                siblings = self._discretization.descriptor.get_siblings(linear_index)
+                siblings = self._discretization.descriptor.get_siblings(
+                    linear_index, and_after=False
+                )
 
                 all_siblings_refinements = [
                     np.fromiter(
@@ -317,9 +319,11 @@ class PlannedAdaptiveRefinement:
         ]
         children_and_end = [*children_indices, index_after_children]
         for i, child in enumerate(children_indices):
-            grandchildren_indices = old_descriptor.get_children(child)
+            grandchildren_indices, index_after_grandchildren = (
+                old_descriptor.get_children(child, and_after=True)
+            )
             # transform to index intervals
-            grandchildren_indices.append(children_and_end[i + 1])
+            grandchildren_indices.append(index_after_grandchildren)
             for begin, after_end in pairwise(grandchildren_indices):
                 grandchildren[i].append((begin, after_end))
 
@@ -482,6 +486,7 @@ class PlannedAdaptiveRefinement:
             minimum_marked = -2
 
         if data_interval.lower == -1:
+            # here, a former leaf/box is growing children
             assert (
                 data_interval.upper == -1
                 and minimum_marked == -2
@@ -512,13 +517,14 @@ class PlannedAdaptiveRefinement:
             else:
                 # if the marked item is a patch, recursively call on the descendant intervals in the sub-tree
                 # but re-sorted/interleaved according to linearization
-                children = old_descriptor.get_children(minimum_marked)
-                # index_after_children = old_descriptor.skip_to_next_neighbor() #TODO this is more right
+                children, index_after_children = old_descriptor.get_children(
+                    minimum_marked, and_after=True
+                )
                 reordered_new_children = self.refine_with_children(
                     new_descriptor,
                     minimum_marked,
                     children,
-                    index_after_children=data_interval.upper,
+                    index_after_children,
                 )
 
                 for child_interval in reordered_new_children:

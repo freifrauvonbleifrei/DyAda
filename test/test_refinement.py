@@ -223,7 +223,7 @@ def test_to_hierarchical_index():
         r.to_hierarchical_index(8)
 
 
-def test_get_siblings():
+def test_family_relations():
     r = RefinementDescriptor(2, [1, 2])
 
     families = {
@@ -239,6 +239,9 @@ def test_get_siblings():
             sibling_branch = r.get_branch(sibling, False)[0]
             assert r.get_parent(sibling_branch)[0] == parent
             assert r.get_siblings(sibling) == siblings
+            if parent in [-1, 0, 10]:
+                assert r.get_siblings(sibling, and_after=True)[1] == 13
+        assert r.get_children(parent, and_after=False) == siblings
 
     with pytest.raises(IndexError):
         r.get_siblings(13)
