@@ -1,6 +1,13 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
+from itertools import product, tee
 from typing import Sequence
+
+
+def binary_position_gen(num_dimensions: int):
+    """generate all binary strings of length num_dimensions"""
+    for zero_ones in product(*tee(range(2), num_dimensions)):
+        yield ba.frozenbitarray(zero_ones)
 
 
 class Linearization(ABC):

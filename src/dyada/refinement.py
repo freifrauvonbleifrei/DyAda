@@ -1,7 +1,7 @@
 import bitarray as ba
 from collections import defaultdict
 from dataclasses import dataclass
-from itertools import pairwise, product, tee
+from itertools import pairwise
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
@@ -19,7 +19,7 @@ from dyada.descriptor import (
     get_level_from_branch,
     get_regular_refined,
 )
-from dyada.linearization import Linearization
+from dyada.linearization import Linearization, binary_position_gen
 
 
 def get_level_index_from_branch(
@@ -329,11 +329,6 @@ class PlannedAdaptiveRefinement:
             future_history_of_level_increments,
         ) = future_branch.to_history()
         future_history_of_level_increments.append(parent_final_refinement)
-
-        # generate all binary strings of length num_dimensions
-        def binary_position_gen(num_dimensions: int):
-            for zero_ones in product(*tee(range(2), num_dimensions)):
-                yield ba.frozenbitarray(zero_ones)
 
         for i, child_interval in enumerate(children_intervals):
             child = child_interval[0]
