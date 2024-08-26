@@ -293,7 +293,9 @@ class RefinementDescriptor:
 
     def get_children(self, parent_index: int, and_after: bool = False):
         if self.is_box(parent_index):
-            return [], parent_index + 1
+            if and_after:
+                return [], parent_index + 1
+            return []
         first_child_index = parent_index + 1
         return self.get_siblings(first_child_index, and_after=and_after)
 
