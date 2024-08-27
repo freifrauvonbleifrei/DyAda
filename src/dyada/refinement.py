@@ -1,6 +1,6 @@
 import bitarray as ba
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import pairwise
 import numpy as np
 import numpy.typing as npt
@@ -273,13 +273,8 @@ class PlannedAdaptiveRefinement:
         lower: int
         upper: int
         refine_from_index: int = -1
-        split_dimensions: ba.bitarray = ba.bitarray()
-        split_binary_position: ba.bitarray = ba.bitarray()
-
-        def __iter__(self):
-            yield self.lower
-            yield self.upper
-            yield self.refine_from_index
+        split_dimensions: ba.bitarray = field(default_factory=ba.bitarray)
+        split_binary_position: ba.bitarray = field(default_factory=ba.bitarray)
 
     def refine_with_children(
         self,
