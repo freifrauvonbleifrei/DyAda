@@ -362,6 +362,49 @@ def test_refine_simplest_not_only_leaves():
     assert validate_descriptor(new_descriptor_2)
 
 
+def test_refine_simplest_grandchild_split():
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(0, ba.bitarray("01"))
+    p.plan_refinement(1, ba.bitarray("10"))
+
+    assert p._planned_refinements.queue == [
+        (1, ba.bitarray("01")),
+        (2, ba.bitarray("10")),
+    ]
+
+    # don't do this at home -- call p.apply_refinements() directly
+    p.populate_queue()
+    assert p._planned_refinements.empty()
+    assert (
+        len(p._markers) == 2
+        and all(p._markers[1] == [0, 1])
+        and all(p._markers[2] == [1, 0])
+    )
+    assert p._upward_queue.queue == [(-1, 1), (-1, 2)]
+
+    p.upwards_sweep()
+    assert (
+        len(p._markers) == 2
+        and all(p._markers[1] == [0, 1])
+        and all(p._markers[2] == [1, 0])
+    )
+    assert p._upward_queue.empty()
+
+    new_descriptor = p.create_new_descriptor()
+    assert new_descriptor._data == ba.bitarray("10010000100000")
+    assert validate_descriptor(new_descriptor)
+
+    r = Discretization(MortonOrderLinearization(), new_descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(2, ba.bitarray("01"))
+    p.plan_refinement(3, ba.bitarray("01"))
+
+    new_descriptor_2 = p.apply_refinements()
+    assert new_descriptor_2._data == ba.bitarray("110010000000100000")
+    assert validate_descriptor(new_descriptor_2)
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])
