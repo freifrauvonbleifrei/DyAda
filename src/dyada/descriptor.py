@@ -267,23 +267,22 @@ class RefinementDescriptor:
 
         running_index = hierarchical_index
         for _ in range(total_num_siblings - 1):
-            next(branch_iterator)
-            running_index += (
-                self.skip_to_next_neighbor(branch_iterator, self[hierarchical_index])[1]
-                + 1
+            current_refinement = next(branch_iterator)
+            assert current_refinement == self[running_index]
+            num_boxes_skipped, num_patches_skipped = self.skip_to_next_neighbor(
+                branch_iterator, current_refinement
             )
+            running_index += num_patches_skipped
             siblings.add(running_index)
-        assert hierarchical_index in siblings
+
+        assert len(siblings) == total_num_siblings
         if and_after:
             # iterate to the end of the current patch
-            next(branch_iterator)
+            next_refinement = next(branch_iterator)
             try:
-                running_index += (
-                    self.skip_to_next_neighbor(
-                        branch_iterator, self[hierarchical_index]
-                    )[1]
-                    + 1
-                )
+                running_index += self.skip_to_next_neighbor(
+                    branch_iterator, next_refinement
+                )[1]
             except StopIteration:
                 running_index = len(self)
                 pass
@@ -308,27 +307,25 @@ class RefinementDescriptor:
         self, descriptor_iterator: Iterator, current_refinement: ba.frozenbitarray
     ) -> tuple[int, int]:
         """Advances the iterator until it points to the end of the current patch and all its children,
-        returns the number of boxes (plus one) or patches it skipped."""
+        returns the number of boxes or patches it skipped -- including the current one.
+        """
         # sweep to the next patch on the same level
         # = count ones and balance them against found boxes
         added_box_index = 0
-        added_hierarchical_index = 0
-        if current_refinement != self.d_zeros:
-            # power of two by bitshift
-            sub_count_boxes_to_close = 1 << current_refinement.count()
-            while sub_count_boxes_to_close > 0:
-                # this fast-forwards the descriptor iterator
-                current_refinement = next(descriptor_iterator)
-                added_hierarchical_index += 1
-                sub_count_boxes_to_close -= 1
-                if current_refinement != self.d_zeros:
-                    # power of two by bitshift
-                    sub_count_boxes_to_close += 1 << current_refinement.count()
-                else:
-                    added_box_index += 1
-            assert sub_count_boxes_to_close == 0
+        added_hierarchical_index = 1
+        boxes_to_close = get_num_children_from_refinement(current_refinement)
+        if boxes_to_close == 0:
+            added_box_index = 1
         else:
-            added_box_index += 1
+            while boxes_to_close > 0:
+                next_refinement = next(descriptor_iterator)
+                added_hierarchical_index += 1
+                boxes_to_close -= 1
+                if next_refinement.count() == 0:
+                    added_box_index += 1
+                else:
+                    boxes_to_close += 1 << next_refinement.count()
+
         return added_box_index, added_hierarchical_index
 
 
