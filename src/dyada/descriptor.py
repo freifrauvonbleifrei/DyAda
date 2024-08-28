@@ -35,6 +35,14 @@ def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
     return data
 
 
+def get_num_children_from_refinement(refinement: ba.frozenbitarray) -> int:
+    num_ones = refinement.count()
+    if num_ones == 0:
+        return 0
+    else:
+        return 1 << num_ones
+
+
 @dataclass
 class LevelCounter:
     level_increment: ba.frozenbitarray
