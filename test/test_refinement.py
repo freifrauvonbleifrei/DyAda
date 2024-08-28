@@ -405,6 +405,53 @@ def test_refine_simplest_grandchild_split():
     assert validate_descriptor(new_descriptor_2)
 
 
+def test_refine_grandchild_split():
+    p = PlannedAdaptiveRefinement(
+        Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [2, 2]))
+    )
+    # prepare the "initial" state
+    p.plan_refinement(0, ba.bitarray("10"))
+    new_descriptor = p.apply_refinements()
+    p = PlannedAdaptiveRefinement(
+        Discretization(MortonOrderLinearization(), new_descriptor)
+    )
+    p.plan_refinement(1, ba.bitarray("01"))
+    new_descriptor = p.apply_refinements()
+    p = PlannedAdaptiveRefinement(
+        Discretization(MortonOrderLinearization(), new_descriptor)
+    )
+
+    # the actual test
+    p.plan_refinement(0, ba.bitarray("01"))
+    p.plan_refinement(1, ba.bitarray("10"))
+    new_descriptor = p.apply_refinements()
+    assert validate_descriptor(new_descriptor)
+
+
+def test_refine_fully():
+    for d in range(1, 6):
+        for l in range(1, 2):
+            descriptor = RefinementDescriptor(d, l)
+            r = Discretization(MortonOrderLinearization(), descriptor)
+            p = PlannedAdaptiveRefinement(r)
+            for i in range(1, descriptor.get_num_boxes() - 1):
+                # do octree refinement
+                p.plan_refinement(i, ba.bitarray("1" * d))
+            new_descriptor = p.apply_refinements()
+            assert validate_descriptor(new_descriptor)
+            # now also refine the first and last box
+            r = Discretization(MortonOrderLinearization(), new_descriptor)
+            p = PlannedAdaptiveRefinement(r)
+            p.plan_refinement(0, ba.bitarray("1" * d))
+            p.plan_refinement(new_descriptor.get_num_boxes() - 1, ba.bitarray("1" * d))
+
+            new_descriptor = p.apply_refinements()
+            assert validate_descriptor(new_descriptor)
+
+            regular_descriptor = RefinementDescriptor(d, l + 1)
+            assert new_descriptor._data == regular_descriptor._data
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])

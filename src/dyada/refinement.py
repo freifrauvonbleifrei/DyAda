@@ -5,7 +5,7 @@ from itertools import pairwise
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Generator, Union
+from typing import Generator, Optional, Union
 
 from dyada.coordinates import (
     get_coordinates_from_level_index,
@@ -281,7 +281,8 @@ class PlannedAdaptiveRefinement:
         new_descriptor: RefinementDescriptor,
         parent_index: int,
         children_intervals: list[tuple[int, int]],
-    ) -> list[RefinementCommission]:
+        allow_empty_return: bool = False,
+    ) -> Optional[list[RefinementCommission]]:
         linearization = self._discretization._linearization
         old_descriptor = self._discretization.descriptor
 
@@ -289,20 +290,27 @@ class PlannedAdaptiveRefinement:
         assert parent_current_refinement.count() > 0
         assert len(children_intervals) == 1 << parent_current_refinement.count()
         num_dimensions = len(parent_current_refinement)
-        parent_added_refinement = self._markers[parent_index]
-        # anything > 1 is split off and pushed down to children's markers
-        remaining_marker = parent_added_refinement.copy()
-        remaining_marker[remaining_marker > 0] -= 1
-        self.move_marker_to_descendants(parent_index, remaining_marker)
+        parent_added_refinement = self._markers[parent_index].copy()
         parent_added_refinement[parent_added_refinement > 0] = 1
+        parent_added_refinement[
+            np.fromiter(parent_current_refinement, dtype=bool, count=num_dimensions)
+        ] = 0
+        assert all(parent_added_refinement >= 0) and all(parent_added_refinement <= 1)
         parent_added_refinement_bits = ba.bitarray(list(parent_added_refinement))
-
+        # anything > 1 is split off and pushed down to children's markers
+        remaining_marker = self._markers[parent_index].copy()
+        remaining_marker[
+            np.fromiter(parent_added_refinement_bits, dtype=bool, count=num_dimensions)
+        ] -= 1
+        self.move_marker_to_descendants(parent_index, remaining_marker)
         parent_final_refinement = (
             parent_current_refinement ^ parent_added_refinement_bits
         )
         assert parent_final_refinement.count() > 0
         new_descriptor._data.extend(parent_final_refinement)
         expected_num_children = 1 << parent_final_refinement.count()
+        if allow_empty_return and parent_added_refinement_bits.count() == 0:
+            return None
         # data structure to put the reordered children's commissions
         reordered_new_children = [
             self.RefinementCommission(-1, -1, -1) for _ in range(expected_num_children)
@@ -457,10 +465,12 @@ class PlannedAdaptiveRefinement:
                 )
                 child_added_refinement_bits = parent_added_refinement_bits
 
-                num_grandchildren = 1 << child_added_refinement_bits.count()
-                num_grandchildren = num_grandchildren if num_grandchildren > 1 else 0
+                num_expected_grandchildren = 1 << child_added_refinement_bits.count()
+                num_expected_grandchildren = (
+                    num_expected_grandchildren if num_expected_grandchildren > 1 else 0
+                )
 
-                if num_grandchildren == 0:
+                if num_expected_grandchildren == 0:
                     # find child's future position
                     child_index_in_new_box = (
                         linearization.get_index_from_binary_position(
@@ -484,7 +494,8 @@ class PlannedAdaptiveRefinement:
                 else:
                     assert (
                         len([*binary_position_gen(child_added_refinement_bits.count())])
-                        == num_grandchildren * child_added_refinement_bits.count()
+                        == num_expected_grandchildren
+                        * child_added_refinement_bits.count()
                     )
                     for grandchild_bin_position in binary_position_gen(
                         child_added_refinement_bits.count()
@@ -524,17 +535,6 @@ class PlannedAdaptiveRefinement:
                         )
                         # TODO remove child_added_refinement_bits from markers
 
-                # markers left in children need to be pushed down to grandchildren
-                remaining_marker = (
-                    np.fromiter(
-                        old_descriptor[child],
-                        dtype=np.int8,
-                        count=num_dimensions,
-                    )
-                    + self._markers[child]  # TODO validate
-                )
-                self.move_marker_to_descendants(child, remaining_marker)
-
         return reordered_new_children
 
     def add_refined_data(
@@ -550,9 +550,12 @@ class PlannedAdaptiveRefinement:
             if data_interval.lower <= k and k < data_interval.upper
         }
         minimum_marked = min(filtered_markers.keys(), default=-2)
-        if sum(np.abs(self._markers[minimum_marked])) == 0:
+        while (
+            minimum_marked != -2 and sum(np.abs(filtered_markers[minimum_marked])) == 0
+        ):
             self._markers.pop(minimum_marked)
-            minimum_marked = -2
+            filtered_markers.pop(minimum_marked)
+            minimum_marked = min(filtered_markers.keys(), default=-2)
 
         if data_interval.lower == -1:
             # here, a former leaf/box is growing children
@@ -625,7 +628,7 @@ class PlannedAdaptiveRefinement:
             reordered_new_children = self.refine_with_children(
                 new_descriptor, current_index, children_in_part_intervals
             )
-
+            assert reordered_new_children is not None
             for child_interval in reordered_new_children:
                 self.add_refined_data(new_descriptor, child_interval)
 
@@ -657,15 +660,20 @@ class PlannedAdaptiveRefinement:
                 for begin, after_end in pairwise(children_and_end):
                     children_intervals.append((begin, after_end))
                 reordered_new_children = self.refine_with_children(
-                    new_descriptor, minimum_marked, children_intervals
+                    new_descriptor,
+                    minimum_marked,
+                    children_intervals,
+                    allow_empty_return=True,
                 )
-
-                for child_interval in reordered_new_children:
-                    self.add_refined_data(new_descriptor, child_interval)
-                last_processed = max(
-                    max(child_interval.upper - 1, child_interval.refine_from_index)
-                    for child_interval in reordered_new_children
-                )
+                if reordered_new_children is None:
+                    last_processed = minimum_marked
+                else:
+                    for child_interval in reordered_new_children:
+                        self.add_refined_data(new_descriptor, child_interval)
+                    last_processed = max(
+                        max(child_interval.upper - 1, child_interval.refine_from_index)
+                        for child_interval in reordered_new_children
+                    )
 
             if (last_processed + 1) != data_interval.upper:
                 assert (last_processed + 1) < data_interval.upper
@@ -696,7 +704,6 @@ class PlannedAdaptiveRefinement:
         return new_descriptor
 
     def apply_refinements(self) -> RefinementDescriptor:
-        # todo: magic
         self.populate_queue()
         self.upwards_sweep()
 
