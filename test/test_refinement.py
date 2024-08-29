@@ -453,6 +453,28 @@ def test_refine_fully():
             assert new_descriptor._data == regular_descriptor._data
 
 
+def test_refine_random():
+    for d in range(1, 5):
+        descriptor = RefinementDescriptor(d, 0)
+        for round in range(3):
+            r = Discretization(MortonOrderLinearization(), descriptor)
+            p = PlannedAdaptiveRefinement(r)
+            for i in range((round + 1) * 3):
+                random_box = np.random.randint(0, descriptor.get_num_boxes())
+                random_refinement = ba.bitarray(
+                    (np.random.randint(0, 2) for _ in range(d))
+                )
+                p.plan_refinement(random_box, random_refinement)
+
+            new_descriptor = p.apply_refinements()
+
+            # the "=" may happen if only zeros are chosen
+            assert len(new_descriptor) >= len(descriptor)
+            assert validate_descriptor(new_descriptor)
+
+            descriptor = new_descriptor
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])
