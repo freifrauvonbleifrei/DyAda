@@ -467,10 +467,8 @@ class PlannedAdaptiveRefinement:
                     history_of_level_increments,
                 )
                 child_added_refinement_bits = parent_added_refinement_bits
-
-                num_expected_grandchildren = 1 << child_added_refinement_bits.count()
-                num_expected_grandchildren = (
-                    num_expected_grandchildren if num_expected_grandchildren > 1 else 0
+                num_expected_grandchildren = get_num_children_from_refinement(
+                    child_added_refinement_bits
                 )
 
                 if num_expected_grandchildren == 0:
@@ -498,7 +496,6 @@ class PlannedAdaptiveRefinement:
                     assert (
                         len([*binary_position_gen(child_added_refinement_bits.count())])
                         == num_expected_grandchildren
-                        * child_added_refinement_bits.count()
                     )
                     for grandchild_bin_position in binary_position_gen(
                         child_added_refinement_bits.count()
@@ -592,11 +589,6 @@ class PlannedAdaptiveRefinement:
             current_refinement = old_descriptor[data_interval.lower]
             remaining_refinement_bits = (
                 current_refinement & ~data_interval.split_dimensions
-            )
-            # assert that the remaining refinement is only where the current refinement is set
-            assert (
-                remaining_refinement_bits
-                == remaining_refinement_bits & current_refinement
             )
 
             branch, _ = old_descriptor.get_branch(children[0], False)
