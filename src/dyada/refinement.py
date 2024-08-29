@@ -5,7 +5,7 @@ from itertools import pairwise
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Generator, Optional, Union
+from typing import Generator, Union
 
 from dyada.coordinates import (
     get_coordinates_from_level_index,
@@ -282,8 +282,7 @@ class PlannedAdaptiveRefinement:
         parent_index: int,
         parent_current_refinement: ba.frozenbitarray,
         children_intervals: list[tuple[int, int]],
-        allow_empty_return: bool = False,
-    ) -> Optional[list[RefinementCommission]]:
+    ) -> list[RefinementCommission]:
         linearization = self._discretization._linearization
         old_descriptor = self._discretization.descriptor
 
@@ -311,8 +310,6 @@ class PlannedAdaptiveRefinement:
         expected_num_children = get_num_children_from_refinement(
             parent_final_refinement
         )
-        if allow_empty_return and expected_num_children == 0:
-            return None
 
         # data structure to put the reordered children's commissions
         reordered_new_children = [
@@ -673,17 +670,13 @@ class PlannedAdaptiveRefinement:
                     minimum_marked,
                     old_descriptor[minimum_marked],
                     children_intervals,
-                    allow_empty_return=True,
                 )
-                if reordered_new_children is None:
-                    last_processed = minimum_marked
-                else:
-                    for child_interval in reordered_new_children:
-                        self.add_refined_data(new_descriptor, child_interval)
-                    last_processed = max(
-                        max(child_interval.upper - 1, child_interval.refine_from_index)
-                        for child_interval in reordered_new_children
-                    )
+                for child_interval in reordered_new_children:
+                    self.add_refined_data(new_descriptor, child_interval)
+                last_processed = max(
+                    max(child_interval.upper - 1, child_interval.refine_from_index)
+                    for child_interval in reordered_new_children
+                )
 
             if (last_processed + 1) != data_interval.upper:
                 assert (last_processed + 1) < data_interval.upper
@@ -714,11 +707,10 @@ class PlannedAdaptiveRefinement:
         return new_descriptor
 
     def apply_refinements(self) -> RefinementDescriptor:
+        assert self._upward_queue.empty()
+        assert self._markers == {}
         self.populate_queue()
         self.upwards_sweep()
 
         new_descriptor = self.create_new_descriptor()
         return new_descriptor
-        self.apply_refinements.__code__ = (
-            lambda: None
-        ).__code__  # disable the function after running once

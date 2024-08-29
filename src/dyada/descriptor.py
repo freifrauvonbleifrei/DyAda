@@ -141,7 +141,7 @@ class RefinementDescriptor:
         return self[index] == self.d_zeros
 
     def __repr__(self) -> str:
-        return f"RefinementDescriptor({repr([b.to01() for b in self])})"
+        return f"RefinementDescriptor({repr(' '.join([b.to01() for b in self]))})"
 
     def __iter__(self):
         for i in range(len(self)):
@@ -287,13 +287,9 @@ class RefinementDescriptor:
         if and_after:
             # iterate to the end of the current patch
             next_refinement = next(branch_iterator)
-            try:
-                running_index += self.skip_to_next_neighbor(
-                    branch_iterator, next_refinement
-                )[1]
-            except StopIteration:
-                running_index = len(self)
-                pass
+            running_index += self.skip_to_next_neighbor(
+                branch_iterator, next_refinement
+            )[1]
             return sorted(list(siblings)), running_index
         else:
             return sorted(list(siblings))

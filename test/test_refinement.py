@@ -33,6 +33,7 @@ def test_construct():
         r = RefinementDescriptor(i)
         assert r
         validate_descriptor(r)
+        assert repr(r).startswith("RefinementDescriptor")
 
 
 def test_zero_level():
@@ -136,6 +137,8 @@ def test_get_branch():
             ),
         ]
     )
+    # test the branch's repr
+    assert (repr(r.get_branch(9, False)[0])).startswith("Branch")
 
 
 def test_get_level_index():
