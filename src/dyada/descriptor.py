@@ -35,7 +35,7 @@ def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
     return data
 
 
-def get_num_children_from_refinement(refinement: ba.frozenbitarray) -> int:
+def get_num_children_from_refinement(refinement: ba.bitarray) -> int:
     num_ones = refinement.count()
     if num_ones == 0:
         return 0

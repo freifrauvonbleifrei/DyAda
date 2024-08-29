@@ -407,25 +407,26 @@ def test_refine_simplest_grandchild_split():
 
 def test_refine_grandchild_split():
     p = PlannedAdaptiveRefinement(
-        Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [2, 2]))
+        Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 1]))
     )
     # prepare the "initial" state
-    p.plan_refinement(0, ba.bitarray("10"))
+    p.plan_refinement(0, ba.bitarray("01"))
+    p.plan_refinement(2, ba.bitarray("10"))
     new_descriptor = p.apply_refinements()
     p = PlannedAdaptiveRefinement(
         Discretization(MortonOrderLinearization(), new_descriptor)
     )
-    p.plan_refinement(1, ba.bitarray("01"))
+    p.plan_refinement(1, ba.bitarray("11"))
     new_descriptor = p.apply_refinements()
     p = PlannedAdaptiveRefinement(
         Discretization(MortonOrderLinearization(), new_descriptor)
     )
 
     # the actual test
-    p.plan_refinement(0, ba.bitarray("01"))
-    p.plan_refinement(1, ba.bitarray("10"))
+    p.plan_refinement(0, ba.bitarray("10"))
     new_descriptor = p.apply_refinements()
     assert validate_descriptor(new_descriptor)
+    assert new_descriptor._data == ba.bitarray("111100000100000100000010000000")
 
 
 def test_refine_fully():
