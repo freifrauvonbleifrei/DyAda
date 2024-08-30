@@ -164,7 +164,7 @@ class RefinementDescriptor:
         """Is this a quadtree / octree / general power-of-2 tree?"""
         c = Counter(self)
         return c.keys() == {
-            ba.frozenbitarray(self._num_dimensions),
+            self.d_zeros,
             ba.frozenbitarray("1" * self._num_dimensions),
         }
 
@@ -219,7 +219,7 @@ class RefinementDescriptor:
     # now a collection of branch-based family-finding functions
     def get_parent(self, child_branch: Branch) -> tuple[int, Iterator]:
         """Find the parent index of a lost child node by advancing and
-        growing a branch until it matches the child's branch sufficiently.
+        growing a new branch until it matches the child's branch sufficiently.
 
         Args:
             child_branch (Branch): the branch belonging to the child index
@@ -249,8 +249,8 @@ class RefinementDescriptor:
             if twig_index == len(child_branch) - 1 and len(current_branch) == len(
                 child_branch
             ):
-                # technically the branch_iterator and branch will be too far advanced now,
-                # if we needed to return it we could prune the last entry
+                # technically the iterator and branch will be too far advanced now,
+                # if we needed to return the branch we could prune the last entry
                 break
         return i, current_iterator
 
@@ -260,7 +260,7 @@ class RefinementDescriptor:
 
     def get_siblings(self, hierarchical_index: int, and_after: bool = False):
         siblings: set[int] = {hierarchical_index}
-        branch, branch_iterator = self.get_branch(hierarchical_index, False)
+        branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
         if len(branch) < 2:
             # we are at the root
             if and_after:
@@ -270,15 +270,16 @@ class RefinementDescriptor:
         total_num_siblings = 1 << branch[-1].level_increment.count()
         num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
         if num_older_siblings > 0:
-            hierarchical_index, branch_iterator = self.get_oldest_sibling(branch)
-            siblings.add(hierarchical_index)
+            running_index, descriptor_iterator = self.get_oldest_sibling(branch)
+            siblings.add(running_index)
+        else:
+            running_index = hierarchical_index
 
-        running_index = hierarchical_index
         for _ in range(total_num_siblings - 1):
-            current_refinement = next(branch_iterator)
+            current_refinement = next(descriptor_iterator)
             assert current_refinement == self[running_index]
-            num_boxes_skipped, num_patches_skipped = self.skip_to_next_neighbor(
-                branch_iterator, current_refinement
+            _, num_patches_skipped = self.skip_to_next_neighbor(
+                descriptor_iterator, current_refinement
             )
             running_index += num_patches_skipped
             siblings.add(running_index)
@@ -286,9 +287,9 @@ class RefinementDescriptor:
         assert len(siblings) == total_num_siblings
         if and_after:
             # iterate to the end of the current patch
-            next_refinement = next(branch_iterator)
+            next_refinement = next(descriptor_iterator)
             running_index += self.skip_to_next_neighbor(
-                branch_iterator, next_refinement
+                descriptor_iterator, next_refinement
             )[1]
             return sorted(list(siblings)), running_index
         else:
