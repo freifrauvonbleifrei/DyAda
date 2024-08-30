@@ -462,7 +462,7 @@ def test_refine_random():
         for round in range(3):
             r = Discretization(MortonOrderLinearization(), descriptor)
             p = PlannedAdaptiveRefinement(r)
-            for i in range((round + 1) * 3):
+            for _ in range(2 ** (round + d // 2)):
                 random_box = np.random.randint(0, descriptor.get_num_boxes())
                 random_refinement = ba.bitarray(
                     (np.random.randint(0, 2) for _ in range(d))

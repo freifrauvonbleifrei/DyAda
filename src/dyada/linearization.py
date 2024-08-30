@@ -13,7 +13,7 @@ def binary_position_gen(num_dimensions: int):
 def binary_position_gen_from_mask(mask: ba.bitarray):
     """generate all binary strings of length num_dimensions that
     have a 0 at the position of the 0s in mask"""
-    sub_generators = [range(2) if mask_bit else range(1) for mask_bit in mask]
+    sub_generators = [(0, 1) if mask_bit else (0,) for mask_bit in mask]
     for zero_ones in product(*sub_generators):
         yield ba.frozenbitarray(zero_ones)
 
