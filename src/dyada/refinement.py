@@ -20,7 +20,11 @@ from dyada.descriptor import (
     get_level_from_branch,
     get_regular_refined,
 )
-from dyada.linearization import Linearization, binary_position_gen
+from dyada.linearization import (
+    binary_position_gen_from_mask,
+    interleave_binary_positions,
+    Linearization,
+)
 
 
 def get_level_index_from_branch(
@@ -276,60 +280,56 @@ class PlannedAdaptiveRefinement:
         split_dimensions: ba.bitarray = field(default_factory=ba.bitarray)
         split_binary_position: ba.bitarray = field(default_factory=ba.bitarray)
 
-    def refine_with_children(
+    def get_added_refinement_bits(
+        self, current_index: int, current_refinement: ba.bitarray
+    ) -> ba.frozenbitarray:
+        added_refinement = self._markers[current_index].copy()
+        # cap at 1
+        added_refinement[added_refinement > 0] = 1
+        # set to 0 where the parent is already refined
+        added_refinement[
+            np.fromiter(current_refinement, dtype=bool, count=len(current_refinement))
+        ] = 0
+        assert all(added_refinement >= 0) and all(added_refinement <= 1)
+        return ba.frozenbitarray(list(added_refinement))
+
+    def refine_parent_and_reorder_children(
         self,
         new_descriptor: RefinementDescriptor,
         parent_index: int,
         parent_current_refinement: ba.frozenbitarray,
         children_intervals: list[tuple[int, int]],
     ) -> list[RefinementCommission]:
+
         linearization = self._discretization._linearization
         old_descriptor = self._discretization.descriptor
 
         assert parent_current_refinement.count() > 0
         assert len(children_intervals) == 1 << parent_current_refinement.count()
         num_dimensions = len(parent_current_refinement)
-        parent_added_refinement = self._markers[parent_index].copy()
-        parent_added_refinement[parent_added_refinement > 0] = 1
-        parent_added_refinement[
-            np.fromiter(parent_current_refinement, dtype=bool, count=num_dimensions)
-        ] = 0
-        assert all(parent_added_refinement >= 0) and all(parent_added_refinement <= 1)
-        parent_added_refinement_bits = ba.frozenbitarray(list(parent_added_refinement))
-        # anything > 1 is split off and pushed down to children's markers
+        parent_added_refinement_bits = self.get_added_refinement_bits(
+            parent_index, parent_current_refinement
+        )
+        # any marker that can't be used here is split off and pushed down to children's markers
         remaining_marker = self._markers[parent_index].copy()
         remaining_marker[
             np.fromiter(parent_added_refinement_bits, dtype=bool, count=num_dimensions)
         ] -= 1
         self.move_marker_to_descendants(parent_index, remaining_marker)
+
         parent_final_refinement = ba.frozenbitarray(
             parent_current_refinement ^ parent_added_refinement_bits
         )
         assert parent_final_refinement.count() > 0
         new_descriptor._data.extend(parent_final_refinement)
+
         expected_num_children = get_num_children_from_refinement(
             parent_final_refinement
         )
-
         # data structure to put the reordered children's commissions
-        reordered_new_children = [
-            self.RefinementCommission(-1, -1, -1) for _ in range(expected_num_children)
-        ]
+        reordered_new_children = {}
 
-        new_child_factor = 1 << parent_added_refinement_bits.count()
-        grandchildren: list[list[tuple[int, int]]] = [
-            [] for _ in range(len(children_intervals))
-        ]
-        for i, child_interval in enumerate(children_intervals):
-            child = child_interval[0]
-            grandchildren_indices, index_after_grandchildren = (
-                old_descriptor.get_children(child, and_after=True)
-            )
-            # transform to index intervals
-            grandchildren_indices.append(index_after_grandchildren)
-            for begin, after_end in pairwise(grandchildren_indices):
-                grandchildren[i].append((begin, after_end))
-
+        # here's some helper functions w/ captured variables to get the right order of future children
         parent_new_index = len(new_descriptor) - 1
         future_branch, _ = new_descriptor.get_branch(parent_new_index, False)
         (
@@ -338,32 +338,73 @@ class PlannedAdaptiveRefinement:
         ) = future_branch.to_history()
         future_history_of_level_increments.append(parent_final_refinement)
 
-        for i, child_interval in enumerate(children_intervals):
+        # to determine the future index of the (grand)children
+        def get_index_in_future_patch(binary_position: ba.bitarray) -> int:
+            return linearization.get_index_from_binary_position(
+                binary_position,
+                future_history_of_indices,
+                future_history_of_level_increments,
+            )
+
+        new_child_factor = 1 << parent_added_refinement_bits.count()
+
+        for child_interval in children_intervals:
             child = child_interval[0]
             child_current_refinement = old_descriptor[child]
-            # if any upward refinement bits are set, there needs to be some
+            # if any upward refinement bits are newly set, there needs to be some
             # mixed refinement / reordering of the grandchildren
             upward_refinement_bits = (
                 ~parent_current_refinement
                 & child_current_refinement
                 & parent_final_refinement
             )
-            if (
-                len(grandchildren[i]) == new_child_factor
+            child_history = old_descriptor.get_branch(child, False)[0].to_history()
+            child_current_binary_position = (
+                linearization.get_binary_position_from_index(*child_history)
+            )
+
+            def get_future_index(
+                inner_refinement: ba.bitarray, inner_position: ba.bitarray
+            ) -> int:
+                interleaved_binary_position = interleave_binary_positions(
+                    parent_current_refinement,
+                    child_current_binary_position,
+                    inner_refinement,
+                    inner_position,
+                )
+                return get_index_in_future_patch(interleaved_binary_position)
+
+            # get grandchildren's current intervals
+            grandchildren_indices, index_after_grandchildren = (
+                old_descriptor.get_children(child, and_after=True)
+            )
+            grandchildren_indices.append(index_after_grandchildren)
+            grandchildren = [
+                (begin, after_end)
+                for begin, after_end in pairwise(grandchildren_indices)
+            ]
+
+            if new_child_factor == 1:
+                # just keep the child
+                # find child's future position
+                child_index_in_new_box = get_index_in_future_patch(
+                    child_current_binary_position
+                )
+                reordered_new_children[child_index_in_new_box] = (
+                    self.RefinementCommission(*child_interval)
+                )
+
+            elif (
+                len(grandchildren) == new_child_factor
                 and upward_refinement_bits == child_current_refinement
             ):
-                # if this is the case, adopt the grandchildren
-                # get branch of first grandchild...
-                branch, _ = old_descriptor.get_branch(grandchildren[i][0][0], False)
-                # to find the respective indices in the inner and outer boxes
+                # discard the children and adopt the grandchildren
+                # get branch of oldest grandchild...
+                branch, _ = old_descriptor.get_branch(grandchildren[0][0], False)
                 history_of_indices, history_of_level_increments = branch.to_history()
-                child_binary_position = linearization.get_binary_position_from_index(
-                    history_of_indices[:-1],
-                    history_of_level_increments[:-1],
-                )
-                assert child_current_refinement == history_of_level_increments[-1]
 
-                for j, grandchild in enumerate(grandchildren[i]):
+                # to find the respective indices in the inner and outer boxes
+                for j, grandchild in enumerate(grandchildren):
                     history_of_indices[-1] = j
                     grandchild_binary_position = (
                         linearization.get_binary_position_from_index(
@@ -373,170 +414,63 @@ class PlannedAdaptiveRefinement:
 
                     # take the child bits where the parent refinement is set
                     # and che grandchild bits where the child refinement is set
-                    # this is like in Morton order
-                    interleaved_binary_position = ba.bitarray(num_dimensions)
-                    for b in range(num_dimensions):
-                        if parent_current_refinement[b]:
-                            interleaved_binary_position[b] = child_binary_position[b]
-                        elif child_current_refinement[b]:
-                            interleaved_binary_position[b] = grandchild_binary_position[
-                                b
-                            ]
-                    grandchild_index_in_new_box = (
-                        linearization.get_index_from_binary_position(
-                            interleaved_binary_position,
-                            future_history_of_indices,
-                            future_history_of_level_increments,
-                        )
+                    grandchild_index_in_new_box = get_future_index(
+                        child_current_refinement, grandchild_binary_position
                     )
 
-                    assert (
-                        reordered_new_children[grandchild_index_in_new_box].lower == -1
-                    )
                     reordered_new_children[grandchild_index_in_new_box] = (
-                        self.RefinementCommission(grandchild[0], grandchild[1], -1)
+                        self.RefinementCommission(*grandchild)
                     )
-            elif len(grandchildren[i]) > 0:
-                # upward move of child refinement -> split this child
-                # needs to consider custody of grandchildren in the next recurision
-                new_child_refinement = child_current_refinement ^ upward_refinement_bits
-                branch, _ = old_descriptor.get_branch(child, False)
-                history_of_indices, history_of_level_increments = branch.to_history()
-                child_current_binary_position = (
-                    linearization.get_binary_position_from_index(
-                        history_of_indices,
-                        history_of_level_increments,
-                    )
-                )
 
-                # find the future binary positions of the split children
-                for child_new_binary in binary_position_gen(
-                    parent_added_refinement_bits.count()
+            elif len(grandchildren) > 0:
+                # upward move of child refinement -> split this child into multiple children
+                # needs to consider custody of grandchildren in the next recurision
+
+                # find the future binary positions of the split children and add info to commission
+                for child_new_binary in binary_position_gen_from_mask(
+                    parent_added_refinement_bits
                 ):
                     # get new binary position by interleaving the current binary position
-                    # with the upward refinement
-                    child_new_binary_position = ba.bitarray(num_dimensions)
-                    d = 0
-                    for b in range(num_dimensions):
-                        if parent_current_refinement[b]:
-                            child_new_binary_position[b] = (
-                                child_current_binary_position[b]
-                            )
-                        elif parent_added_refinement_bits[b]:
-                            child_new_binary_position[b] = child_new_binary[d]
-                            d += 1
-                    assert d == len(child_new_binary)
-
-                    child_index_in_new_box = (
-                        linearization.get_index_from_binary_position(
-                            child_new_binary_position,
-                            future_history_of_indices,
-                            future_history_of_level_increments,
-                        )
+                    # with the added refinement
+                    child_new_binary_position = interleave_binary_positions(
+                        parent_current_refinement,
+                        child_current_binary_position,
+                        parent_added_refinement_bits,
+                        child_new_binary,
                     )
 
-                    assert (
-                        reordered_new_children[child_index_in_new_box].lower == -1
-                        and reordered_new_children[
-                            child_index_in_new_box
-                        ].refine_from_index
-                        == -1
+                    child_index_in_new_box = get_index_in_future_patch(
+                        child_new_binary_position
                     )
+
                     reordered_new_children[child_index_in_new_box] = (
                         self.RefinementCommission(
-                            child,
-                            child_interval[1],
+                            *child_interval,
                             parent_index,
                             parent_added_refinement_bits,
                             parent_added_refinement_bits & child_new_binary_position,
                         )
                     )
 
-            else:  # if len(grandchildren[i]) == 0:
-                # the reordered grandchildren need their parents info,
-                # because they don't yet exist
-                # get own branch...
-                branch, _ = old_descriptor.get_branch(child, False)
-                # to find the respective indices in the inner and outer boxes
-                history_of_indices, history_of_level_increments = branch.to_history()
-                child_binary_position = linearization.get_binary_position_from_index(
-                    history_of_indices,
-                    history_of_level_increments,
-                )
-                child_added_refinement_bits = parent_added_refinement_bits
-                num_expected_grandchildren = get_num_children_from_refinement(
-                    child_added_refinement_bits
-                )
-
-                if num_expected_grandchildren == 0:
-                    # find child's future position
-                    child_index_in_new_box = (
-                        linearization.get_index_from_binary_position(
-                            child_binary_position,
-                            future_history_of_indices,
-                            future_history_of_level_increments,
-                        )
+            else:  # there are currently no grandchildren, but there will be
+                # and we already adopt them
+                # find grandchildren's future positions
+                for grandchild_bin_position in binary_position_gen_from_mask(
+                    parent_added_refinement_bits
+                ):
+                    grandchild_index_in_new_box = get_future_index(
+                        parent_added_refinement_bits,
+                        grandchild_bin_position,
                     )
-                    assert (
-                        reordered_new_children[child_index_in_new_box].lower == -1
-                        and reordered_new_children[
-                            child_index_in_new_box
-                        ].refine_from_index
-                        == -1
-                    )
-                    reordered_new_children[child_index_in_new_box] = (
-                        self.RefinementCommission(
-                            child_interval[0], child_interval[1], -1
-                        )
-                    )
-                else:
-                    assert (
-                        len([*binary_position_gen(child_added_refinement_bits.count())])
-                        == num_expected_grandchildren
-                    )
-                    for grandchild_bin_position in binary_position_gen(
-                        child_added_refinement_bits.count()
-                    ):
-                        # take the child bits where the parent refinement is set
-                        # and che grandchild bits where the child refinement is set
-                        # this is like in Morton order
-                        interleaved_binary_position = ba.bitarray(num_dimensions)
-                        d = 0
-                        for b in range(num_dimensions):
-                            if parent_current_refinement[b]:
-                                assert not child_added_refinement_bits[b]
-                                interleaved_binary_position[b] = child_binary_position[
-                                    b
-                                ]
-                            elif child_added_refinement_bits[b]:
-                                interleaved_binary_position[b] = (
-                                    grandchild_bin_position[d]
-                                )
-                                d += 1
-                        assert d == len(grandchild_bin_position)
 
-                        grandchild_index_in_new_box = (
-                            linearization.get_index_from_binary_position(
-                                interleaved_binary_position,
-                                future_history_of_indices,
-                                future_history_of_level_increments,
-                            )
-                        )
+                    # the reordered grandchildren need their parent's info,
+                    # because they don't yet exist
+                    reordered_new_children[grandchild_index_in_new_box] = (
+                        self.RefinementCommission(-1, -1, child)
+                    )
 
-                        assert (
-                            reordered_new_children[grandchild_index_in_new_box].lower
-                            == -1
-                        )
-                        reordered_new_children[grandchild_index_in_new_box] = (
-                            self.RefinementCommission(-1, -1, child)
-                        )
-
-        for child_commission in reordered_new_children:
-            assert not (
-                child_commission.lower == -1
-                and child_commission.refine_from_index == -1
-            )
-        return reordered_new_children
+        assert len(reordered_new_children) == expected_num_children
+        return [reordered_new_children[i] for i in range(expected_num_children)]
 
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor, data_interval: RefinementCommission
@@ -544,66 +478,107 @@ class PlannedAdaptiveRefinement:
         linearization = self._discretization._linearization
         old_descriptor = self._discretization.descriptor
 
-        # filter the markers to the current interval
-        filtered_markers = {
-            k: v
-            for k, v in self._markers.items()
-            if data_interval.lower <= k and k < data_interval.upper
-        }
-        minimum_marked = min(filtered_markers.keys(), default=-2)
-        while (
-            minimum_marked != -2 and sum(np.abs(filtered_markers[minimum_marked])) == 0
-        ):
-            self._markers.pop(minimum_marked)
-            filtered_markers.pop(minimum_marked)
-            minimum_marked = min(filtered_markers.keys(), default=-2)
-
-        if data_interval.lower == -1:
-            # here, a former leaf/box is growing children
-            assert (
-                data_interval.upper == -1
-                and minimum_marked == -2
-                and data_interval.refine_from_index != -1
-            )
+        if data_interval.lower == -1:  # here, a former leaf/box is growing children
             assert old_descriptor.is_box(data_interval.refine_from_index)
-            # refine based on the refine_from_index
+            # refine based on the refine_from_index = former parent
             new_descriptor._data.extend(
                 get_regular_refined(self._markers[data_interval.refine_from_index])  # type: ignore
             )
-        elif len(data_interval.split_dimensions) > 0:
-            # this is the result of parent separating itself
+
+        elif len(data_interval.split_dimensions) == 0:  # "normal" refinement
+            # filter the markers to the current interval
+            filtered_markers = {
+                k: v
+                for k, v in self._markers.items()
+                if data_interval.lower <= k and k < data_interval.upper
+            }
+            index_to_refine = min(filtered_markers.keys(), default=-2)
+            while (
+                index_to_refine != -2
+                and sum(np.abs(filtered_markers[index_to_refine])) == 0
+            ):  # remove zero markers
+                self._markers.pop(index_to_refine)
+                filtered_markers.pop(index_to_refine)
+                index_to_refine = min(filtered_markers.keys(), default=-2)
+
+            if index_to_refine != -2:
+                # if a marker was found in the commission interval
+                # copy up to marked
+                new_descriptor._data.extend(
+                    old_descriptor[data_interval.lower : index_to_refine]
+                )
+
+                # deal with refinement
+                if old_descriptor.is_box(index_to_refine):
+                    # if the marked item is a box, refine directly
+                    new_descriptor._data.extend(
+                        get_regular_refined(self._markers[index_to_refine])  # type: ignore
+                    )
+                    last_processed = index_to_refine
+
+                else:
+                    # if the marked item is a patch, recursively call on the descendant intervals in the sub-tree
+                    # but re-sorted/interleaved according to linearization
+                    children, index_after_children = old_descriptor.get_children(
+                        index_to_refine, and_after=True
+                    )
+                    children_and_end = [*children, index_after_children]
+                    children_intervals = [
+                        (begin, after_end)
+                        for begin, after_end in pairwise(children_and_end)
+                    ]
+                    reordered_new_children = self.refine_parent_and_reorder_children(
+                        new_descriptor,
+                        index_to_refine,
+                        old_descriptor[index_to_refine],
+                        children_intervals,
+                    )
+                    for child_interval in reordered_new_children:
+                        # recurse
+                        self.add_refined_data(new_descriptor, child_interval)
+                    last_processed = max(
+                        max(child_interval.upper - 1, child_interval.refine_from_index)
+                        for child_interval in reordered_new_children
+                    )
+
+                if (last_processed + 1) != data_interval.upper:
+                    assert (last_processed + 1) < data_interval.upper
+                    # recurse with remaining interval
+                    self.add_refined_data(
+                        new_descriptor,
+                        self.RefinementCommission(
+                            last_processed + 1, data_interval.upper
+                        ),
+                    )
+
+            else:
+                # copy all and return
+                new_descriptor._data.extend(
+                    old_descriptor[data_interval.lower : data_interval.upper]
+                )
+
+        else:
+            # this is a parent separating itself
             # -> interval is the former parent's full interval
-            num_dimensions = old_descriptor.get_num_dimensions()
             current_index = data_interval.lower
-            assert len(data_interval.split_binary_position) == num_dimensions
+            current_refinement = old_descriptor[current_index]
+            remaining_refinement_bits = (
+                current_refinement & ~data_interval.split_dimensions
+            )
             children, index_after_children = old_descriptor.get_children(
                 current_index, and_after=True
             )
             children_and_end = [*children, index_after_children]
-
-            # we need to find the subset of children that belong to this part (in case of "single custody")
-            # or that this part shares with other parts (in case of "shared custody")
-            current_refinement = old_descriptor[data_interval.lower]
-            remaining_refinement_bits = (
-                current_refinement & ~data_interval.split_dimensions
-            )
-
-            branch, _ = old_descriptor.get_branch(children[0], False)
-            history_of_indices, history_of_level_increments = branch.to_history()
+            history_of_indices, history_of_level_increments = old_descriptor.get_branch(
+                children[0], False
+            )[0].to_history()
             history_of_indices = history_of_indices[:-1]
-            children_in_part_intervals: list[tuple[int, int]] = []
-            # find the current binary positions of the split node's children
-            for child_binary in binary_position_gen(remaining_refinement_bits.count()):
-                # get new binary position by interleaving the current binary position
-                # with the upward refinement
-                child_binary_position = ba.bitarray(num_dimensions)
-                d = 0
-                for b in range(num_dimensions):
-                    if remaining_refinement_bits[b]:
-                        child_binary_position[b] = child_binary[d]
-                        d += 1
-                assert d == len(child_binary)
 
+            # find the current binary positions of the split node's children
+            children_in_part_intervals: list[tuple[int, int]] = []
+            for child_binary_position in binary_position_gen_from_mask(
+                remaining_refinement_bits
+            ):
                 child_index_in_previous_box = (
                     linearization.get_index_from_binary_position(
                         child_binary_position,
@@ -611,7 +586,6 @@ class PlannedAdaptiveRefinement:
                         history_of_level_increments,
                     )
                 )
-
                 children_in_part_intervals.append(
                     (
                         children[child_index_in_previous_box],
@@ -622,11 +596,11 @@ class PlannedAdaptiveRefinement:
             subtracted_marker = np.fromiter(
                 current_refinement ^ remaining_refinement_bits,
                 dtype=np.int8,
-                count=num_dimensions,
+                count=old_descriptor.get_num_dimensions(),
             )
             # to temporarily denote that the (negative) marker is already applied to the remaining_refinement_bits
             self._markers[current_index] += subtracted_marker
-            reordered_new_children = self.refine_with_children(
+            reordered_new_children = self.refine_parent_and_reorder_children(
                 new_descriptor,
                 current_index,
                 remaining_refinement_bits,
@@ -634,64 +608,9 @@ class PlannedAdaptiveRefinement:
             )
             # needs to be reapplied for the next instance of this split child
             self._markers[current_index] -= subtracted_marker
-            assert reordered_new_children is not None
+            # recurse
             for child_interval in reordered_new_children:
                 self.add_refined_data(new_descriptor, child_interval)
-
-        elif (
-            data_interval.lower <= minimum_marked
-            and minimum_marked < data_interval.upper
-        ):
-            # copy up to marked
-            new_descriptor._data.extend(
-                old_descriptor[data_interval.lower : minimum_marked]
-            )
-
-            # deal with refinement
-            if old_descriptor.is_box(minimum_marked):
-                # if the marked item is a box, refine directly
-                new_descriptor._data.extend(
-                    get_regular_refined(self._markers[minimum_marked])  # type: ignore
-                )
-                last_processed = minimum_marked
-
-            else:
-                # if the marked item is a patch, recursively call on the descendant intervals in the sub-tree
-                # but re-sorted/interleaved according to linearization
-                children, index_after_children = old_descriptor.get_children(
-                    minimum_marked, and_after=True
-                )
-                children_and_end = [*children, index_after_children]
-                children_intervals = []
-                for begin, after_end in pairwise(children_and_end):
-                    children_intervals.append((begin, after_end))
-                reordered_new_children = self.refine_with_children(
-                    new_descriptor,
-                    minimum_marked,
-                    old_descriptor[minimum_marked],
-                    children_intervals,
-                )
-                for child_interval in reordered_new_children:
-                    self.add_refined_data(new_descriptor, child_interval)
-                last_processed = max(
-                    max(child_interval.upper - 1, child_interval.refine_from_index)
-                    for child_interval in reordered_new_children
-                )
-
-            if (last_processed + 1) != data_interval.upper:
-                assert (last_processed + 1) < data_interval.upper
-                # call again with remaining interval
-                self.add_refined_data(
-                    new_descriptor,
-                    self.RefinementCommission(last_processed + 1, data_interval.upper),
-                )
-
-        else:
-            # copy all and return
-            new_descriptor._data.extend(
-                old_descriptor[data_interval.lower : data_interval.upper]
-            )
-            return
 
     def create_new_descriptor(self) -> RefinementDescriptor:
         new_descriptor = RefinementDescriptor(
