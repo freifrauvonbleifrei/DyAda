@@ -616,7 +616,9 @@ class PlannedAdaptiveRefinement:
             history_of_indices = history_of_indices[:-1]
 
             # find the current binary positions of the split node's children
-            outer_dimensions_to_consider = current_refinement & data_interval.split_dimensions 
+            outer_dimensions_to_consider = (
+                current_refinement & data_interval.split_dimensions
+            )
             children_in_part_intervals: list[tuple[int, int]] = []
             for child_binary_position_in_parent in binary_position_gen_from_mask(
                 remaining_refinement_bits
