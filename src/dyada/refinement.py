@@ -291,7 +291,6 @@ class PlannedAdaptiveRefinement:
         history_of_indices, history_of_level_increments = branch.to_history()
         ancestry = old_descriptor.get_ancestry(branch)
         assert ancestry[0] == 0
-        ic(index, ancestry, self._remembered_splits)
         for a, ancestor in enumerate(ancestry):
             if ancestor in self._remembered_splits:
                 assert a != 0
@@ -309,12 +308,9 @@ class PlannedAdaptiveRefinement:
                 quotient, remainder = divmod(children_count, split_factor)
                 # history_of_indices[a] = #TODO for orders other than Morton, this has to be calculated somehow...from quotient
                 # we also need to change the refinement and the index of the ancestor's child in the ancestor
-                assert (
-                    history_of_level_increments[a] | split_dimensions
-                ) == history_of_level_increments[a]
                 history_of_level_increments[a] = (
                     history_of_level_increments[a] ^ split_dimensions
-                )
+                ) & history_of_level_increments[a]
                 history_of_indices[a] = remainder
 
         # if the last ancestor was a split parent, increase the children count
@@ -400,6 +396,7 @@ class PlannedAdaptiveRefinement:
                 parent_added_refinement_bits & child_current_refinement
             )
             child_history = self.get_modified_history(child)
+            assert child_history[1][-1] == parent_current_refinement
             child_current_binary_position = (
                 linearization.get_binary_position_from_index(*child_history)
             )
@@ -605,6 +602,7 @@ class PlannedAdaptiveRefinement:
             # -> interval is the former parent's full interval
             current_index = data_interval.lower
             current_refinement = old_descriptor[current_index]
+            assert not old_descriptor.is_box(current_index)
             remaining_refinement_bits = (
                 current_refinement & ~data_interval.split_dimensions
             )
@@ -618,13 +616,14 @@ class PlannedAdaptiveRefinement:
             history_of_indices = history_of_indices[:-1]
 
             # find the current binary positions of the split node's children
+            outer_dimensions_to_consider = current_refinement & data_interval.split_dimensions 
             children_in_part_intervals: list[tuple[int, int]] = []
             for child_binary_position_in_parent in binary_position_gen_from_mask(
                 remaining_refinement_bits
             ):
                 child_binary_position = interleave_binary_positions(
                     data_interval.split_binary_position,
-                    data_interval.split_dimensions,
+                    outer_dimensions_to_consider,
                     child_binary_position_in_parent,
                     remaining_refinement_bits,
                 )

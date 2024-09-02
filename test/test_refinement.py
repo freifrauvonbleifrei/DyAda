@@ -420,6 +420,7 @@ def test_refine_grandchild_split():
         Discretization(MortonOrderLinearization(), new_descriptor)
     )
     p.plan_refinement(1, ba.bitarray("11"))
+    new_descriptor = p.apply_refinements()
     four_branch = new_descriptor.get_branch(4, False)[0]
     assert new_descriptor.get_ancestry(four_branch) == [0, 1, 3]
 
