@@ -436,15 +436,15 @@ def test_refine_grandchild_split():
 
     # test the mapping of the boxes
     former_to_now = {
-        2: [2, 3],
+        0: [0, 1],
+        1: [2],
+        2: [4],
+        3: [3],
         4: [5],
-        5: [8],
-        6: [6],
-        7: [9],
-        8: [10],
-        10: [12],
-        11: [13],
-        12: [14],
+        5: [6],
+        6: [7],
+        7: [8],
+        8: [9],
     }
     for former, now in former_to_now.items():
         assert box_mapping[former] == now
@@ -487,11 +487,17 @@ def test_refine_random():
                 )
                 p.plan_refinement(random_box, random_refinement)
 
-            new_descriptor = p.apply_refinements()
+            new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
 
             # the "=" may happen if only zeros are chosen
             assert len(new_descriptor) >= len(descriptor)
             assert validate_descriptor(new_descriptor)
+            assert index_mapping.keys() == set(range(descriptor.get_num_boxes()))
+            new_indices = set()
+            for value in index_mapping.values():
+                for v in value:
+                    new_indices.add(v)
+            assert new_indices == set(range(new_descriptor.get_num_boxes()))
 
             descriptor = new_descriptor
 

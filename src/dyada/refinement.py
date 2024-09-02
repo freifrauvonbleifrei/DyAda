@@ -517,23 +517,27 @@ class PlannedAdaptiveRefinement:
         range_to_extend: Union[int, tuple[int, int]],
         extension: ba.bitarray,
     ) -> None:
+        old_descriptor = self._discretization.descriptor
         previous_length = len(new_descriptor)
         new_descriptor._data.extend(extension)
         if isinstance(range_to_extend, int):
-            self._box_index_mapping[range_to_extend] += list(
-                i
+            self._box_index_mapping[
+                old_descriptor.to_box_index(range_to_extend)
+            ] += list(
+                new_descriptor.to_box_index(i)
                 for i in range(previous_length, len(new_descriptor))
                 if new_descriptor.is_box(i)
             )
         else:
-            old_descriptor = self._discretization.descriptor
             for old_index, new_index in zip(
                 range(range_to_extend[0], range_to_extend[1]),
                 range(previous_length, len(new_descriptor)),
             ):
                 if old_descriptor.is_box(old_index):
                     assert new_descriptor.is_box(new_index)
-                    self._box_index_mapping[old_index] += [new_index]
+                    self._box_index_mapping[old_descriptor.to_box_index(old_index)] = [
+                        new_descriptor.to_box_index(new_index)
+                    ]
 
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor, data_interval: RefinementCommission
