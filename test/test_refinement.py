@@ -305,7 +305,6 @@ def test_refine_4d():
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(0, ba.bitarray("1101"))
     descriptor = p.apply_refinements()
-    plot_tree_tikz(descriptor)
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
     last_box_index = descriptor.get_num_boxes() - 1
