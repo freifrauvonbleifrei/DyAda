@@ -352,7 +352,7 @@ def test_refine_simplest_not_only_leaves():
     assert len(p._markers) == 1 and all(p._markers[1] == [0, 1])
     assert p._upward_queue.empty()
 
-    new_descriptor = p.create_new_descriptor()
+    new_descriptor = p.create_new_descriptor(track_mapping=False)
     assert new_descriptor._data == ba.bitarray("1001000000")
     assert validate_descriptor(new_descriptor)
 
@@ -394,7 +394,7 @@ def test_refine_simplest_grandchild_split():
     )
     assert p._upward_queue.empty()
 
-    new_descriptor = p.create_new_descriptor()
+    new_descriptor = p.create_new_descriptor(track_mapping=False)
     assert new_descriptor._data == ba.bitarray("10010000100000")
     assert validate_descriptor(new_descriptor)
 
@@ -430,9 +430,24 @@ def test_refine_grandchild_split():
 
     # the actual test
     p.plan_refinement(0, ba.bitarray("10"))
-    new_descriptor = p.apply_refinements()
+    new_descriptor, box_mapping = p.apply_refinements(track_mapping=True)
     assert validate_descriptor(new_descriptor)
     assert new_descriptor._data == ba.bitarray("111100000100000100000010000000")
+
+    # test the mapping of the boxes
+    former_to_now = {
+        2: [2, 3],
+        4: [5],
+        5: [8],
+        6: [6],
+        7: [9],
+        8: [10],
+        10: [12],
+        11: [13],
+        12: [14],
+    }
+    for former, now in former_to_now.items():
+        assert box_mapping[former] == now
 
 
 def test_refine_fully():

@@ -511,6 +511,30 @@ class PlannedAdaptiveRefinement:
         assert len(reordered_new_children) == expected_num_children
         return [reordered_new_children[i] for i in range(expected_num_children)]
 
+    def extend_descriptor_and_track_boxes(
+        self,
+        new_descriptor: RefinementDescriptor,
+        range_to_extend: Union[int, tuple[int, int]],
+        extension: ba.bitarray,
+    ) -> None:
+        previous_length = len(new_descriptor)
+        new_descriptor._data.extend(extension)
+        if isinstance(range_to_extend, int):
+            self._box_index_mapping[range_to_extend] += list(
+                i
+                for i in range(previous_length, len(new_descriptor))
+                if new_descriptor.is_box(i)
+            )
+        else:
+            old_descriptor = self._discretization.descriptor
+            for old_index, new_index in zip(
+                range(range_to_extend[0], range_to_extend[1]),
+                range(previous_length, len(new_descriptor)),
+            ):
+                if old_descriptor.is_box(old_index):
+                    assert new_descriptor.is_box(new_index)
+                    self._box_index_mapping[old_index] += [new_index]
+
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor, data_interval: RefinementCommission
     ):
@@ -520,9 +544,11 @@ class PlannedAdaptiveRefinement:
         if data_interval.lower == -1:
             # here, a former leaf/box was replaced by its children before they existed
             assert old_descriptor.is_box(data_interval.refine_from_index)
-            # refine based on the refine_from_index = former parent
-            new_descriptor._data.extend(
-                get_regular_refined(self._markers[data_interval.refine_from_index])  # type: ignore
+            # refine based on the refine_from_index = former parent's index
+            self.extend_descriptor_and_track_boxes(
+                new_descriptor,
+                data_interval.refine_from_index,
+                get_regular_refined(self._markers[data_interval.refine_from_index]),  # type: ignore
             )
 
         elif len(data_interval.split_dimensions) == 0:  # "normal" refinement
@@ -544,15 +570,19 @@ class PlannedAdaptiveRefinement:
             if index_to_refine != -2:
                 # if a marker was found in the commission interval
                 # copy up to marked
-                new_descriptor._data.extend(
-                    old_descriptor[data_interval.lower : index_to_refine]
+                self.extend_descriptor_and_track_boxes(
+                    new_descriptor,
+                    (data_interval.lower, index_to_refine),
+                    old_descriptor[data_interval.lower : index_to_refine],
                 )
 
                 # deal with refinement
                 if old_descriptor.is_box(index_to_refine):
-                    # if the marked item is a box, refine directly
-                    new_descriptor._data.extend(
-                        get_regular_refined(self._markers[index_to_refine])  # type: ignore
+                    # if the marked item is a box, refine directly from markers
+                    self.extend_descriptor_and_track_boxes(
+                        new_descriptor,
+                        index_to_refine,
+                        get_regular_refined(self._markers[index_to_refine]),  # type: ignore
                     )
                     last_processed = index_to_refine
 
@@ -593,8 +623,10 @@ class PlannedAdaptiveRefinement:
 
             else:
                 # copy all and return
-                new_descriptor._data.extend(
-                    old_descriptor[data_interval.lower : data_interval.upper]
+                self.extend_descriptor_and_track_boxes(
+                    new_descriptor,
+                    (data_interval.lower, data_interval.upper),
+                    old_descriptor[data_interval.lower : data_interval.upper],
                 )
 
         else:
@@ -662,10 +694,16 @@ class PlannedAdaptiveRefinement:
             for child_interval in reordered_new_children:
                 self.add_refined_data(new_descriptor, child_interval)
 
-    def create_new_descriptor(self) -> RefinementDescriptor:
+    def create_new_descriptor(
+        self, track_mapping: bool
+    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
+        # TODO: replace by forgetful data structure if mapping is not needed
+        self._box_index_mapping: dict[int, list[int]] = defaultdict(list)
         new_descriptor = RefinementDescriptor(
             self._discretization.descriptor.get_num_dimensions()
         )
+
+        # start recursive cascade of refinement
         new_descriptor._data = ba.bitarray()
         self.add_refined_data(
             new_descriptor,
@@ -673,13 +711,17 @@ class PlannedAdaptiveRefinement:
         )
 
         assert len(new_descriptor._data) >= len(self._discretization.descriptor)
+        if track_mapping:
+            return new_descriptor, self._box_index_mapping
         return new_descriptor
 
-    def apply_refinements(self) -> RefinementDescriptor:
+    def apply_refinements(
+        self, track_mapping: bool = False
+    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
         assert self._upward_queue.empty()
         assert self._markers == {}
         self.populate_queue()
         self.upwards_sweep()
+        assert self._planned_refinements.empty()
 
-        new_descriptor = self.create_new_descriptor()
-        return new_descriptor
+        return self.create_new_descriptor(track_mapping)
