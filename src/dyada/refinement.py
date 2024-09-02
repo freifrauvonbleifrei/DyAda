@@ -153,6 +153,7 @@ class PlannedAdaptiveRefinement:
             get_d_zeros_as_array
         )
         self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
+        self._remembered_splits: dict[int, tuple[ba.bitarray, int]] = {}
 
     def plan_refinement(self, box_index: int, dimensions_to_refine) -> None:
         dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
@@ -280,6 +281,48 @@ class PlannedAdaptiveRefinement:
         split_dimensions: ba.bitarray = field(default_factory=ba.bitarray)
         split_binary_position: ba.bitarray = field(default_factory=ba.bitarray)
 
+    def remember_split(self, parent_index: int, split_dimensions: ba.bitarray) -> None:
+        self._remembered_splits[parent_index] = (split_dimensions.copy(), 0)
+
+    def get_modified_history(self, index):
+        # like get_branch, but with the remembered splits
+        old_descriptor = self._discretization.descriptor
+        branch = old_descriptor.get_branch(index, False)[0]
+        history_of_indices, history_of_level_increments = branch.to_history()
+        ancestry = old_descriptor.get_ancestry(branch)
+        assert ancestry[0] == 0
+        ic(index, ancestry, self._remembered_splits)
+        for a, ancestor in enumerate(ancestry):
+            if ancestor in self._remembered_splits:
+                assert a != 0
+                split_dimensions, children_count = self._remembered_splits[ancestor]
+                # we add the split to the ancestor's parent's refinement
+                assert (
+                    history_of_level_increments[a - 1] & split_dimensions
+                ).count() == 0
+                history_of_level_increments[a - 1] = (
+                    history_of_level_increments[a - 1] | split_dimensions
+                )
+                # and replace the index of the ancestor in the history by how often we
+                # have accessed its modified history
+                split_factor = 1 << split_dimensions.count()
+                quotient, remainder = divmod(children_count, split_factor)
+                # history_of_indices[a] = #TODO for orders other than Morton, this has to be calculated somehow...from quotient
+                # we also need to change the refinement and the index of the ancestor's child in the ancestor
+                assert (
+                    history_of_level_increments[a] | split_dimensions
+                ) == history_of_level_increments[a]
+                history_of_level_increments[a] = (
+                    history_of_level_increments[a] ^ split_dimensions
+                )
+                history_of_indices[a] = remainder
+
+        # if the last ancestor was a split parent, increase the children count
+        if ancestor in self._remembered_splits:
+            self._remembered_splits[ancestor] = (split_dimensions, children_count + 1)
+
+        return history_of_indices, history_of_level_increments
+
     def get_added_refinement_bits(
         self, current_index: int, current_refinement: ba.bitarray
     ) -> ba.frozenbitarray:
@@ -354,11 +397,9 @@ class PlannedAdaptiveRefinement:
             # if any upward refinement bits are newly set, there needs to be some
             # mixed refinement / reordering of the grandchildren
             upward_refinement_bits = (
-                ~parent_current_refinement
-                & child_current_refinement
-                & parent_final_refinement
+                parent_added_refinement_bits & child_current_refinement
             )
-            child_history = old_descriptor.get_branch(child, False)[0].to_history()
+            child_history = self.get_modified_history(child)
             child_current_binary_position = (
                 linearization.get_binary_position_from_index(*child_history)
             )
@@ -424,7 +465,8 @@ class PlannedAdaptiveRefinement:
 
             elif len(grandchildren) > 0:
                 # upward move of child refinement -> split this child into multiple children
-                # needs to consider custody of grandchildren in the next recurision
+                # needs to consider custody of grandchildren in the next recursion
+                self.remember_split(child, parent_added_refinement_bits)
 
                 # find the future binary positions of the split children and add info to commission
                 for child_new_binary in binary_position_gen_from_mask(
@@ -478,7 +520,8 @@ class PlannedAdaptiveRefinement:
         linearization = self._discretization._linearization
         old_descriptor = self._discretization.descriptor
 
-        if data_interval.lower == -1:  # here, a former leaf/box is growing children
+        if data_interval.lower == -1:
+            # here, a former leaf/box was replaced by its children before they existed
             assert old_descriptor.is_box(data_interval.refine_from_index)
             # refine based on the refine_from_index = former parent
             new_descriptor._data.extend(
@@ -576,9 +619,15 @@ class PlannedAdaptiveRefinement:
 
             # find the current binary positions of the split node's children
             children_in_part_intervals: list[tuple[int, int]] = []
-            for child_binary_position in binary_position_gen_from_mask(
+            for child_binary_position_in_parent in binary_position_gen_from_mask(
                 remaining_refinement_bits
             ):
+                child_binary_position = interleave_binary_positions(
+                    data_interval.split_binary_position,
+                    data_interval.split_dimensions,
+                    child_binary_position_in_parent,
+                    remaining_refinement_bits,
+                )
                 child_index_in_previous_box = (
                     linearization.get_index_from_binary_position(
                         child_binary_position,

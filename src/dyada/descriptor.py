@@ -254,6 +254,30 @@ class RefinementDescriptor:
                 break
         return i, current_iterator
 
+    def get_ancestry(self, child_branch: Branch) -> list[int]:
+        """like get_parent, but returns a sorted list of all ancestors"""
+        if len(child_branch) < 2:
+            return list()
+        # have to start from beginning, note when we go down matching twigs
+        ancestry: set[int] = set()
+        current_branch = Branch(self._num_dimensions)
+        twig_index = 0
+        for i, current_refinement in enumerate(self):
+            # if this matches the child at the twig index, count up the twig index
+            while (
+                twig_index < len(current_branch)
+                and current_branch[twig_index] == child_branch[twig_index]
+            ):
+                twig_index += 1
+                ancestry.add(i)
+                if twig_index == len(child_branch) - 1:
+                    return sorted(ancestry)
+            if current_refinement == self.d_zeros:
+                current_branch.advance_branch()
+            else:
+                current_branch.grow_branch(current_refinement)
+        raise IndexError("Child branch not found in descriptor")
+
     def get_oldest_sibling(self, younger_branch: Branch) -> tuple[int, Iterator]:
         parent_index, parent_iterator = self.get_parent(younger_branch)
         return parent_index + 1, parent_iterator
