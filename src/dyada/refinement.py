@@ -304,13 +304,14 @@ class PlannedAdaptiveRefinement:
                 )
                 # and replace the index of the ancestor in the history by how often we
                 # have accessed its modified history
-                split_factor = 1 << split_dimensions.count()
+                actual_ancestor_refinement = (
+                    history_of_level_increments[a] ^ split_dimensions
+                ) & history_of_level_increments[a]
+                split_factor = 1 << (actual_ancestor_refinement).count()
                 quotient, remainder = divmod(children_count, split_factor)
                 # history_of_indices[a] = #TODO for orders other than Morton, this has to be calculated somehow...from quotient
                 # we also need to change the refinement and the index of the ancestor's child in the ancestor
-                history_of_level_increments[a] = (
-                    history_of_level_increments[a] ^ split_dimensions
-                ) & history_of_level_increments[a]
+                history_of_level_increments[a] = actual_ancestor_refinement
                 history_of_indices[a] = remainder
 
         # if the last ancestor was a split parent, increase the children count

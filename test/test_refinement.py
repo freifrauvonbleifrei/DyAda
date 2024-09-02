@@ -295,6 +295,35 @@ def test_refine_fully():
             assert new_descriptor._data == regular_descriptor._data
 
 
+def test_refine_4d():
+    descriptor = RefinementDescriptor(4, 0)
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(0, ba.bitarray("0010"))
+    descriptor = p.apply_refinements()
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(0, ba.bitarray("1101"))
+    descriptor = p.apply_refinements()
+    plot_tree_tikz(descriptor)
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    last_box_index = descriptor.get_num_boxes() - 1
+    p.plan_refinement(last_box_index, ba.bitarray("0001"))
+
+    new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
+
+    assert new_descriptor._data == ba.bitarray(
+        "0011110000000000000000000000110000000000000000000000"
+    )
+    assert index_mapping.keys() == set(range(descriptor.get_num_boxes()))
+    new_indices = set()
+    for value in index_mapping.values():
+        for v in value:
+            new_indices.add(v)
+    assert new_indices == set(range(new_descriptor.get_num_boxes()))
+
+
 def test_refine_random():
     for d in range(1, 5):
         descriptor = RefinementDescriptor(d, 0)
