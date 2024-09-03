@@ -4,12 +4,6 @@ from itertools import product, tee
 from typing import Sequence
 
 
-def binary_position_gen(num_dimensions: int):
-    """generate all binary strings of length num_dimensions"""
-    for zero_ones in product(*tee(range(2), num_dimensions)):
-        yield ba.frozenbitarray(zero_ones)
-
-
 def binary_position_gen_from_mask(mask: ba.bitarray):
     """generate all binary strings of length num_dimensions that
     have a 0 at the position of the 0s in mask"""
