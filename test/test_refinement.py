@@ -1,3 +1,4 @@
+from collections import Counter
 import pytest
 import bitarray as ba
 from collections import deque
@@ -152,6 +153,16 @@ def test_refine_3d_only_leaves():
     assert validate_descriptor(new_descriptor)
 
 
+def helper_check_mapping(index_mapping, old_descriptor, new_descriptor):
+    assert index_mapping.keys() == set(range(old_descriptor.get_num_boxes()))
+    count_new_indices = Counter()
+    for value in index_mapping.values():
+        count_new_indices.update(value)
+    assert sorted(count_new_indices.elements()) == list(
+        range(new_descriptor.get_num_boxes())
+    )
+
+
 def test_refine_simplest_not_only_leaves():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
     p = PlannedAdaptiveRefinement(r)
@@ -213,20 +224,34 @@ def test_refine_simplest_grandchild_split():
     )
     assert p._upward_queue.empty()
 
-    new_descriptor = p.create_new_descriptor(track_mapping=False)
+    new_descriptor, index_mapping = p.create_new_descriptor(track_mapping=True)
     assert new_descriptor._data == ba.bitarray("10010000100000")
     assert validate_descriptor(new_descriptor)
+    helper_check_mapping(index_mapping, r.descriptor, new_descriptor)
 
-    # plot_tree_tikz(new_descriptor)
+    # plot_tree_tikz(new_descriptor, filename="simplest_grandchild_split_before")
     # plot_all_boxes_2d(Discretization(MortonOrderLinearization(), new_descriptor), labels="patches")
     r = Discretization(MortonOrderLinearization(), new_descriptor)
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(2, ba.bitarray("01"))
     p.plan_refinement(3, ba.bitarray("01"))
-
-    new_descriptor_2 = p.apply_refinements()
+    assert p._planned_refinements.queue == [
+        (5, ba.bitarray("01")),
+        (6, ba.bitarray("01")),
+    ]
+    p.populate_queue()
+    p.upwards_sweep()
+    assert (
+        len(p._markers) == 2
+        and all(p._markers[0] == [0, 1])
+        and all(p._markers[1] == [0, -1])
+    )
+    assert p._upward_queue.empty()
+    new_descriptor_2, index_mapping_2 = p.create_new_descriptor(track_mapping=True)
+    ic(index_mapping_2)
     assert new_descriptor_2._data == ba.bitarray("110010000000100000")
     assert validate_descriptor(new_descriptor_2)
+    helper_check_mapping(index_mapping_2, new_descriptor, new_descriptor_2)
 
 
 def test_refine_grandchild_split():
@@ -269,6 +294,24 @@ def test_refine_grandchild_split():
     }
     for former, now in former_to_now.items():
         assert box_mapping[former] == now
+
+
+def test_refine_multi_grandchild_split():
+    r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [2, 0]))
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(2, ba.bitarray("10"))
+    p.plan_refinement(3, ba.bitarray("01"))
+    descriptor = p.apply_refinements(track_mapping=False)
+    
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(2, ba.bitarray("01"))
+    p.plan_refinement(3, ba.bitarray("11"))
+    p.plan_refinement(3, ba.bitarray("10"))
+    p.plan_refinement(3, ba.bitarray("10"))
+
+    new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
+    helper_check_mapping(index_mapping, descriptor, new_descriptor)
 
 
 def test_refine_fully():
@@ -315,12 +358,7 @@ def test_refine_4d():
     assert new_descriptor._data == ba.bitarray(
         "0011110000000000000000000000110000000000000000000000"
     )
-    assert index_mapping.keys() == set(range(descriptor.get_num_boxes()))
-    new_indices = set()
-    for value in index_mapping.values():
-        for v in value:
-            new_indices.add(v)
-    assert new_indices == set(range(new_descriptor.get_num_boxes()))
+    helper_check_mapping(index_mapping, descriptor, new_descriptor)
 
 
 def test_refine_random():
@@ -341,12 +379,7 @@ def test_refine_random():
             # the "=" may happen if only zeros are chosen
             assert len(new_descriptor) >= len(descriptor)
             assert validate_descriptor(new_descriptor)
-            assert index_mapping.keys() == set(range(descriptor.get_num_boxes()))
-            new_indices = set()
-            for value in index_mapping.values():
-                for v in value:
-                    new_indices.add(v)
-            assert new_indices == set(range(new_descriptor.get_num_boxes()))
+            helper_check_mapping(index_mapping, descriptor, new_descriptor)
 
             descriptor = new_descriptor
 

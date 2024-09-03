@@ -536,7 +536,7 @@ class PlannedAdaptiveRefinement:
             ):
                 if old_descriptor.is_box(old_index):
                     assert new_descriptor.is_box(new_index)
-                    self._box_index_mapping[old_descriptor.to_box_index(old_index)] = [
+                    self._box_index_mapping[old_descriptor.to_box_index(old_index)] += [
                         new_descriptor.to_box_index(new_index)
                     ]
 
