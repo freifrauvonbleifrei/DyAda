@@ -9,10 +9,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
 )
-from dyada.refinement import (
-    Discretization,
-    PlannedAdaptiveRefinement,
-)
+from dyada.refinement import Discretization, PlannedAdaptiveRefinement
 from dyada.linearization import MortonOrderLinearization
 
 

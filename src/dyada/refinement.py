@@ -5,7 +5,7 @@ from itertools import pairwise
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Generator, Union
+from typing import Generator, Optional, Union
 
 from dyada.coordinates import (
     get_coordinates_from_level_index,
@@ -518,9 +518,12 @@ class PlannedAdaptiveRefinement:
         range_to_extend: Union[int, tuple[int, int]],
         extension: ba.bitarray,
     ) -> None:
-        old_descriptor = self._discretization.descriptor
         previous_length = len(new_descriptor)
         new_descriptor._data.extend(extension)
+        if self._box_index_mapping is None:
+            return
+
+        old_descriptor = self._discretization.descriptor
         if isinstance(range_to_extend, int):
             self._box_index_mapping[
                 old_descriptor.to_box_index(range_to_extend)
@@ -702,8 +705,9 @@ class PlannedAdaptiveRefinement:
     def create_new_descriptor(
         self, track_mapping: bool
     ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
-        # TODO: replace by forgetful data structure if mapping is not needed
-        self._box_index_mapping: dict[int, list[int]] = defaultdict(list)
+        self._box_index_mapping: Optional[dict[int, list[int]]] = None
+        if track_mapping:
+            self._box_index_mapping = defaultdict(list)
         new_descriptor = RefinementDescriptor(
             self._discretization.descriptor.get_num_dimensions()
         )
@@ -717,6 +721,7 @@ class PlannedAdaptiveRefinement:
 
         assert len(new_descriptor._data) >= len(self._discretization.descriptor)
         if track_mapping:
+            assert self._box_index_mapping is not None
             return new_descriptor, self._box_index_mapping
         return new_descriptor
 
