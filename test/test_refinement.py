@@ -248,7 +248,6 @@ def test_refine_simplest_grandchild_split():
     )
     assert p._upward_queue.empty()
     new_descriptor_2, index_mapping_2 = p.create_new_descriptor(track_mapping=True)
-    ic(index_mapping_2)
     assert new_descriptor_2._data == ba.bitarray("110010000000100000")
     assert validate_descriptor(new_descriptor_2)
     helper_check_mapping(index_mapping_2, new_descriptor, new_descriptor_2)
@@ -302,7 +301,7 @@ def test_refine_multi_grandchild_split():
     p.plan_refinement(2, ba.bitarray("10"))
     p.plan_refinement(3, ba.bitarray("01"))
     descriptor = p.apply_refinements(track_mapping=False)
-    
+
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(2, ba.bitarray("01"))
