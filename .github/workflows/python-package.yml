@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python "3.10"
@@ -44,6 +43,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build:
     runs-on: ubuntu-latest
+    container: # container with texlive and latexmk
+      image: ghcr.io/moderncv/debian-texlive-docker:main
     strategy:
       fail-fast: false
       matrix:
