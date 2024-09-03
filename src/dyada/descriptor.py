@@ -358,6 +358,21 @@ class RefinementDescriptor:
         return added_box_index, added_hierarchical_index
 
 
+def branch_generator(descriptor: RefinementDescriptor):
+    current_branch = Branch(descriptor.get_num_dimensions())
+    i = 0
+    for refinement in descriptor:
+        yield current_branch, refinement
+
+        i += 1
+        if i == len(descriptor):
+            return
+        if refinement == descriptor.d_zeros:
+            current_branch.advance_branch()
+        else:
+            current_branch.grow_branch(refinement)
+
+
 def validate_descriptor(descriptor: RefinementDescriptor):
     assert len(descriptor._data) % descriptor._num_dimensions == 0
     branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
