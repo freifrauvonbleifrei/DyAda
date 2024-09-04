@@ -33,14 +33,16 @@ def test_depends_on_optional():
     with pytest.raises(ImportError):
         should_not_run()
 
+
 def test_no_latex_error():
     with pytest.warns(UserWarning):
         latex_write_and_compile("test", "test_latex_no_error.tex")
     os.remove("test_latex_no_error.tex")
     # check that there are no files with "test_latex_no_error" in the current directory
-    files = [f for f in os.listdir('.') if os.path.isfile(f)]
+    files = [f for f in os.listdir(".") if os.path.isfile(f)]
     for f in files:
         assert "test_latex_no_error" not in f
+
 
 # todo consider comparing images: https://github.com/matplotlib/pytest-mpl
 def test_plot_boxes_2d_matplotlib():
