@@ -1,4 +1,4 @@
-# `DyAda`: A Code for Memory-Saving Dyadic Adaptivity in Optimization and Simulation
+# `DyAda`: A Code for Dyadic Adaptivity in Optimization, Simulation, and Machine Learning
 
 [![Python package CI](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/badge.svg)](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/)
 ![Coverage](coverage.svg)
