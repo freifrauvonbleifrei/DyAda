@@ -18,6 +18,13 @@ special type of dyadic adaptivity: Each box is either refined in *every* dimensi
 or not at all.
 For a three-d domain, the tree and the resulting partitioning could look like this:
 
+<!-- 
+images generated like this:
+```bash
+for f in *.tex ; do latexmk -pdf $f ; done
+for d in *.pdf ; do inkscape --without-gui --file=$d --export-plain-svg=${d%.*}.svg ; done
+rsvg-convert tikz_cubes_solid.svg -w 268 -h 252 -f svg -o tikz_cubes_solid.svg #etc.
+``` -->
 ![The octree tree](docs/gfx/octree_tree.svg)
 
 ![The octree partitioning](docs/gfx/octree_solid.svg)
