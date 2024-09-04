@@ -5,13 +5,30 @@ try:
 except ImportError:
     warnings.warn("matplotlib not found, plotting functions will not work")
 
+from itertools import product
 from pathlib import Path
 from typing import Sequence, Union, Mapping, Optional
 import subprocess
 
 from dyada.coordinates import CoordinateInterval, get_coordinates_from_level_index
-from dyada.descriptor import branch_generator
+from dyada.descriptor import branch_generator, RefinementDescriptor
+from dyada.refinement import Discretization
 from dyada.structure import depends_on_optional
+
+
+def labels_from_discretization(
+    discretization: Discretization, labels: Union[None, str, Sequence[str]]
+):
+    if labels == "patches":
+        labels = []
+        for i in range(len(discretization._descriptor)):
+            if discretization._descriptor.is_box(i):
+                labels.append(str(i))
+    elif labels == "boxes":
+        labels = [str(i) for i in range(discretization._descriptor.get_num_boxes())]
+
+    assert labels is None or len(labels) == discretization._descriptor.get_num_boxes()
+    return labels
 
 
 def plot_boxes_2d(
@@ -22,8 +39,6 @@ def plot_boxes_2d(
     **kwargs,
 ) -> None:
     assert len(projection) == 2
-    if labels is None:
-        labels = [str(i) for i in range(len(intervals))]
     if backend == "matplotlib":
         return plot_boxes_2d_matplotlib(intervals, labels, projection, **kwargs)
     else:
@@ -31,30 +46,25 @@ def plot_boxes_2d(
 
 
 def plot_all_boxes_2d(
-    refinement, projection: Sequence[int] = [0, 1], labels="patches", **kwargs
+    discretization: Discretization,
+    projection: Sequence[int] = [0, 1],
+    labels: Union[None, str, Sequence[str]] = "patches",
+    **kwargs,
 ) -> None:
-    level_indices = list(refinement.get_all_boxes_level_indices())
+    level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
-    if labels == "patches":
-        labels = []
-        for i in range(len(refinement._descriptor)):
-            if refinement._descriptor.is_box(i):
-                labels.append(str(i))
-    if labels == "boxes":
-        labels = None
+    labels = labels_from_discretization(discretization, labels)
     plot_boxes_2d(coordinates, projection=projection, labels=labels, **kwargs)
 
 
 def plot_boxes_3d(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
-    labels: Optional[Sequence[str]] = None,
+    labels: Union[None, str, Sequence[str]] = None,
     projection: Sequence[int] = [0, 1, 2],
     backend: str = "tikz",
     **kwargs,
 ) -> None:
     assert len(projection) == 3
-    if labels is None:
-        labels = [str(i) for i in range(len(intervals))]
     if backend == "tikz":
         return plot_boxes_3d_tikz(intervals, labels, projection, **kwargs)
     else:
@@ -62,11 +72,15 @@ def plot_boxes_3d(
 
 
 def plot_all_boxes_3d(
-    refinement, projection: Sequence[int] = [0, 1, 2], **kwargs
+    discretization: Discretization,
+    projection: Sequence[int] = [0, 1, 2],
+    labels: Union[None, str, Sequence[str]] = "patches",
+    **kwargs,
 ) -> None:
-    level_indices = list(refinement.get_all_boxes_level_indices())
+    level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
-    plot_boxes_3d(coordinates, projection=projection, **kwargs)
+    labels = labels_from_discretization(discretization, labels)
+    plot_boxes_3d(coordinates, projection=projection, labels=labels, **kwargs)
 
 
 @depends_on_optional("matplotlib.pyplot")
@@ -159,110 +173,65 @@ def latex_add_color_defs(
 def plot_boxes_3d_tikz(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
-    projection: Sequence[int],  # TODO use
+    projection: Sequence[int],
     wireframe: bool = False,
     filename: Optional[str] = None,
     **kwargs,
 ) -> None:
 
-    def tikz_cube(interval: CoordinateInterval, option_string="") -> str:
+    def tikz_cube(
+        interval: CoordinateInterval, option_string="", label_string=""
+    ) -> str:
         tikz_string = ""
         line_string = "\\draw[%s] (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- cycle;\n"
-        lower = interval[0]
-        upper = interval[1]
+        lower = interval[0][projection]
+        upper = interval[1][projection]
         # iterate the six sides of the cube
         # by always selecting four corners that have one coordinate in common
-        # TODO use iterator
-        tikz_string += line_string % (
-            option_string,
-            *lower,
-            lower[0],
-            upper[1],
-            lower[2],
-            upper[0],
-            upper[1],
-            lower[2],
-            upper[0],
-            lower[1],
-            lower[2],
-        )
-
-        tikz_string += line_string % (
-            option_string,
-            *lower,
-            lower[0],
-            lower[1],
-            upper[2],
-            lower[0],
-            upper[1],
-            upper[2],
-            lower[0],
-            upper[1],
-            lower[2],
-        )
-
-        tikz_string += line_string % (
-            option_string,
-            lower[0],
-            upper[1],
-            lower[2],
-            upper[0],
-            upper[1],
-            lower[2],
-            *upper,
-            lower[0],
-            upper[1],
-            upper[2],
-        )
-        tikz_string += line_string % (
-            option_string,
-            *lower,
-            upper[0],
-            lower[1],
-            lower[2],
-            upper[0],
-            lower[1],
-            upper[2],
-            lower[0],
-            lower[1],
-            upper[2],
-        )
-        tikz_string += line_string % (
-            option_string,
-            lower[0],
-            lower[1],
-            upper[2],
-            lower[0],
-            upper[1],
-            upper[2],
-            *upper,
-            upper[0],
-            lower[1],
-            upper[2],
-        )
-        tikz_string += line_string % (
-            option_string,
-            upper[0],
-            lower[1],
-            lower[2],
-            upper[0],
-            lower[1],
-            upper[2],
-            *upper,
-            upper[0],
-            upper[1],
-            lower[2],
+        corners = list(product(*zip(lower, upper)))
+        for bound in [lower, upper]:
+            for i, b in enumerate(bound):
+                side_corners = list(filter(lambda c: c[i] == b, corners))
+                assert len(side_corners) == 4
+                tikz_string += line_string % (
+                    option_string,
+                    *side_corners[0],
+                    *side_corners[1],
+                    *side_corners[3],
+                    *side_corners[2],
+                )
+        middle = (lower + upper) / 2.0
+        extent = upper - lower
+        if min(extent) < 0.125:
+            label_string = "\\tiny \\relsize{-1} " + label_string
+        elif min(extent) < 0.25:
+            label_string = "\\tiny \\relsize{-0.5}" + label_string
+        elif min(extent) < 0.5:
+            label_string = "\\footnotesize " + label_string
+        tikz_string += (
+            f"\\node at ({middle[0]},{middle[1]},{middle[2]}) {{{label_string}}};\n"
         )
         return tikz_string
 
     def tikz_grid(intervals, wireframe: bool):
         tikz_string = R"""\documentclass{standalone}
+% autogenerated with dyada : https://github.com/freifrauvonbleifrei/DyAda
 % inspired by @griegler : https://github.com/griegler/octnet/issues/28
 \usepackage{xcolor}
+\usepackage{relsize}
 \usepackage{tikz,tikz-3dplot}
 \begin{document}
 \tdplotsetmaincoords{50}{130}
 \begin{tikzpicture}[scale=1.0, tdplot_main_coords]"""
+        if labels is None:
+
+            def none_iter():
+                while True:
+                    yield ""
+
+            label_iter = none_iter()
+        else:
+            label_iter = iter(labels)
         tikz_string = latex_add_color_defs(tikz_string, len(intervals))
         for grid_idx, interval in enumerate(intervals):
             color_str = "color_%d" % grid_idx
@@ -272,7 +241,7 @@ def plot_boxes_3d_tikz(
                 option_string = "very thin, gray, fill=%s,fill opacity=0.3" % (
                     color_str
                 )
-            tikz_string += tikz_cube(interval, option_string)
+            tikz_string += tikz_cube(interval, option_string, next(label_iter))
 
         tikz_string += "\\end{tikzpicture}\n"
         tikz_string += "\\end{document}\n"
@@ -288,8 +257,9 @@ def plot_boxes_3d_tikz(
     latex_write_and_compile(latex_string, filename)
 
 
-def plot_tree_tikz(refinement_descriptor, filename="pow2tree"):
+def plot_tree_tikz(refinement_descriptor, filename="omnitree"):
     tikz_string = R"""\documentclass{standalone}
+% autogenerated with dyada : https://github.com/freifrauvonbleifrei/DyAda
 \usepackage{forest}
 \begin{document}
 % cf. https://tex.stackexchange.com/questions/332300/draw-lines-on-top-of-tikz-forest
@@ -353,6 +323,7 @@ def plot_tree_tikz(refinement_descriptor, filename="pow2tree"):
 
 def plot_descriptor_tikz(refinement_descriptor, filename="descriptor"):
     tikz_string = R"""\documentclass{standalone}
+% autogenerated with dyada : https://github.com/freifrauvonbleifrei/DyAda
 \usepackage{tikz}
 \usetikzlibrary{matrix}
 \begin{document}"""

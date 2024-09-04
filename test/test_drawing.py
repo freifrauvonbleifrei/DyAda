@@ -1,5 +1,5 @@
 import bitarray as ba
-from itertools import permutations
+from itertools import permutations, product, tee
 import matplotlib.pyplot as plt
 import pytest
 
@@ -66,6 +66,7 @@ def test_plot_boxes_2d_from_descriptor():
             # (because many boxes will be stacked on top of each other)
             # and nicer colors for the higher ones
             plot_all_boxes_2d(r, projection=list(projection), alpha=0.3)
+            plot_all_boxes_2d(r, projection=list(projection), labels="boxes")
 
 
 def test_plot_boxes_3d_from_descriptor():
@@ -75,10 +76,21 @@ def test_plot_boxes_3d_from_descriptor():
     p.plan_refinement(3, ba.bitarray("101"))
     p.plan_refinement(1, ba.bitarray("001"))
     p.plan_refinement(2, ba.bitarray("010"))
+    descriptor = p.apply_refinements()
+    validate_descriptor(descriptor)
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(3, ba.bitarray("100"))
+    p.plan_refinement(7, ba.bitarray("010"))
+    descriptor = p.apply_refinements()
+    validate_descriptor(descriptor)
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(9, ba.bitarray("101"))
     new_descriptor = p.apply_refinements()
     validate_descriptor(new_descriptor)
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    plot_all_boxes_3d(r, wireframe=False, draw_options="fill opacity=0.1")
+    plot_all_boxes_3d(r, labels="boxes", draw_options="fill opacity=0.1")
     plot_all_boxes_3d(r, wireframe=True, filename="test_filename")
     plot_tree_tikz(new_descriptor)
     plot_descriptor_tikz(new_descriptor)
@@ -98,7 +110,9 @@ def test_plot_octree_3d_from_descriptor():
     new_descriptor = p.apply_refinements()
     r = Discretization(MortonOrderLinearization(), new_descriptor)
     plot_all_boxes_3d(
-        r, wireframe=False, filename="octree", draw_options="fill opacity=0.1"
+        r, labels="boxes", filename="octree", draw_options="fill opacity=0.1"
     )
-    plot_all_boxes_3d(r, wireframe=True, filename="octree")
+    plot_all_boxes_3d(r, wireframe=True, filename="octree", labels=None)
     plot_tree_tikz(new_descriptor, filename="octree_tree")
+    with pytest.raises(ValueError):
+        plot_all_boxes_3d(r, filename="octree_tree", backend="unknown")
