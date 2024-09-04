@@ -140,6 +140,9 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        warnings.warn(f"Error while running latexmk on {filename}: {e}")
+    try:  # try to clean up regardless of success
         subprocess.run(
             ["latexmk", "-c"],
             check=False,
@@ -148,7 +151,7 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
             stderr=subprocess.STDOUT,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        warnings.warn(f"Error while running latexmk on {filename}: {e}")
+        pass
 
 
 def latex_add_color_defs(
