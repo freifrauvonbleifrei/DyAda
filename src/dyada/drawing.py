@@ -161,7 +161,7 @@ def latex_add_color_defs(
     cm = Colormap(colormap_name)
     for leaf in range(num_colors):
         colormap = cm(leaf * 1.0 / num_colors)
-        color = [int(255 * c) for c in colormap[:3]]
+        color = [int(255 * c) for c in colormap]
 
         color_str = "color_%d" % leaf
         tikz_string += "\\definecolor{%s}{RGB}{%d,%d,%d}\n" % (
