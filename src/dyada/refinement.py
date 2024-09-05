@@ -28,6 +28,20 @@ from dyada.linearization import (
 )
 
 
+class RefinementError(Exception):
+    def __init__(
+        self,
+        message: str,
+        descriptor: RefinementDescriptor,
+        markers: Optional[dict] = None,
+        error: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        self.descriptor = descriptor
+        self.markers = markers
+        self.error = error
+
+
 def get_level_index_from_branch(
     linearization: Linearization, branch: Branch
 ) -> LevelIndex:
@@ -460,7 +474,7 @@ class PlannedAdaptiveRefinement:
                 len(grandchildren) == new_child_factor
                 and upward_refinement_bits == child_current_refinement
             ):
-                # discard the children and adopt the grandchildren
+                # discard the child and adopt the grandchildren
                 # get branch of oldest grandchild...
                 branch, _ = old_descriptor.get_branch(grandchildren[0][0], False)
                 history_of_indices, history_of_level_increments = branch.to_history()
@@ -483,6 +497,10 @@ class PlannedAdaptiveRefinement:
                     reordered_new_children[grandchild_index_in_new_box] = (
                         self.RefinementCommission(*grandchild)
                     )
+                added_marker = np.fromiter(
+                    upward_refinement_bits, dtype=np.int8, count=num_dimensions
+                )
+                self._markers[child] += added_marker
 
             elif len(grandchildren) > 0:
                 # upward move of child refinement -> split this child into multiple children
@@ -514,6 +532,15 @@ class PlannedAdaptiveRefinement:
                             parent_added_refinement_bits & child_new_binary_position,
                         )
                     )
+
+                # remove negative markers from the child, to denote the split has already happened
+                added_marker = np.fromiter(
+                    parent_added_refinement_bits,
+                    dtype=np.int8,
+                    count=old_descriptor.get_num_dimensions(),
+                )
+                added_marker[self._markers[child] > -1] = 0
+                self._markers[child] += added_marker
 
             else:  # there are currently no grandchildren, but there will be
                 # and we already adopt them
@@ -706,21 +733,12 @@ class PlannedAdaptiveRefinement:
                     )
                 )
 
-            subtracted_marker = np.fromiter(
-                current_refinement ^ remaining_refinement_bits,
-                dtype=np.int8,
-                count=old_descriptor.get_num_dimensions(),
-            )
-            # to temporarily denote that the (negative) marker is already applied to the remaining_refinement_bits
-            self._markers[current_index] += subtracted_marker
             reordered_new_children = self.refine_parent_and_reorder_children(
                 new_descriptor,
                 current_index,
                 remaining_refinement_bits,
                 children_in_part_intervals,
             )
-            # needs to be reapplied for the next instance of this split child
-            self._markers[current_index] -= subtracted_marker
             # recurse
             for child_interval in reordered_new_children:
                 self.add_refined_data(new_descriptor, child_interval)
@@ -737,10 +755,15 @@ class PlannedAdaptiveRefinement:
 
         # start recursive cascade of refinement
         new_descriptor._data = ba.bitarray()
-        self.add_refined_data(
-            new_descriptor,
-            self.RefinementCommission(0, len(self._discretization.descriptor)),
-        )
+        try:
+            self.add_refined_data(
+                new_descriptor,
+                self.RefinementCommission(0, len(self._discretization.descriptor)),
+            )
+        except Exception as e:
+            raise RefinementError(
+                "Error during refinement cascade", new_descriptor, self._markers, e
+            )
 
         assert len(new_descriptor._data) >= len(self._discretization.descriptor)
         if track_mapping:
