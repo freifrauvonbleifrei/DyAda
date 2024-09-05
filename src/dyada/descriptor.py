@@ -110,6 +110,14 @@ class RefinementDescriptor:
         # establish the base resolution level
         self._data = get_regular_refined(base_resolution_level)
 
+    @staticmethod
+    def from_binary(num_dimensions: int, binary: ba.bitarray) -> "RefinementDescriptor":
+        assert len(binary) % num_dimensions == 0
+        descriptor = RefinementDescriptor(num_dimensions)
+        descriptor._data = binary
+        validate_descriptor(descriptor)
+        return descriptor
+
     def __len__(self):
         """
         return the number of refinement descriptions, will be somewhere between get_num_boxes() and 2*get_num_boxes()
