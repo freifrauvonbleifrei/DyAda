@@ -5,6 +5,7 @@ try:
 except ImportError:
     warnings.warn("matplotlib not found, plotting functions will not work")
 
+from cmap import Colormap
 from itertools import product
 from pathlib import Path
 from typing import Sequence, Union, Mapping, Optional
@@ -155,9 +156,9 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
 
 
 def latex_add_color_defs(
-    tikz_string: str, num_colors: int, colormap_name="viridis"
+    tikz_string: str, num_colors: int, colormap_name="CET_R3"
 ) -> str:
-    cm = plt.get_cmap(colormap_name)
+    cm = Colormap(colormap_name)
     for leaf in range(num_colors):
         colormap = cm(leaf * 1.0 / num_colors)
         color = [int(255 * c) for c in colormap[:3]]
