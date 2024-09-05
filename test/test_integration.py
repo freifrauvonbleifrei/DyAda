@@ -15,8 +15,9 @@ def test_partitioning_queued():
     # values in the tensor correspond to "importance" of the data
     tensor = np.random.rand(240, 160, random_length)
     num_dimensions = tensor.ndim
-    possible_refinements = [ba.bitarray("100"), ba.bitarray("010"), ba.bitarray("001")]
+    possible_refinements = list(dyada.linearization.single_bit_set_gen(num_dimensions))
     num_desired_partitions = 100
+    minimum_partition_size = [16, 16, 1]
 
     def get_dimensionwise_importance(subtensor):
         # to assign the refinement importance per partition and dimension,
@@ -57,6 +58,9 @@ def test_partitioning_queued():
             ]
             importance = get_dimensionwise_importance(sub_tensor)
             for d in range(num_dimensions):
+                # skip if the partition would be too small
+                if sub_tensor.shape[d] < minimum_partition_size[d] * 2:
+                    continue
                 priority_queue.put((-importance[d], (i, possible_refinements[d])))
 
         # partition the tensor into two parts based on the highest importance
