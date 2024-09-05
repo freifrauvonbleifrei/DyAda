@@ -11,6 +11,7 @@ from dyada.coordinates import (
     get_coordinates_from_level_index,
     LevelIndex,
     Coordinate,
+    CoordinateInterval,
 )
 
 from dyada.descriptor import (
@@ -71,6 +72,9 @@ class Discretization:
     @property
     def descriptor(self):
         return self._descriptor
+
+    def __len__(self):
+        return self._descriptor.get_num_boxes()
 
     def get_level_index_from_branch(self, branch: Branch) -> LevelIndex:
         return get_level_index_from_branch(self._linearization, branch)
@@ -136,6 +140,25 @@ class Discretization:
             if len(found_box_indices) > 1
             else found_box_indices[0]
         )
+
+
+def coordinates_from_box_index(
+    discretiztion: Discretization,
+    index: int,
+    full_domain: Optional[CoordinateInterval] = None,
+) -> CoordinateInterval:
+    level_index = get_level_index_from_linear_index(
+        discretiztion._linearization, discretiztion._descriptor, index
+    )
+    coordinates = get_coordinates_from_level_index(level_index)
+    if full_domain is not None:
+        scaling_factor = full_domain.upper_bound - full_domain.lower_bound
+        offset = full_domain.lower_bound
+        coordinates = CoordinateInterval(
+            lower_bound=coordinates.lower_bound * scaling_factor + offset,
+            upper_bound=coordinates.upper_bound * scaling_factor + offset,
+        )
+    return coordinates
 
 
 class PlannedAdaptiveRefinement:
@@ -735,3 +758,12 @@ class PlannedAdaptiveRefinement:
         assert self._planned_refinements.empty()
 
         return self.create_new_descriptor(track_mapping)
+
+
+def apply_single_refinement(
+    discretization: Discretization, box_index: int, dimensions_to_refine: ba.bitarray
+) -> tuple[Discretization, dict]:
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(box_index, dimensions_to_refine)
+    new_descriptor, mapping = p.apply_refinements(track_mapping=True)
+    return Discretization(discretization._linearization, new_descriptor), mapping
