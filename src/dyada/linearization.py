@@ -3,11 +3,13 @@ import bitarray as ba
 from itertools import product, tee
 from typing import Sequence
 
+
 def single_bit_set_gen(num_dimensions: int):
     for i in range(num_dimensions):
         bit_array = ba.bitarray(num_dimensions)
         bit_array[i] = 1
         yield bit_array
+
 
 def binary_position_gen_from_mask(mask: ba.bitarray):
     """generate all binary strings of length num_dimensions that
