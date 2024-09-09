@@ -508,8 +508,6 @@ class PlannedAdaptiveRefinement:
                         history_matches = False
                         break
                 if history_matches:
-                    if found:
-                        ic(current_old_index, child)
                     assert not found
                     current_old_index = child
                     found = True
@@ -568,7 +566,6 @@ class PlannedAdaptiveRefinement:
         try:
             modified_branches = self.modified_branch_generator(0)
             for old_index, new_refinement, *marker in modified_branches:
-                ic(old_index, new_refinement, marker)
                 if marker != []:
                     assert self._discretization.descriptor[old_index].count() == 0
                     assert np.min(marker) >= 0
