@@ -156,7 +156,9 @@ def test_refine_3d_only_leaves():
     assert validate_descriptor(new_descriptor)
 
 
-def helper_check_mapping(index_mapping, old_descriptor, new_descriptor):
+def helper_check_mapping(index_mapping, old_discretization, new_discretization):
+    old_descriptor = old_discretization.descriptor
+    new_descriptor = new_discretization.descriptor
     assert index_mapping.keys() == set(range(old_descriptor.get_num_boxes()))
     count_new_indices = Counter()
     for value in index_mapping.values():
@@ -164,6 +166,12 @@ def helper_check_mapping(index_mapping, old_descriptor, new_descriptor):
     assert sorted(count_new_indices.elements()) == list(
         range(new_descriptor.get_num_boxes())
     )
+    for b in range(old_descriptor.get_num_boxes()):
+        if len(index_mapping[b]) == 1:
+            # make sure the coordinates are correct
+            assert coordinates_from_box_index(
+                new_discretization, index_mapping[b][0]
+            ) == coordinates_from_box_index(old_discretization, b)
 
 
 def test_refine_simplest_not_only_leaves():
@@ -230,12 +238,12 @@ def test_refine_simplest_grandchild_split():
     new_descriptor, index_mapping = p.create_new_descriptor(track_mapping=True)
     assert new_descriptor._data == ba.bitarray("10010000100000")
     assert validate_descriptor(new_descriptor)
-    helper_check_mapping(index_mapping, r.descriptor, new_descriptor)
+    r_2 = Discretization(MortonOrderLinearization(), new_descriptor)
+    helper_check_mapping(index_mapping, r, r_2)
 
     # plot_tree_tikz(new_descriptor, filename="simplest_grandchild_split_before")
     # plot_all_boxes_2d(Discretization(MortonOrderLinearization(), new_descriptor), labels="patches")
-    r = Discretization(MortonOrderLinearization(), new_descriptor)
-    p = PlannedAdaptiveRefinement(r)
+    p = PlannedAdaptiveRefinement(r_2)
     p.plan_refinement(2, ba.bitarray("01"))
     p.plan_refinement(3, ba.bitarray("01"))
     assert p._planned_refinements.queue == [
@@ -253,7 +261,11 @@ def test_refine_simplest_grandchild_split():
     new_descriptor_2, index_mapping_2 = p.create_new_descriptor(track_mapping=True)
     assert new_descriptor_2._data == ba.bitarray("110010000000100000")
     assert validate_descriptor(new_descriptor_2)
-    helper_check_mapping(index_mapping_2, new_descriptor, new_descriptor_2)
+    helper_check_mapping(
+        index_mapping_2,
+        r_2,
+        Discretization(MortonOrderLinearization(), new_descriptor_2),
+    )
 
 
 def test_refine_grandchild_split():
@@ -313,7 +325,9 @@ def test_refine_multi_grandchild_split():
     p.plan_refinement(3, ba.bitarray("10"))
 
     new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
-    helper_check_mapping(index_mapping, descriptor, new_descriptor)
+    helper_check_mapping(
+        index_mapping, r, Discretization(MortonOrderLinearization(), new_descriptor)
+    )
 
 
 def test_refine_fully():
@@ -363,7 +377,7 @@ def test_refine_2d():
     validate_descriptor(new_descriptor)
     assert new_descriptor.get_num_boxes() == num_boxes_before + 1
     assert new_descriptor._data == correct_descriptor._data
-    helper_check_mapping(index_mapping, descriptor, new_descriptor)
+    helper_check_mapping(index_mapping, discretization, new_discretization)
     for b in range(descriptor.get_num_boxes()):
         assert len(index_mapping[b]) == 1 or (
             b == (len(discretization) - 1) and len(index_mapping[b]) == 2
@@ -377,43 +391,45 @@ def test_refine_2d():
 
 def test_refine_3d():
     prependable_string = "110001000000001000000001000000"
-    descriptor = RefinementDescriptor.from_binary(
-        3,
-        ba.bitarray(
-            prependable_string + "110001000000001010000000000001010000000000000"
-        ),
-    )
-    validate_descriptor(descriptor)
-    num_boxes_before = descriptor.get_num_boxes()
-    discretization = Discretization(MortonOrderLinearization(), descriptor)
-
-    try:
-        new_discretization, index_mapping = apply_single_refinement(
-            discretization, len(discretization) - 1, ba.bitarray("001")
+    for round in range(4):
+        descriptor = RefinementDescriptor.from_binary(
+            3,
+            ba.bitarray(
+                prependable_string * round
+                + "110001000000001010000000000001010000000000000"
+            ),
         )
-    except RefinementError as e:
-        # example of how RefinementErrors can be useful:
-        print(e.markers)
-        # plot_tree_tikz(e.descriptor, filename="error")
-        labels = [""] * len(descriptor)
-        for key, value in e.markers.items():
-            labels[key] = ",".join(str(v) for v in value)
-        # plot_tree_tikz(descriptor, labels=labels, filename="error_labels")
-        raise e.error
+        validate_descriptor(descriptor)
+        num_boxes_before = descriptor.get_num_boxes()
+        discretization = Discretization(MortonOrderLinearization(), descriptor)
 
-    new_descriptor = new_discretization.descriptor
-    validate_descriptor(new_descriptor)
-    assert new_descriptor.get_num_boxes() == num_boxes_before + 1
-    helper_check_mapping(index_mapping, descriptor, new_descriptor)
-    for b in range(descriptor.get_num_boxes()):
-        assert len(index_mapping[b]) == 1 or (
-            b == (len(discretization) - 1) and len(index_mapping[b]) == 2
-        )
-        if len(index_mapping[b]) == 1:
-            # make sure the coordinates are correct
-            assert coordinates_from_box_index(
-                new_discretization, index_mapping[b][0]
-            ) == coordinates_from_box_index(discretization, b)
+        try:
+            new_discretization, index_mapping = apply_single_refinement(
+                discretization, len(discretization) - 1, ba.bitarray("001")
+            )
+        except RefinementError as e:
+            # example of how RefinementErrors can be useful:
+            print(e.markers)
+            # plot_tree_tikz(e.descriptor, filename="error")
+            labels = [""] * len(descriptor)
+            for key, value in e.markers.items():
+                labels[key] = ",".join(str(v) for v in value)
+            # plot_tree_tikz(descriptor, labels=labels, filename="error_labels")
+            raise e.error
+
+        new_descriptor = new_discretization.descriptor
+        validate_descriptor(new_descriptor)
+        assert new_descriptor.get_num_boxes() == num_boxes_before + 1
+        helper_check_mapping(index_mapping, discretization, new_discretization)
+        for b in range(descriptor.get_num_boxes()):
+            assert len(index_mapping[b]) == 1 or (
+                b == (len(discretization) - 1) and len(index_mapping[b]) == 2
+            )
+            if len(index_mapping[b]) == 1:
+                # make sure the coordinates are correct
+                assert coordinates_from_box_index(
+                    new_discretization, index_mapping[b][0]
+                ) == coordinates_from_box_index(discretization, b)
 
 
 def test_refine_4d():
@@ -436,7 +452,9 @@ def test_refine_4d():
     assert new_descriptor._data == ba.bitarray(
         "0011110000000000000000000000110000000000000000000000"
     )
-    helper_check_mapping(index_mapping, descriptor, new_descriptor)
+    helper_check_mapping(
+        index_mapping, r, Discretization(MortonOrderLinearization(), new_descriptor)
+    )
 
 
 def test_refine_random():
@@ -457,7 +475,11 @@ def test_refine_random():
             # the "=" may happen if only zeros are chosen
             assert len(new_descriptor) >= len(descriptor)
             assert validate_descriptor(new_descriptor)
-            helper_check_mapping(index_mapping, descriptor, new_descriptor)
+            helper_check_mapping(
+                index_mapping,
+                r,
+                Discretization(MortonOrderLinearization(), new_descriptor),
+            )
 
             descriptor = new_descriptor
 
@@ -467,19 +489,20 @@ def test_refine_random_increments():
         descriptor = RefinementDescriptor(d, 0)
         assert descriptor.get_num_boxes() == 1
         possible_increments = list(single_bit_set_gen(d))
-        for round in range(100):
+        for round in range(10 + 4 ^ d):
             random_box = np.random.randint(0, descriptor.get_num_boxes())
             random_refinement = possible_increments[np.random.randint(0, d)]
 
+            discretization = Discretization(MortonOrderLinearization(), descriptor)
             new_discretization, index_mapping = apply_single_refinement(
-                Discretization(MortonOrderLinearization(), descriptor),
+                discretization,
                 random_box,
                 random_refinement,
             )
             new_descriptor = new_discretization.descriptor
             assert new_descriptor.get_num_boxes() == descriptor.get_num_boxes() + 1
             assert validate_descriptor(new_descriptor)
-            helper_check_mapping(index_mapping, descriptor, new_descriptor)
+            helper_check_mapping(index_mapping, discretization, new_discretization)
             for b in range(descriptor.get_num_boxes()):
                 assert len(index_mapping[b]) == 1 or (
                     b == random_box and len(index_mapping[b]) == 2
