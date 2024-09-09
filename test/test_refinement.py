@@ -172,6 +172,12 @@ def helper_check_mapping(index_mapping, old_discretization, new_discretization):
             assert coordinates_from_box_index(
                 new_discretization, index_mapping[b][0]
             ) == coordinates_from_box_index(old_discretization, b)
+        else:
+            old_interval = coordinates_from_box_index(old_discretization, b)
+            for new_index in index_mapping[b]:
+                new_interval = coordinates_from_box_index(new_discretization, new_index)
+                assert old_interval.contains(new_interval.lower_bound)
+                assert old_interval.contains(new_interval.upper_bound)
 
 
 def test_refine_simplest_not_only_leaves():

@@ -26,7 +26,7 @@ def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
 
     # iterate in reverse from max(level) to 0...
     for l in reversed(range(max(added_level))):
-        at_least_l = ba.bitarray([i > l for i in added_level])
+        at_least_l = ba.bitarray([1 if i > l else 0 for i in added_level])
         # power of two by bitshift
         factor = 1 << at_least_l.count()
         # ...while duplicating the current data as new children

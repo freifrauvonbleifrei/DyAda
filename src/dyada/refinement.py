@@ -50,7 +50,7 @@ def get_level_index_from_branch(
     found_level = get_level_from_branch(branch)
 
     # once the branch is found, we can infer the vector index from the branch stack
-    current_index: np.ndarray = np.array([0] * num_dimensions, dtype=int)
+    current_index: np.ndarray = np.array([0] * num_dimensions, dtype=np.int64)
     decreasing_level_difference = found_level.copy()
     history_of_indices, history_of_level_increments = branch.to_history()
     for level_count in range(1, len(branch)):
@@ -58,7 +58,7 @@ def get_level_index_from_branch(
             history_of_indices[:level_count],
             history_of_level_increments[:level_count],
         )
-        array_index = np.fromiter(bit_index, dtype=np.int8, count=num_dimensions)
+        array_index = np.fromiter(bit_index, dtype=np.int64, count=num_dimensions)
         assert len(array_index) == num_dimensions
         decreasing_level_difference -= np.fromiter(
             branch[level_count].level_increment, dtype=np.uint8, count=num_dimensions
@@ -551,6 +551,50 @@ class PlannedAdaptiveRefinement:
                         new_descriptor.to_box_index(new_index)
                     ]
 
+    def add_refined_data(self, new_descriptor):
+        old_descriptor = self._discretization.descriptor
+        one_after_last_extended_index = 0
+
+        while one_after_last_extended_index < len(old_descriptor):
+            # filter the markers to the current interval
+            filtered_markers = {
+                k: v
+                for k, v in self._markers.items()
+                if k >= one_after_last_extended_index
+            }
+            index_to_refine = min(filtered_markers.keys(), default=-1)
+            if index_to_refine == -1:
+                break
+
+            # copy up to marked
+            self.extend_descriptor_and_track_boxes(
+                new_descriptor,
+                (one_after_last_extended_index, index_to_refine),
+                old_descriptor[one_after_last_extended_index:index_to_refine],
+            )
+
+            modified_branches = self.modified_branch_generator(index_to_refine)
+            for old_index, new_refinement, *marker in modified_branches:
+                if marker != []:
+                    assert self._discretization.descriptor[old_index].count() == 0
+                    assert np.min(marker) >= 0
+                    self.extend_descriptor_and_track_boxes(
+                        new_descriptor,
+                        old_index,
+                        get_regular_refined(self._markers[old_index]),  # type: ignore
+                    )
+                else:
+                    new_descriptor._data.extend(new_refinement)
+            one_after_last_extended_index = old_index + 1
+
+        # copy rest and return
+        self.extend_descriptor_and_track_boxes(
+            new_descriptor,
+            (one_after_last_extended_index, len(old_descriptor)),
+            old_descriptor[one_after_last_extended_index : len(old_descriptor)],
+        )
+        return new_descriptor
+
     def create_new_descriptor(
         self, track_mapping: bool
     ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
@@ -561,23 +605,10 @@ class PlannedAdaptiveRefinement:
             self._discretization.descriptor.get_num_dimensions()
         )
 
-        # start recursive cascade of refinement
+        # start generating the new descriptor
         new_descriptor._data = ba.bitarray()
         try:
-            modified_branches = self.modified_branch_generator(0)
-            for old_index, new_refinement, *marker in modified_branches:
-                if marker != []:
-                    assert self._discretization.descriptor[old_index].count() == 0
-                    assert np.min(marker) >= 0
-                    # new_descriptor._data.extend(get_regular_refined(new_refinement))
-                    self.extend_descriptor_and_track_boxes(
-                        new_descriptor,
-                        old_index,
-                        get_regular_refined(self._markers[old_index]),  # type: ignore
-                    )
-                else:
-                    new_descriptor._data.extend(new_refinement)
-
+            new_descriptor = self.add_refined_data(new_descriptor)
         except Exception as e:
             raise RefinementError(
                 "Error during refinement cascade", new_descriptor, self._markers, e

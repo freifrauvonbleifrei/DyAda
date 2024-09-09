@@ -93,6 +93,9 @@ def plot_boxes_2d_matplotlib(
 ) -> None:
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
+    filename = None
+    if "filename" in kwargs:
+        filename = kwargs.pop("filename")
 
     fig, ax1 = plt.subplots(1, 1)
     for i, interval in enumerate(intervals):
@@ -122,7 +125,10 @@ def plot_boxes_2d_matplotlib(
             )
     # add title with projection
     ax1.set_title(f"Dimensions {projection[0]} and {projection[1]}")
-    plt.show()
+    if filename is not None:
+        plt.savefig(filename)
+    else:
+        plt.show()
 
 
 def latex_write_and_compile(latex_string: str, filename: str) -> None:
