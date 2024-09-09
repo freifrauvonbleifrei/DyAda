@@ -1,7 +1,5 @@
 import bitarray as ba
 from collections import defaultdict
-from dataclasses import dataclass, field
-from itertools import pairwise
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
@@ -17,14 +15,11 @@ from dyada.coordinates import (
 from dyada.descriptor import (
     Branch,
     RefinementDescriptor,
-    get_num_children_from_refinement,
     get_level_from_branch,
     get_regular_refined,
 )
 from dyada.linearization import (
     get_dimensionwise_positions,
-    binary_position_gen_from_mask,
-    interleave_binary_positions,
     Linearization,
 )
 
@@ -245,7 +240,7 @@ class PlannedAdaptiveRefinement:
             # assume we want the direct children
             # TODO accept optional branch argument to reduce lookup time
             descendants_indices = self._discretization.descriptor.get_children(
-                ancestor_index, and_after=False
+                ancestor_index
             )
         assert (
             len(descendants_indices) > 1 and len(descendants_indices).bit_count() == 1
@@ -272,9 +267,7 @@ class PlannedAdaptiveRefinement:
             if linear_index != 0:
                 # check if refinement can be moved up the branch (even partially);
                 # this requires that all siblings are or would be refined
-                siblings = self._discretization.descriptor.get_siblings(
-                    linear_index, and_after=False
-                )
+                siblings = self._discretization.descriptor.get_siblings(linear_index)
 
                 all_siblings_refinements = [
                     np.fromiter(
@@ -407,8 +400,6 @@ class PlannedAdaptiveRefinement:
         # currently_accumulated_markers = {starting_index: next_marker}
         while True:
             if next_refinement == descriptor.d_zeros:
-                if current_refinement.count() > 0:
-                    pass
                 assert (current_refinement).count() == 0
                 # on leaves, add end-refinement info
                 yield current_old_index, next_refinement, next_marker
@@ -461,9 +452,7 @@ class PlannedAdaptiveRefinement:
                         np.min(child_marker) < 0
                         and child_future_refinement == descriptor.d_zeros
                     ):
-                        children_of_coarsened = descriptor.get_children(
-                            child, and_after=False
-                        )
+                        children_of_coarsened = descriptor.get_children(child)
                         children_to_consider.update(children_of_coarsened)
                         children_to_consider.remove(child)
                         updating_children = True
@@ -551,7 +540,9 @@ class PlannedAdaptiveRefinement:
                         new_descriptor.to_box_index(new_index)
                     ]
 
-    def add_refined_data(self, new_descriptor):
+    def add_refined_data(
+        self, new_descriptor: RefinementDescriptor
+    ) -> RefinementDescriptor:
         old_descriptor = self._discretization.descriptor
         one_after_last_extended_index = 0
 
@@ -601,17 +592,17 @@ class PlannedAdaptiveRefinement:
         self._box_index_mapping: Optional[dict[int, list[int]]] = None
         if track_mapping:
             self._box_index_mapping = defaultdict(list)
+
+        # start generating the new descriptor
         new_descriptor = RefinementDescriptor(
             self._discretization.descriptor.get_num_dimensions()
         )
-
-        # start generating the new descriptor
         new_descriptor._data = ba.bitarray()
         try:
             new_descriptor = self.add_refined_data(new_descriptor)
         except Exception as e:
             raise RefinementError(
-                "Error during refinement cascade", new_descriptor, self._markers, e
+                "Error during refinement", new_descriptor, self._markers, e
             )
 
         assert len(new_descriptor._data) >= len(self._discretization.descriptor)

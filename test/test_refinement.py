@@ -486,7 +486,6 @@ def test_refine_random():
                 r,
                 Discretization(MortonOrderLinearization(), new_descriptor),
             )
-
             descriptor = new_descriptor
 
 

@@ -292,15 +292,12 @@ class RefinementDescriptor:
         parent_index, parent_iterator = self.get_parent(younger_branch)
         return parent_index + 1, parent_iterator
 
-    def get_siblings(self, hierarchical_index: int, and_after: bool = False):
+    def get_siblings(self, hierarchical_index: int):
         siblings: set[int] = {hierarchical_index}
         branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
         if len(branch) < 2:
             # we are at the root
-            if and_after:
-                return list(siblings), len(self)
-            else:
-                return list(siblings)
+            return list(siblings)
         total_num_siblings = 1 << branch[-1].level_increment.count()
         num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
         if num_older_siblings > 0:
@@ -319,23 +316,13 @@ class RefinementDescriptor:
             siblings.add(running_index)
 
         assert len(siblings) == total_num_siblings
-        if and_after:
-            # iterate to the end of the current patch
-            next_refinement = next(descriptor_iterator)
-            running_index += self.skip_to_next_neighbor(
-                descriptor_iterator, next_refinement
-            )[1]
-            return sorted(list(siblings)), running_index
-        else:
-            return sorted(list(siblings))
+        return sorted(list(siblings))
 
-    def get_children(self, parent_index: int, and_after: bool = False):
+    def get_children(self, parent_index: int):
         if self.is_box(parent_index):
-            if and_after:
-                return [], parent_index + 1
             return []
         first_child_index = parent_index + 1
-        return self.get_siblings(first_child_index, and_after=and_after)
+        return self.get_siblings(first_child_index)
 
     def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
         current_branch, _ = self.get_branch(index, is_box_index)

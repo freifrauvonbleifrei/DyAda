@@ -11,33 +11,6 @@ def single_bit_set_gen(num_dimensions: int):
         yield bit_array
 
 
-def binary_position_gen_from_mask(mask: ba.bitarray):
-    """generate all binary strings of length num_dimensions that
-    have a 0 at the position of the 0s in mask"""
-    sub_generators = [(0, 1) if mask_bit else (0,) for mask_bit in mask]
-    for zero_ones in product(*sub_generators):
-        yield ba.frozenbitarray(zero_ones)
-
-
-def interleave_binary_positions(
-    outer_box_refinement: ba.bitarray,
-    outer_box_position: ba.bitarray,
-    inner_box_refinement: ba.bitarray,
-    inner_box_position: ba.bitarray,
-) -> ba.bitarray:
-    num_dimensions = len(outer_box_refinement)
-    assert len(outer_box_position) == num_dimensions
-    assert len(inner_box_refinement) == num_dimensions
-    assert len(inner_box_position) == num_dimensions
-    assert (outer_box_refinement & inner_box_refinement).count() == 0
-
-    # this is like in Morton order
-    return (
-        outer_box_refinement & outer_box_position
-        | inner_box_refinement & inner_box_position
-    )
-
-
 def get_dimensionwise_positions(
     history_of_binary_positions: Sequence[ba.bitarray],
     history_of_level_increments: Sequence[ba.bitarray],
