@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import operator
 from reprlib import repr
-from typing import Iterator, Sequence
+from typing import Iterator, Optional, Sequence
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -63,12 +63,14 @@ class Branch(deque[LevelCounter]):
         dZeros = ba.frozenbitarray([0] * num_dimensions)
         self.append(LevelCounter(dZeros, 1))
 
-    def advance_branch(self) -> None:
+    def advance_branch(self, check_depth: Optional[int] = None) -> None:
         """Advance the branch to the next sibling, in-place"""
         self[-1].count_to_go_up -= 1
         assert self[-1].count_to_go_up >= 0
         while self[-1].count_to_go_up == 0:
             self.pop()
+            if len(self) == check_depth:
+                raise IndexError
             self[-1].count_to_go_up -= 1
             assert self[-1].count_to_go_up >= 0
 

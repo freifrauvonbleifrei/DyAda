@@ -38,6 +38,29 @@ def interleave_binary_positions(
     )
 
 
+def get_dimensionwise_positions(
+    history_of_binary_positions: Sequence[ba.bitarray],
+    history_of_level_increments: Sequence[ba.bitarray],
+) -> tuple[ba.bitarray, ...]:
+    # will contain the same info as level_index, actually
+    assert len(history_of_binary_positions) == len(history_of_level_increments)
+    num_dimensions = len(history_of_binary_positions[0])
+    positons = []
+    for d in range(num_dimensions):
+        this_dimension_positions = ba.bitarray()
+        for i in range(len(history_of_binary_positions)):
+            # append only if this dimension is refined
+            if history_of_level_increments[i][d]:
+                this_dimension_positions.extend(
+                    history_of_binary_positions[i][d : d + 1]
+                )
+            else:
+                assert history_of_binary_positions[i][d] == 0
+
+        positons.append(this_dimension_positions)
+    return tuple(positons)
+
+
 class Linearization(ABC):
     @staticmethod
     @abstractmethod
