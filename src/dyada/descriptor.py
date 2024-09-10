@@ -183,9 +183,7 @@ class RefinementDescriptor:
             ba.frozenbitarray("1" * self._num_dimensions),
         }
 
-    def to_box_index(self, index: int) -> int:
-        assert self.is_box(index)
-        # count zeros up to index, zero-indexed
+    def num_boxes_up_to(self, index: int) -> int:
         count = -1
         for i in self:
             if i == self.d_zeros:
@@ -194,6 +192,11 @@ class RefinementDescriptor:
                 break
             index -= 1
         return count
+
+    def to_box_index(self, index: int) -> int:
+        assert self.is_box(index)
+        # count zeros up to index, zero-indexed
+        return self.num_boxes_up_to(index)
 
     def to_hierarchical_index(self, box_index: int) -> int:
         linear_index = 0
@@ -208,17 +211,28 @@ class RefinementDescriptor:
         return linear_index
 
     def get_branch(
-        self, index: int, is_box_index: bool = True
+        self,
+        index: int,
+        is_box_index: bool = True,
+        hint_previous_branch: tuple[int, Branch] | None = None,
     ) -> tuple[Branch, Iterator]:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
+        if hint_previous_branch is None:
+            current_branch = Branch(self._num_dimensions)
+            box_counter = 0
+            i = 0
+            current_iterator = iter(self)
+        else:
+            i, current_branch = hint_previous_branch
+            current_branch = current_branch.copy()
+            box_counter = self.num_boxes_up_to(i)
+            current_iterator = iter(self)
+            for _ in range(i):
+                next(current_iterator)
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
-        current_branch = Branch(self._num_dimensions)
-        box_counter = 0
-        i = 0
-        current_iterator = iter(self)
         while is_box_index or i < index:
             current_refinement = next(current_iterator)
             if current_refinement == self.d_zeros:
