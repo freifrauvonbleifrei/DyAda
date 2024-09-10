@@ -377,7 +377,7 @@ class PlannedAdaptiveRefinement:
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
         # iterates a modified version of the descriptor, incorporating the markers knowledge
-        # and keeping track of the ancestry (?)
+        # and keeping track of the ancestry
         current_branch, _ = descriptor.get_branch(starting_index, is_box_index=False)
         initial_branch_depth = len(current_branch)
         current_branch_depth = initial_branch_depth
@@ -391,6 +391,7 @@ class PlannedAdaptiveRefinement:
             )
 
         ancestry = descriptor.get_ancestry(current_branch)
+        assert len(ancestry) == current_branch_depth - 1
         ancestry.append(starting_index)
         current_old_index = starting_index
         current_refinement = descriptor[current_old_index]
@@ -459,7 +460,6 @@ class PlannedAdaptiveRefinement:
                 children = children_to_consider.copy()
 
             # determine which child twig to go down next
-            found = False
             for child in children:
                 # find the child whose branch puts it at the same level/index as
                 # the modified branch we're looking at
@@ -497,11 +497,8 @@ class PlannedAdaptiveRefinement:
                         history_matches = False
                         break
                 if history_matches:
-                    assert not found
                     current_old_index = child
-                    found = True
-
-            assert found
+                    break
 
             ancestry.append(current_old_index)
             current_refinement = descriptor[current_old_index]
