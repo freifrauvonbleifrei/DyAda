@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import operator
 from reprlib import repr
-from typing import Iterator, Optional, Sequence
+from typing import Iterator, Optional, Sequence, Union
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -59,9 +59,14 @@ class Branch(deque[LevelCounter]):
     the branch, there is only the parent refinement.
     """
 
-    def __init__(self, num_dimensions: int):
-        dZeros = ba.frozenbitarray([0] * num_dimensions)
-        self.append(LevelCounter(dZeros, 1))
+    def __init__(self, num_dimensions_or_other_branch: Union[int, "Branch"]):
+        if isinstance(num_dimensions_or_other_branch, int):
+            super().__init__()
+            num_dimensions = num_dimensions_or_other_branch
+            dZeros = ba.frozenbitarray([0] * num_dimensions)
+            self.append(LevelCounter(dZeros, 1))
+        else:
+            super().__init__(num_dimensions_or_other_branch)
 
     def advance_branch(self, check_depth: Optional[int] = None) -> None:
         """Advance the branch to the next sibling, in-place"""
@@ -292,15 +297,24 @@ class RefinementDescriptor:
         parent_index, parent_iterator = self.get_parent(younger_branch)
         return parent_index + 1, parent_iterator
 
-    def get_siblings(self, hierarchical_index: int):
+    def get_siblings(
+        self, hierarchical_index: int, branch_to_index: Optional[Branch] = None
+    ) -> list[int]:
         siblings: set[int] = {hierarchical_index}
-        branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
+        if branch_to_index is None:
+            branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
+        else:
+            branch = branch_to_index.copy()
+            descriptor_iterator = iter(self)
+            for _ in range(hierarchical_index):
+                next(descriptor_iterator)
         if len(branch) < 2:
             # we are at the root
             return list(siblings)
         total_num_siblings = 1 << branch[-1].level_increment.count()
         num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
         if num_older_siblings > 0:
+            assert not branch_to_index
             running_index, descriptor_iterator = self.get_oldest_sibling(branch)
             siblings.add(running_index)
         else:
@@ -318,11 +332,18 @@ class RefinementDescriptor:
         assert len(siblings) == total_num_siblings
         return sorted(list(siblings))
 
-    def get_children(self, parent_index: int):
+    def get_children(
+        self, parent_index: int, branch_to_parent: Optional[Branch] = None
+    ):
         if self.is_box(parent_index):
             return []
         first_child_index = parent_index + 1
-        return self.get_siblings(first_child_index)
+        if branch_to_parent is not None:
+            branch_to_first_child = branch_to_parent.copy()
+            branch_to_first_child.grow_branch(self[parent_index])
+        else:
+            branch_to_first_child = None
+        return self.get_siblings(first_child_index, branch_to_first_child)
 
     def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
         current_branch, _ = self.get_branch(index, is_box_index)

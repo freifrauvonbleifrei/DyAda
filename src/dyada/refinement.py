@@ -438,7 +438,13 @@ class PlannedAdaptiveRefinement:
                 history_of_binary_positions, history_of_level_increments
             )
 
-            children = set(descriptor.get_children(ancestry[-1]))
+            parent_of_next_refinement = ancestry[-1]
+            parent_branch, _ = descriptor.get_branch(
+                parent_of_next_refinement, is_box_index=False
+            )
+            children = set(
+                descriptor.get_children(parent_of_next_refinement, parent_branch)
+            )
             children_to_consider = children.copy()
             updating_children = True
             while updating_children:
@@ -463,7 +469,11 @@ class PlannedAdaptiveRefinement:
             for child in children:
                 # find the child whose branch puts it at the same level/index as
                 # the modified branch we're looking at
-                child_old_branch, _ = descriptor.get_branch(child, is_box_index=False)
+                child_old_branch, _ = descriptor.get_branch(
+                    child,
+                    is_box_index=False,
+                    hint_previous_branch=(parent_of_next_refinement, parent_branch),
+                )
                 child_history_of_indices, child_history_of_level_increments = (
                     child_old_branch.to_history()
                 )
