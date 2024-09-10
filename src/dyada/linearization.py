@@ -4,31 +4,34 @@ from itertools import product, tee
 from typing import Sequence
 
 
-def binary_position_gen_from_mask(mask: ba.bitarray):
-    """generate all binary strings of length num_dimensions that
-    have a 0 at the position of the 0s in mask"""
-    sub_generators = [(0, 1) if mask_bit else (0,) for mask_bit in mask]
-    for zero_ones in product(*sub_generators):
-        yield ba.frozenbitarray(zero_ones)
+def single_bit_set_gen(num_dimensions: int):
+    for i in range(num_dimensions):
+        bit_array = ba.bitarray(num_dimensions)
+        bit_array[i] = 1
+        yield bit_array
 
 
-def interleave_binary_positions(
-    outer_box_refinement: ba.bitarray,
-    outer_box_position: ba.bitarray,
-    inner_box_refinement: ba.bitarray,
-    inner_box_position: ba.bitarray,
-) -> ba.bitarray:
-    num_dimensions = len(outer_box_refinement)
-    assert len(outer_box_position) == num_dimensions
-    assert len(inner_box_refinement) == num_dimensions
-    assert len(inner_box_position) == num_dimensions
-    assert (outer_box_refinement & inner_box_refinement).count() == 0
+def get_dimensionwise_positions(
+    history_of_binary_positions: Sequence[ba.bitarray],
+    history_of_level_increments: Sequence[ba.bitarray],
+) -> tuple[ba.bitarray, ...]:
+    # will contain the same info as level_index, actually
+    assert len(history_of_binary_positions) == len(history_of_level_increments)
+    num_dimensions = len(history_of_binary_positions[0])
+    positons = []
+    for d in range(num_dimensions):
+        this_dimension_positions = ba.bitarray()
+        for i in range(len(history_of_binary_positions)):
+            # append only if this dimension is refined
+            if history_of_level_increments[i][d]:
+                this_dimension_positions.extend(
+                    history_of_binary_positions[i][d : d + 1]
+                )
+            else:
+                assert history_of_binary_positions[i][d] == 0
 
-    # this is like in Morton order
-    return (
-        outer_box_refinement & outer_box_position
-        | inner_box_refinement & inner_box_position
-    )
+        positons.append(this_dimension_positions)
+    return tuple(positons)
 
 
 class Linearization(ABC):

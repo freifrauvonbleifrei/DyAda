@@ -1,6 +1,7 @@
 import bitarray as ba
 from itertools import permutations
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pytest
 
@@ -77,7 +78,9 @@ def test_plot_boxes_2d_from_descriptor():
             # the transparency should give murky colors for the lower projections
             # (because many boxes will be stacked on top of each other)
             # and nicer colors for the higher ones
-            plot_all_boxes_2d(r, projection=list(projection), alpha=0.3)
+            plot_all_boxes_2d(
+                r, projection=list(projection), alpha=0.3, filename="2d_transparent"
+            )
             plot_all_boxes_2d(r, projection=list(projection), labels="boxes")
 
 
@@ -104,7 +107,9 @@ def test_plot_boxes_3d_from_descriptor():
     r = Discretization(MortonOrderLinearization(), new_descriptor)
     plot_all_boxes_3d(r, labels="boxes", draw_options="fill opacity=0.1")
     plot_all_boxes_3d(r, wireframe=True, filename="test_filename")
-    plot_tree_tikz(new_descriptor)
+    plot_tree_tikz(
+        new_descriptor, labels=["ö" + str(a) for a in np.arange(len(new_descriptor))]
+    )
     plot_descriptor_tikz(new_descriptor)
 
 

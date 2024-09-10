@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import operator
 from reprlib import repr
-from typing import Iterator, Sequence
+from typing import Iterator, Optional, Sequence, Union
 
 
 # generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
@@ -26,7 +26,7 @@ def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
 
     # iterate in reverse from max(level) to 0...
     for l in reversed(range(max(added_level))):
-        at_least_l = ba.bitarray([i > l for i in added_level])
+        at_least_l = ba.bitarray([1 if i > l else 0 for i in added_level])
         # power of two by bitshift
         factor = 1 << at_least_l.count()
         # ...while duplicating the current data as new children
@@ -59,16 +59,23 @@ class Branch(deque[LevelCounter]):
     the branch, there is only the parent refinement.
     """
 
-    def __init__(self, num_dimensions: int):
-        dZeros = ba.frozenbitarray([0] * num_dimensions)
-        self.append(LevelCounter(dZeros, 1))
+    def __init__(self, num_dimensions_or_other_branch: Union[int, "Branch"]):
+        if isinstance(num_dimensions_or_other_branch, int):
+            super().__init__()
+            num_dimensions = num_dimensions_or_other_branch
+            dZeros = ba.frozenbitarray([0] * num_dimensions)
+            self.append(LevelCounter(dZeros, 1))
+        else:
+            super().__init__(num_dimensions_or_other_branch)
 
-    def advance_branch(self) -> None:
+    def advance_branch(self, check_depth: Optional[int] = None) -> None:
         """Advance the branch to the next sibling, in-place"""
         self[-1].count_to_go_up -= 1
         assert self[-1].count_to_go_up >= 0
         while self[-1].count_to_go_up == 0:
             self.pop()
+            if len(self) == check_depth:
+                raise IndexError
             self[-1].count_to_go_up -= 1
             assert self[-1].count_to_go_up >= 0
 
@@ -109,6 +116,14 @@ class RefinementDescriptor:
 
         # establish the base resolution level
         self._data = get_regular_refined(base_resolution_level)
+
+    @staticmethod
+    def from_binary(num_dimensions: int, binary: ba.bitarray) -> "RefinementDescriptor":
+        assert len(binary) % num_dimensions == 0
+        descriptor = RefinementDescriptor(num_dimensions)
+        descriptor._data = binary
+        validate_descriptor(descriptor)
+        return descriptor
 
     def __len__(self):
         """
@@ -168,9 +183,7 @@ class RefinementDescriptor:
             ba.frozenbitarray("1" * self._num_dimensions),
         }
 
-    def to_box_index(self, index: int) -> int:
-        assert self.is_box(index)
-        # count zeros up to index, zero-indexed
+    def num_boxes_up_to(self, index: int) -> int:
         count = -1
         for i in self:
             if i == self.d_zeros:
@@ -179,6 +192,11 @@ class RefinementDescriptor:
                 break
             index -= 1
         return count
+
+    def to_box_index(self, index: int) -> int:
+        assert self.is_box(index)
+        # count zeros up to index, zero-indexed
+        return self.num_boxes_up_to(index)
 
     def to_hierarchical_index(self, box_index: int) -> int:
         linear_index = 0
@@ -193,17 +211,28 @@ class RefinementDescriptor:
         return linear_index
 
     def get_branch(
-        self, index: int, is_box_index: bool = True
+        self,
+        index: int,
+        is_box_index: bool = True,
+        hint_previous_branch: tuple[int, Branch] | None = None,
     ) -> tuple[Branch, Iterator]:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
+        if hint_previous_branch is None:
+            current_branch = Branch(self._num_dimensions)
+            box_counter = 0
+            i = 0
+            current_iterator = iter(self)
+        else:
+            i, current_branch = hint_previous_branch
+            current_branch = current_branch.copy()
+            box_counter = self.num_boxes_up_to(i)
+            current_iterator = iter(self)
+            for _ in range(i):
+                next(current_iterator)
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
-        current_branch = Branch(self._num_dimensions)
-        box_counter = 0
-        i = 0
-        current_iterator = iter(self)
         while is_box_index or i < index:
             current_refinement = next(current_iterator)
             if current_refinement == self.d_zeros:
@@ -282,18 +311,24 @@ class RefinementDescriptor:
         parent_index, parent_iterator = self.get_parent(younger_branch)
         return parent_index + 1, parent_iterator
 
-    def get_siblings(self, hierarchical_index: int, and_after: bool = False):
+    def get_siblings(
+        self, hierarchical_index: int, branch_to_index: Optional[Branch] = None
+    ) -> list[int]:
         siblings: set[int] = {hierarchical_index}
-        branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
+        if branch_to_index is None:
+            branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
+        else:
+            branch = branch_to_index.copy()
+            descriptor_iterator = iter(self)
+            for _ in range(hierarchical_index):
+                next(descriptor_iterator)
         if len(branch) < 2:
             # we are at the root
-            if and_after:
-                return list(siblings), len(self)
-            else:
-                return list(siblings)
+            return list(siblings)
         total_num_siblings = 1 << branch[-1].level_increment.count()
         num_older_siblings = total_num_siblings - branch[-1].count_to_go_up
         if num_older_siblings > 0:
+            assert not branch_to_index
             running_index, descriptor_iterator = self.get_oldest_sibling(branch)
             siblings.add(running_index)
         else:
@@ -309,23 +344,20 @@ class RefinementDescriptor:
             siblings.add(running_index)
 
         assert len(siblings) == total_num_siblings
-        if and_after:
-            # iterate to the end of the current patch
-            next_refinement = next(descriptor_iterator)
-            running_index += self.skip_to_next_neighbor(
-                descriptor_iterator, next_refinement
-            )[1]
-            return sorted(list(siblings)), running_index
-        else:
-            return sorted(list(siblings))
+        return sorted(list(siblings))
 
-    def get_children(self, parent_index: int, and_after: bool = False):
+    def get_children(
+        self, parent_index: int, branch_to_parent: Optional[Branch] = None
+    ):
         if self.is_box(parent_index):
-            if and_after:
-                return [], parent_index + 1
             return []
         first_child_index = parent_index + 1
-        return self.get_siblings(first_child_index, and_after=and_after)
+        if branch_to_parent is not None:
+            branch_to_first_child = branch_to_parent.copy()
+            branch_to_first_child.grow_branch(self[parent_index])
+        else:
+            branch_to_first_child = None
+        return self.get_siblings(first_child_index, branch_to_first_child)
 
     def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
         current_branch, _ = self.get_branch(index, is_box_index)

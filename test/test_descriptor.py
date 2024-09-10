@@ -183,9 +183,9 @@ def test_family_relations():
             sibling_branch = r.get_branch(sibling, False)[0]
             assert r.get_parent(sibling_branch)[0] == parent
             assert r.get_siblings(sibling) == siblings
-            if parent in [-1, 0, 10]:
-                assert r.get_siblings(sibling, and_after=True)[1] == 13
-        assert r.get_children(parent, and_after=False) == siblings
+        assert r.get_children(parent) == siblings
+    for leaf in (2, 3, 5, 6, 8, 9, 11, 12):
+        assert r.get_children(leaf) == []
 
     with pytest.raises(IndexError):
         r.get_siblings(13)
