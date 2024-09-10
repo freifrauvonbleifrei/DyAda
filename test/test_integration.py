@@ -98,7 +98,7 @@ def test_partitioning_queued():
         x = np.arange(sub_tensor_averaged.shape[0])
         y = np.arange(sub_tensor_averaged.shape[1])
         try:
-            from scipy.interpolate import RectBivariateSpline
+            from scipy.interpolate import RectBivariateSpline  # type: ignore
 
             # bicubic interpolation w/ scipy
             sub_tensor_spline = RectBivariateSpline(x, y, sub_tensor_averaged)
