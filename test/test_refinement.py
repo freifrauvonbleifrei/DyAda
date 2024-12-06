@@ -526,11 +526,11 @@ def test_refine_random_increments():
             assert new_descriptor.get_num_boxes() == descriptor.get_num_boxes() + 1
             assert validate_descriptor(new_descriptor)
             try:
-            helper_check_mapping(index_mapping, discretization, new_discretization)
-            for b in range(descriptor.get_num_boxes()):
-                assert len(index_mapping[b]) == 1 or (
-                    b == random_box and len(index_mapping[b]) == 2
-                )
+                helper_check_mapping(index_mapping, discretization, new_discretization)
+                for b in range(descriptor.get_num_boxes()):
+                    assert len(index_mapping[b]) == 1 or (
+                        b == random_box and len(index_mapping[b]) == 2
+                    )
             except Exception as e:
                 print(
                     f"failed for round {round} with box {random_box} and refinement {random_refinement}"
