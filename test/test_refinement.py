@@ -156,7 +156,9 @@ def test_refine_3d_only_leaves():
     assert validate_descriptor(new_descriptor)
 
 
-def helper_check_mapping(index_mapping, old_discretization, new_discretization):
+def helper_check_mapping(
+    index_mapping, old_discretization, new_discretization, tested_refinement=None
+):
     old_descriptor = old_discretization.descriptor
     new_descriptor = new_discretization.descriptor
     assert index_mapping.keys() == set(range(old_descriptor.get_num_boxes()))
@@ -169,6 +171,19 @@ def helper_check_mapping(index_mapping, old_discretization, new_discretization):
     for b in range(old_descriptor.get_num_boxes()):
         if len(index_mapping[b]) == 1:
             # make sure the coordinates are correct
+            if not (
+                coordinates_from_box_index(new_discretization, index_mapping[b][0])
+                == coordinates_from_box_index(old_discretization, b)
+            ):
+                print(
+                    f"mapping failed for box {b} with index {index_mapping[b][0]}"
+                    " and coordinates {coordinates_from_box_index(old_discretization, b)} "
+                    "-> {coordinates_from_box_index(new_discretization, index_mapping[b][0])}"
+                )
+                print(f"old descriptor: {old_descriptor}")
+                print(f"new descriptor: {new_descriptor}")
+                if tested_refinement is not None:
+                    print(f"tested refinement: {tested_refinement}")
             assert coordinates_from_box_index(
                 new_discretization, index_mapping[b][0]
             ) == coordinates_from_box_index(old_discretization, b)
@@ -469,12 +484,14 @@ def test_refine_random():
         for round in range(3):
             r = Discretization(MortonOrderLinearization(), descriptor)
             p = PlannedAdaptiveRefinement(r)
+            round_refinements = []
             for _ in range(2 ** (round + d // 2)):
                 random_box = np.random.randint(0, descriptor.get_num_boxes())
                 random_refinement = ba.bitarray(
                     (np.random.randint(0, 2) for _ in range(d))
                 )
                 p.plan_refinement(random_box, random_refinement)
+                round_refinements.append((random_box, random_refinement))
 
             new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
 
@@ -485,6 +502,7 @@ def test_refine_random():
                 index_mapping,
                 r,
                 Discretization(MortonOrderLinearization(), new_descriptor),
+                round_refinements,
             )
             descriptor = new_descriptor
 
@@ -507,11 +525,19 @@ def test_refine_random_increments():
             new_descriptor = new_discretization.descriptor
             assert new_descriptor.get_num_boxes() == descriptor.get_num_boxes() + 1
             assert validate_descriptor(new_descriptor)
+            try:
             helper_check_mapping(index_mapping, discretization, new_discretization)
             for b in range(descriptor.get_num_boxes()):
                 assert len(index_mapping[b]) == 1 or (
                     b == random_box and len(index_mapping[b]) == 2
                 )
+            except Exception as e:
+                print(
+                    f"failed for round {round} with box {random_box} and refinement {random_refinement}"
+                )
+                print(f"old descriptor: {descriptor}")
+                print(f"new descriptor: {new_descriptor}")
+                raise e
             descriptor = new_descriptor
 
 
