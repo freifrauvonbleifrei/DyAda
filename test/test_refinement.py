@@ -410,6 +410,54 @@ def test_refine_2d():
             ) == coordinates_from_box_index(discretization, b)
 
 
+def test_refine_2d_2():
+    # round 2 with new descriptor
+    descriptor = RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray("11 00 00 10 00 00 10 00 11 00 00 00 00"),
+    )
+    validate_descriptor(descriptor)
+    num_boxes_before = descriptor.get_num_boxes()
+    assert num_boxes_before == 9
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+
+    p = PlannedAdaptiveRefinement(discretization)
+    refinements = [
+        (3, ba.bitarray("11")),
+        (4, ba.bitarray("01")),
+    ]
+    for box, refinement in refinements:
+        p.plan_refinement(box, refinement)
+    assert p._planned_refinements.queue == [
+        (5, ba.bitarray("11")),
+        (7, ba.bitarray("01")),
+    ]
+    p.populate_queue()
+    p.upwards_sweep()
+    assert (
+        len(p._markers) == 3
+        and all(p._markers[5] == [1, 1])
+        and all(p._markers[6] == [0, 1])
+        and all(p._markers[8] == [0, -1])
+    )
+    assert p._upward_queue.empty()
+    new_descriptor, index_mapping = p.create_new_descriptor(track_mapping=True)
+
+    descriptor_expected = RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray("11 00 00 10 00 11 00 00 00 00 11 00 10 00 00 00 10 00 00"),
+    )
+    validate_descriptor(new_descriptor)
+
+    assert new_descriptor._data == descriptor_expected._data
+
+    helper_check_mapping(
+        index_mapping,
+        discretization,
+        Discretization(MortonOrderLinearization(), new_descriptor),
+    )
+
+
 def test_refine_3d():
     prependable_string = "110001000000001000000001000000"
     for round in range(4):
