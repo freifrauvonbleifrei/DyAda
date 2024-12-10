@@ -610,7 +610,7 @@ class PlannedAdaptiveRefinement:
             self._discretization.descriptor.get_num_dimensions()
         )
         new_descriptor._data = ba.bitarray()
-            new_descriptor = self.add_refined_data(new_descriptor)
+        new_descriptor = self.add_refined_data(new_descriptor)
 
         assert len(new_descriptor._data) >= len(self._discretization.descriptor)
         if track_mapping:
