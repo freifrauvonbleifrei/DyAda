@@ -194,7 +194,7 @@ class PlannedAdaptiveRefinement:
                 "1" * self._discretization.descriptor.get_num_dimensions()
             )
         else:
-        dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
+            dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
         # get hierarchical index
         linear_index = self._discretization.descriptor.to_hierarchical_index(box_index)
         # store by linear index
