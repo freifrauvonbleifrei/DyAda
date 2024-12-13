@@ -153,12 +153,12 @@ class Discretization:
 
 
 def coordinates_from_box_index(
-    discretiztion: Discretization,
+    discretization: Discretization,
     index: int,
     full_domain: Optional[CoordinateInterval] = None,
 ) -> CoordinateInterval:
     level_index = get_level_index_from_linear_index(
-        discretiztion._linearization, discretiztion._descriptor, index
+        discretization._linearization, discretization._descriptor, index
     )
     coordinates = get_coordinates_from_level_index(level_index)
     if full_domain is not None:
