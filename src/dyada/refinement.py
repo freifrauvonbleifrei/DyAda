@@ -153,12 +153,12 @@ class Discretization:
 
 
 def coordinates_from_box_index(
-    discretiztion: Discretization,
+    discretization: Discretization,
     index: int,
     full_domain: Optional[CoordinateInterval] = None,
 ) -> CoordinateInterval:
     level_index = get_level_index_from_linear_index(
-        discretiztion._linearization, discretiztion._descriptor, index
+        discretization._linearization, discretization._descriptor, index
     )
     coordinates = get_coordinates_from_level_index(level_index)
     if full_domain is not None:
@@ -188,8 +188,13 @@ class PlannedAdaptiveRefinement:
         self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
         self._remembered_splits: dict[int, tuple[ba.bitarray, int]] = {}
 
-    def plan_refinement(self, box_index: int, dimensions_to_refine) -> None:
-        dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
+    def plan_refinement(self, box_index: int, dimensions_to_refine=None) -> None:
+        if dimensions_to_refine is None:
+            dimensions_to_refine = ba.frozenbitarray(
+                "1" * self._discretization.descriptor.get_num_dimensions()
+            )
+        else:
+            dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
         # get hierarchical index
         linear_index = self._discretization.descriptor.to_hierarchical_index(box_index)
         # store by linear index
@@ -398,7 +403,7 @@ class PlannedAdaptiveRefinement:
         next_refinement, next_marker = self.refinement_with_marker_applied(
             current_old_index
         )
-        # currently_accumulated_markers = {starting_index: next_marker}
+
         while True:
             if next_refinement == descriptor.d_zeros:
                 assert (current_refinement).count() == 0
@@ -605,12 +610,7 @@ class PlannedAdaptiveRefinement:
             self._discretization.descriptor.get_num_dimensions()
         )
         new_descriptor._data = ba.bitarray()
-        try:
-            new_descriptor = self.add_refined_data(new_descriptor)
-        except Exception as e:
-            raise RefinementError(
-                "Error during refinement", new_descriptor, self._markers, e
-            )
+        new_descriptor = self.add_refined_data(new_descriptor)
 
         assert len(new_descriptor._data) >= len(self._discretization.descriptor)
         if track_mapping:
@@ -632,7 +632,9 @@ class PlannedAdaptiveRefinement:
 
 
 def apply_single_refinement(
-    discretization: Discretization, box_index: int, dimensions_to_refine: ba.bitarray
+    discretization: Discretization,
+    box_index: int,
+    dimensions_to_refine: Optional[ba.bitarray] = None,
 ) -> tuple[Discretization, dict]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
