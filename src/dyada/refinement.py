@@ -405,10 +405,10 @@ class PlannedAdaptiveRefinement:
         current_old_index = starting_index
 
         while True:
-        current_refinement = descriptor[current_old_index]
-        next_refinement, next_marker = self.refinement_with_marker_applied(
-            current_old_index
-        )
+            current_refinement = descriptor[current_old_index]
+            next_refinement, next_marker = self.refinement_with_marker_applied(
+                current_old_index
+            )
             if next_refinement == descriptor.d_zeros:
                 # only on leaves, we can potentially advance the branch
                 assert (current_refinement).count() == 0
