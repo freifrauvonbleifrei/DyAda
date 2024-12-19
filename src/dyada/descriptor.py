@@ -68,13 +68,13 @@ class Branch(deque[LevelCounter]):
         else:
             super().__init__(num_dimensions_or_other_branch)
 
-    def advance_branch(self, check_depth: Optional[int] = None) -> None:
+    def advance_branch(self, check_depth: int = 0) -> None:
         """Advance the branch to the next sibling, in-place"""
         self[-1].count_to_go_up -= 1
         assert self[-1].count_to_go_up >= 0
         while self[-1].count_to_go_up == 0:
             self.pop()
-            if len(self) == check_depth:
+            if len(self) <= check_depth:
                 raise IndexError
             self[-1].count_to_go_up -= 1
             assert self[-1].count_to_go_up >= 0
