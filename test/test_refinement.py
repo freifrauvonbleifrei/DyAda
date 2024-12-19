@@ -442,13 +442,12 @@ def test_refine_2d_2():
     )
     assert p._upward_queue.empty()
     new_descriptor, index_mapping = p.create_new_descriptor(track_mapping=True)
+    validate_descriptor(new_descriptor)
 
     descriptor_expected = RefinementDescriptor.from_binary(
         2,
         ba.bitarray("11 00 00 10 00 11 00 00 00 00 11 00 10 00 00 00 10 00 00"),
     )
-    validate_descriptor(new_descriptor)
-
     assert new_descriptor._data == descriptor_expected._data
 
     helper_check_mapping(

@@ -383,10 +383,14 @@ class PlannedAdaptiveRefinement:
         descriptor = self._discretization.descriptor
         # iterates a modified version of the descriptor, incorporating the markers knowledge
         # and keeping track of the ancestry
-        current_branch, _ = descriptor.get_branch(starting_index, is_box_index=False)
-        initial_branch_depth = len(current_branch)
-        current_branch_depth = initial_branch_depth
-        history_of_indices, history_of_level_increments = current_branch.to_history()
+        current_modified_branch, _ = descriptor.get_branch(
+            starting_index, is_box_index=False
+        )
+        initial_branch_depth = len(current_modified_branch)
+        current_modified_branch_depth = initial_branch_depth
+        history_of_indices, history_of_level_increments = (
+            current_modified_branch.to_history()
+        )
         history_of_binary_positions = []
         for i in range(initial_branch_depth - 1):
             history_of_binary_positions.append(
@@ -394,40 +398,44 @@ class PlannedAdaptiveRefinement:
                     history_of_indices[: i + 1], history_of_level_increments[: i + 1]
                 )
             )
-
-        ancestry = descriptor.get_ancestry(current_branch)
-        assert len(ancestry) == current_branch_depth - 1
+        # the ancestry, in new indices
+        ancestry = descriptor.get_ancestry(current_modified_branch)
+        assert len(ancestry) == current_modified_branch_depth - 1
         ancestry.append(starting_index)
         current_old_index = starting_index
+
+        while True:
         current_refinement = descriptor[current_old_index]
         next_refinement, next_marker = self.refinement_with_marker_applied(
             current_old_index
         )
-
-        while True:
             if next_refinement == descriptor.d_zeros:
+                # only on leaves, we can potentially advance the branch
                 assert (current_refinement).count() == 0
                 # on leaves, add end-refinement info
                 yield current_old_index, next_refinement, next_marker
                 try:
-                    current_branch.advance_branch(initial_branch_depth)
+                    current_modified_branch.advance_branch(initial_branch_depth)
                 except IndexError:
                     # done!
                     return
                 # prune all other data to current length
-                current_branch_depth = len(current_branch)
+                current_modified_branch_depth = len(current_modified_branch)
                 history_of_binary_positions = history_of_binary_positions[
-                    : current_branch_depth - 2
+                    : current_modified_branch_depth - 2
                 ]
-                history_of_indices = history_of_indices[: current_branch_depth - 1]
+                history_of_indices = history_of_indices[
+                    : current_modified_branch_depth - 1
+                ]
                 history_of_indices[-1] += 1
                 history_of_level_increments = history_of_level_increments[
-                    : current_branch_depth - 1
+                    : current_modified_branch_depth - 1
                 ]
-                ancestry = ancestry[: current_branch_depth - 1]
+                ancestry = ancestry[: current_modified_branch_depth - 1]
             else:
+                # on non-leaves, we need to grow the branch
                 yield current_old_index, next_refinement
-                current_branch.grow_branch(next_refinement)
+                current_modified_branch.grow_branch(next_refinement)
                 history_of_level_increments.append(next_refinement)
                 history_of_indices.append(0)
 
@@ -514,12 +522,7 @@ class PlannedAdaptiveRefinement:
                 if history_matches:
                     current_old_index = child
                     break
-
             ancestry.append(current_old_index)
-            current_refinement = descriptor[current_old_index]
-            next_refinement, next_marker = self.refinement_with_marker_applied(
-                current_old_index
-            )
 
     def extend_descriptor_and_track_boxes(
         self,
@@ -569,13 +572,14 @@ class PlannedAdaptiveRefinement:
             if index_to_refine == -1:
                 break
 
-            # copy up to marked
+            # linearly copy up to marked
             self.extend_descriptor_and_track_boxes(
                 new_descriptor,
                 (one_after_last_extended_index, index_to_refine),
                 old_descriptor[one_after_last_extended_index:index_to_refine],
             )
 
+            # only refine where there are markers
             modified_branches = self.modified_branch_generator(index_to_refine)
             for old_index, new_refinement, *marker in modified_branches:
                 if marker != []:
