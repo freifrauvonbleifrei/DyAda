@@ -2,6 +2,7 @@ import bitarray as ba
 from collections import deque, Counter
 from dataclasses import dataclass
 from functools import cached_property
+from re import findall
 import numpy as np
 import numpy.typing as npt
 import operator
@@ -112,10 +113,32 @@ class RefinementDescriptor:
         if isinstance(base_resolution_level, int):
             base_resolution_level = [base_resolution_level] * self._num_dimensions
         assert len(base_resolution_level) == self._num_dimensions
-        _ = self.d_zeros
 
         # establish the base resolution level
         self._data = get_regular_refined(base_resolution_level)
+
+    def to_file(self, filename):
+        filename_full = filename
+        filename_full += "_{dim}d.bin".format(dim=self.get_num_dimensions())
+        with open(filename_full, "wb") as file:
+            # invert so that trailing zeroes are easier to remove
+            inverted_data = ~self._data
+            inverted_data.tofile(file)
+
+    @staticmethod
+    def from_file(filename):
+        # extract dimensionality from filename
+        num_dimensions = findall("_(\d+)d.bin", filename)
+        num_dimensions = int(num_dimensions[0])
+        inverted_data = ba.bitarray()
+        with open(filename, "rb") as file:
+            inverted_data.fromfile(file)
+        # remove trailing zeroes
+        num_trailing_zeros = 0
+        while inverted_data[-num_trailing_zeros - 1] == 0:
+            num_trailing_zeros += 1
+        inverted_data = inverted_data[:-num_trailing_zeros]
+        return RefinementDescriptor.from_binary(num_dimensions, ~inverted_data)
 
     @staticmethod
     def from_binary(num_dimensions: int, binary: ba.bitarray) -> "RefinementDescriptor":
@@ -160,7 +183,14 @@ class RefinementDescriptor:
 
     def __iter__(self):
         for i in range(len(self)):
-            yield ba.frozenbitarray(self[i])
+            # conceptually the same as
+            # yield ba.frozenbitarray(self[i])
+            # but faster
+            yield ba.frozenbitarray(
+                self.get_data()[
+                    i * self._num_dimensions : (i + 1) * self._num_dimensions
+                ]
+            )
 
     def __getitem__(self, index_or_slice):
         nd = self._num_dimensions

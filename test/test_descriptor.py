@@ -191,6 +191,15 @@ def test_family_relations():
         r.get_siblings(13)
 
 
+def test_write_read():
+    r = RefinementDescriptor(3, [5, 1, 2])
+    r.to_file("test_write")
+
+    r_read = RefinementDescriptor.from_file("test_write_3d.bin")
+    assert r.get_num_dimensions() == r_read.get_num_dimensions()
+    assert r.get_data() == r_read.get_data()
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])
