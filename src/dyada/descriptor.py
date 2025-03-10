@@ -128,7 +128,7 @@ class RefinementDescriptor:
     @staticmethod
     def from_file(filename):
         # extract dimensionality from filename
-        num_dimensions = findall("_(\d+)d.bin", filename)
+        num_dimensions = findall(r"_(\d+)d.bin", filename)
         num_dimensions = int(num_dimensions[0])
         inverted_data = ba.bitarray()
         with open(filename, "rb") as file:
@@ -147,6 +147,13 @@ class RefinementDescriptor:
         descriptor._data = binary
         validate_descriptor(descriptor)
         return descriptor
+
+    def __eq__(self, other):
+        return (
+            (self._num_dimensions == other._num_dimensions)
+            and (len(self) == len(other))
+            and (self._data == other._data)
+        )
 
     def __len__(self):
         """

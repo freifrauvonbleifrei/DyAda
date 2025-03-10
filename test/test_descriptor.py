@@ -196,8 +196,7 @@ def test_write_read():
     r.to_file("test_write")
 
     r_read = RefinementDescriptor.from_file("test_write_3d.bin")
-    assert r.get_num_dimensions() == r_read.get_num_dimensions()
-    assert r.get_data() == r_read.get_data()
+    assert r == r_read
 
 
 if __name__ == "__main__":

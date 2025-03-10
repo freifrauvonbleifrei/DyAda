@@ -223,7 +223,7 @@ def test_refine_simplest_not_only_leaves():
     p.plan_refinement(2, ba.bitarray("01"))
 
     new_descriptor_2 = p.apply_refinements()
-    assert new_descriptor_2._data == RefinementDescriptor(2, [1, 1])._data
+    assert new_descriptor_2 == RefinementDescriptor(2, [1, 1])
     assert validate_descriptor(new_descriptor_2)
 
 
@@ -372,7 +372,7 @@ def test_refine_fully():
             assert validate_descriptor(new_descriptor)
 
             regular_descriptor = RefinementDescriptor(d, l + 1)
-            assert new_descriptor._data == regular_descriptor._data
+            assert new_descriptor == regular_descriptor
 
 
 def test_refine_2d():
@@ -397,7 +397,7 @@ def test_refine_2d():
     new_descriptor = new_discretization.descriptor
     validate_descriptor(new_descriptor)
     assert new_descriptor.get_num_boxes() == num_boxes_before + 1
-    assert new_descriptor._data == correct_descriptor._data
+    assert new_descriptor == correct_descriptor
     helper_check_mapping(index_mapping, discretization, new_discretization)
     for b in range(descriptor.get_num_boxes()):
         assert len(index_mapping[b]) == 1 or (
@@ -448,7 +448,7 @@ def test_refine_2d_2():
         2,
         ba.bitarray("11 00 00 10 00 11 00 00 00 00 11 00 10 00 00 00 10 00 00"),
     )
-    assert new_descriptor._data == descriptor_expected._data
+    assert new_descriptor == descriptor_expected
 
     helper_check_mapping(
         index_mapping,
