@@ -117,7 +117,7 @@ class RefinementDescriptor:
         # establish the base resolution level
         self._data = get_regular_refined(base_resolution_level)
 
-    def to_file(self, filename):
+    def to_file(self, filename: str):
         filename_full = filename
         filename_full += "_{dim}d.bin".format(dim=self.get_num_dimensions())
         with open(filename_full, "wb") as file:
@@ -126,10 +126,10 @@ class RefinementDescriptor:
             inverted_data.tofile(file)
 
     @staticmethod
-    def from_file(filename):
+    def from_file(filename: str):
         # extract dimensionality from filename
-        num_dimensions = findall(r"_(\d+)d.bin", filename)
-        num_dimensions = int(num_dimensions[0])
+        num_dimensions_list = findall(r"_(\d+)d.bin", filename)
+        num_dimensions = int(num_dimensions_list[0])
         inverted_data = ba.bitarray()
         with open(filename, "rb") as file:
             inverted_data.fromfile(file)
