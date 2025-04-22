@@ -84,6 +84,21 @@ def test_plot_boxes_2d_from_descriptor():
             plot_all_boxes_2d(r, projection=list(projection), labels="boxes")
 
 
+def test_draw_simplest_grandchild_split_tikz():
+    # cf. test_refine_simplest_grandchild_split
+    descriptor_1 = RefinementDescriptor.from_binary(
+        2, ba.bitarray("10 01 00 00 10 00 00")
+    )
+
+    plot_tree_tikz(descriptor_1, filename="grandchild_split_before")
+    plot_all_boxes_2d(
+        Discretization(MortonOrderLinearization(), descriptor_1),
+        backend="tikz",
+        filename="grandchild_split_before_2d",
+        labels="patches",
+    )
+
+
 def test_plot_boxes_3d_from_descriptor():
     descriptor = RefinementDescriptor(3, [1, 0, 1])
     r = Discretization(MortonOrderLinearization(), descriptor)
