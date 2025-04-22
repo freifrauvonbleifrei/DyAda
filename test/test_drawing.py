@@ -120,7 +120,7 @@ def test_draw_simplest_grandchild_split_tikz():
         backend="tikz",
         filename="grandchild_split_before_2d_transpose",
         labels="patches",
-        transpose=True,
+        projection=[1, 0],
         connect_centers=True,
     )  # should be the same as the first
     plot_all_boxes_2d(
@@ -128,8 +128,8 @@ def test_draw_simplest_grandchild_split_tikz():
         backend="tikz",
         filename="grandchild_split_after_2d_transpose",
         labels=None,
+        projection=[1, 0],
         connect_centers=True,
-        transpose=True,
     )  # should be different from the second
 
 

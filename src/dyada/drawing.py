@@ -205,7 +205,6 @@ def plot_boxes_2d_tikz(
     projection: Sequence[int],
     filename: Optional[str] = None,
     connect_centers=False,
-    transpose=False,
     **kwargs,
 ) -> None:
     tikz_string = R"""\documentclass{standalone}
@@ -216,9 +215,6 @@ def plot_boxes_2d_tikz(
 \begin{document}
 \begin{tikzpicture}
 """
-    if transpose:  # for transpose: [x={(0,1cm)}, y={(1cm,0)}]
-        tikz_string = tikz_string[:-1] + R"""[x={(0,1cm)}, y={(1cm,0)}]""" + "\n"
-
     letter_counter_first = letter_counter(len(intervals))
 
     def tikz_rectangle(interval: CoordinateInterval, option_string="", label_string=""):
@@ -232,11 +228,11 @@ def plot_boxes_2d_tikz(
         middle = (lower + upper) / 2.0
         min_extent = min(upper - lower)
         if label_string != "":
-            if min_extent < 0.125:
+            if min_extent <= 0.125:
                 label_string = "\\tiny \\relsize{-1} " + label_string
-            elif min_extent < 0.25:
+            elif min_extent <= 0.25:
                 label_string = "\\tiny \\relsize{-0.5}" + label_string
-            elif min_extent < 0.5:
+            elif min_extent <= 0.5:
                 label_string = "\\footnotesize " + label_string
         label_tex = f"\\node[inner sep=0] ({next(letter_counter_first)}) at ({middle[0]},{middle[1]}) {{{label_string}}};\n"
 
