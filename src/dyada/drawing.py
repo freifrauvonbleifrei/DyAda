@@ -1,13 +1,16 @@
 import warnings
 
 try:
+    from cmap import Colormap
+except ImportError:
+    warnings.warn("cmap not found, some plotting functions will not work")
+try:
     import matplotlib.pyplot as plt
 except ImportError:
-    warnings.warn("matplotlib not found, plotting functions will not work")
-
-from cmap import Colormap
+    warnings.warn("matplotlib not found, some plotting functions will not work")
 from itertools import product
 from pathlib import Path
+from string import ascii_uppercase
 from typing import Sequence, Union, Mapping, Optional
 import subprocess
 
@@ -163,6 +166,7 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
         pass
 
 
+@depends_on_optional("cmap")
 def latex_add_color_defs(
     tikz_string: str, num_colors: int, colormap_name="CET_R3"
 ) -> str:
@@ -181,11 +185,27 @@ def latex_add_color_defs(
     return tikz_string
 
 
+@depends_on_optional("cmap")
+def letter_counter(length):
+    """Generate up to `length` Excel-style letter labels (A, B, ..., Z, AA, AB, ...)."""
+    count = 0
+    size = 1
+    while count < length:
+        for combo in product(ascii_uppercase, repeat=size):
+            yield "".join(combo)
+            count += 1
+            if count >= length:
+                break
+        size += 1
+
+
 def plot_boxes_2d_tikz(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
     projection: Sequence[int],
     filename: Optional[str] = None,
+    connect_centers=False,
+    transpose=False,
     **kwargs,
 ) -> None:
     tikz_string = R"""\documentclass{standalone}
@@ -194,7 +214,12 @@ def plot_boxes_2d_tikz(
 \usepackage{relsize}
 \usepackage{tikz}
 \begin{document}
-\begin{tikzpicture}[scale=1.0]"""
+\begin{tikzpicture}
+"""
+    if transpose:  # for transpose: [x={(0,1cm)}, y={(1cm,0)}]
+        tikz_string = tikz_string[:-1] + R"""[x={(0,1cm)}, y={(1cm,0)}]""" + "\n"
+
+    letter_counter_first = letter_counter(len(intervals))
 
     def tikz_rectangle(interval: CoordinateInterval, option_string="", label_string=""):
         lower = interval[0][projection]
@@ -206,17 +231,19 @@ def plot_boxes_2d_tikz(
         )
         middle = (lower + upper) / 2.0
         min_extent = min(upper - lower)
-        if min_extent < 0.125:
-            label_string = "\\tiny \\relsize{-1} " + label_string
-        elif min_extent < 0.25:
-            label_string = "\\tiny \\relsize{-0.5}" + label_string
-        elif min_extent < 0.5:
-            label_string = "\\footnotesize " + label_string
-        label_tex = f"\\node at ({middle[0]},{middle[1]}) {{{label_string}}};\n"
+        if label_string != "":
+            if min_extent < 0.125:
+                label_string = "\\tiny \\relsize{-1} " + label_string
+            elif min_extent < 0.25:
+                label_string = "\\tiny \\relsize{-0.5}" + label_string
+            elif min_extent < 0.5:
+                label_string = "\\footnotesize " + label_string
+        label_tex = f"\\node[inner sep=0] ({next(letter_counter_first)}) at ({middle[0]},{middle[1]}) {{{label_string}}};\n"
 
         return rectangle_string + label_tex
 
     if labels is None:
+
         def none_iter():
             while True:
                 yield ""
@@ -229,6 +256,14 @@ def plot_boxes_2d_tikz(
         color_str = "color_%d" % grid_idx
         option_string = "very thin, gray, fill=%s,fill opacity=0.3" % (color_str)
         tikz_string += tikz_rectangle(interval, option_string, next(label_iter))
+
+    if connect_centers:
+        # connect the named nodes with lines
+        letter_counter_again = letter_counter(len(intervals))
+        connect_string = "\\draw[thick, densely dotted] "
+        for node_name in letter_counter_again:
+            connect_string += f"({node_name}) -- "
+        tikz_string += connect_string[:-4] + ";\n"
 
     tikz_string += "\\end{tikzpicture}\n"
     tikz_string += "\\end{document}\n"

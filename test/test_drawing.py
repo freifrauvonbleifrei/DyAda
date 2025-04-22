@@ -89,6 +89,16 @@ def test_draw_simplest_grandchild_split_tikz():
     descriptor_1 = RefinementDescriptor.from_binary(
         2, ba.bitarray("10 01 00 00 10 00 00")
     )
+    descriptor_2 = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 10 00 00 00 10 00 00")
+    )
+    # transpose refinements of the two above
+    descriptor_3 = RefinementDescriptor.from_binary(
+        2, ba.bitarray("01 10 00 00 01 00 00")
+    )
+    descriptor_4 = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 00 01 00 00 01 00 00")
+    )
 
     plot_tree_tikz(descriptor_1, filename="grandchild_split_before")
     plot_all_boxes_2d(
@@ -96,7 +106,31 @@ def test_draw_simplest_grandchild_split_tikz():
         backend="tikz",
         filename="grandchild_split_before_2d",
         labels="patches",
+        connect_centers=True,
     )
+    plot_all_boxes_2d(
+        Discretization(MortonOrderLinearization(), descriptor_2),
+        backend="tikz",
+        filename="grandchild_split_after_2d",
+        labels=None,
+        connect_centers=True,
+    )
+    plot_all_boxes_2d(
+        Discretization(MortonOrderLinearization(), descriptor_3),
+        backend="tikz",
+        filename="grandchild_split_before_2d_transpose",
+        labels="patches",
+        transpose=True,
+        connect_centers=True,
+    )  # should be the same as the first
+    plot_all_boxes_2d(
+        Discretization(MortonOrderLinearization(), descriptor_4),
+        backend="tikz",
+        filename="grandchild_split_after_2d_transpose",
+        labels=None,
+        connect_centers=True,
+        transpose=True,
+    )  # should be different from the second
 
 
 def test_plot_boxes_3d_from_descriptor():
