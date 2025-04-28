@@ -110,7 +110,7 @@ def get_figure_2d_matplotlib(
         anchor_point = interval.lower_bound[projection]
         extent = interval.upper_bound[projection] - anchor_point
         rectangle = plt.Rectangle(
-            (anchor_point[0], anchor_point[1]),
+            tuple(anchor_point),
             extent[0],
             extent[1],
             fill=True,
@@ -153,17 +153,27 @@ def plot_boxes_2d_matplotlib(
 
 
 @depends_on_optional("matplotlib.pyplot")
-def draw_cube_on_axis(
+def draw_cuboid_on_axis(
     ax: plt.Axes,
     interval: CoordinateInterval,
     projection: Sequence[int],
     color="skyblue",
     wireframe: bool = False,
     **kwargs,
-):
+) -> plt.Axes:
+    """
+    Draw a cuboid on the given axis.
+    :param ax: The axis to draw on.
+    :param interval: The interval to draw.
+    :param projection: The projection to use.
+    :param color: The color of the cuboid.
+    :param wireframe: Whether to draw the cuboid as a wireframe.
+    :param kwargs: Additional arguments to pass to the Poly3DCollection.
+    :return: The axis with the cuboid drawn on it.
+    """
     lower = interval[0][projection]
     upper = interval[1][projection]
-    # iterate the six sides of the cube
+    # iterate the six sides of the cuboid
     # by always selecting four corners that have one coordinate in common
     corners = list(product(*zip(lower, upper)))
     faces = []
@@ -179,7 +189,7 @@ def draw_cube_on_axis(
             ]
             faces.append(face)
     if wireframe:
-        cube = Poly3DCollection(
+        cuboid = Poly3DCollection(
             faces,
             edgecolors=color,
             alpha=0.0,
@@ -188,14 +198,14 @@ def draw_cube_on_axis(
     else:
         alpha = kwargs.pop("alpha", 0.5)
         edgecolors = kwargs.pop("edgecolor", "gray")
-        cube = Poly3DCollection(
+        cuboid = Poly3DCollection(
             faces,
             facecolors=color,
             alpha=alpha,
             **kwargs,
         )
-        cube.set_edgecolor(edgecolors)
-    ax.add_collection(cube)
+        cuboid.set_edgecolor(edgecolors)
+    ax.add_collection(cuboid)
     return ax
 
 
@@ -215,8 +225,8 @@ def get_figure_3d_matplotlib(
     fig = plt.figure()
     ax1 = fig.add_subplot(111, projection="3d")
     for i, interval in enumerate(intervals):
-        # draw each as cube
-        draw_cube_on_axis(
+        # draw each as cuboid
+        draw_cuboid_on_axis(
             ax1,
             interval,
             projection,
@@ -391,14 +401,14 @@ def plot_boxes_3d_tikz(
     **kwargs,
 ) -> None:
 
-    def tikz_cube(
+    def tikz_cuboid(
         interval: CoordinateInterval, option_string="", label_string=""
     ) -> str:
         tikz_string = ""
         line_string = "\\draw[%s] (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- cycle;\n"
         lower = interval[0][projection]
         upper = interval[1][projection]
-        # iterate the six sides of the cube
+        # iterate the six sides of the cuboid
         # by always selecting four corners that have one coordinate in common
         corners = list(product(*zip(lower, upper)))
         for bound in [lower, upper]:
@@ -453,7 +463,7 @@ def plot_boxes_3d_tikz(
                 option_string = "very thin, gray, fill=%s,fill opacity=0.3" % (
                     color_str
                 )
-            tikz_string += tikz_cube(interval, option_string, next(label_iter))
+            tikz_string += tikz_cuboid(interval, option_string, next(label_iter))
 
         tikz_string += "\\end{tikzpicture}\n"
         tikz_string += "\\end{document}\n"
@@ -461,7 +471,7 @@ def plot_boxes_3d_tikz(
 
     latex_string = tikz_grid(intervals, wireframe)
     if filename is None:
-        filename = "tikz_cubes"
+        filename = "tikz_cuboids"
     if wireframe:
         filename += "_wireframe.tex"
     else:
