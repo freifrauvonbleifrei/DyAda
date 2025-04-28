@@ -6,7 +6,7 @@ except ImportError:
     warnings.warn("cmap not found, some plotting functions will not work")
 try:
     import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # type: ignore
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
 from itertools import product
@@ -14,7 +14,6 @@ from pathlib import Path
 from string import ascii_uppercase
 from typing import Sequence, Union, Mapping, Optional
 import subprocess
-from icecream import ic
 
 from dyada.coordinates import CoordinateInterval, get_coordinates_from_level_index
 from dyada.descriptor import branch_generator, RefinementDescriptor
