@@ -109,7 +109,7 @@ def get_figure_2d_matplotlib(
         anchor_point = interval.lower_bound[projection]
         extent = interval.upper_bound[projection] - anchor_point
         rectangle = plt.Rectangle(
-            tuple(anchor_point),
+            tuple(anchor_point),  # type: ignore
             extent[0],
             extent[1],
             fill=True,
@@ -347,7 +347,7 @@ def plot_boxes_2d_tikz(
             *upper,
         )
         middle = (lower + upper) / 2.0
-        min_extent = min(upper - lower)
+        min_extent = min(upper - lower)  # type: ignore
         if label_string != "":
             if min_extent <= 0.125:
                 label_string = "\\tiny \\relsize{-1} " + label_string
@@ -422,7 +422,7 @@ def plot_boxes_3d_tikz(
                     *side_corners[2],
                 )
         middle = (lower + upper) / 2.0
-        min_extent = min(upper - lower)
+        min_extent = min(upper - lower)  # type: ignore
         if min_extent < 0.125:
             label_string = "\\tiny \\relsize{-1} " + label_string
         elif min_extent < 0.25:
