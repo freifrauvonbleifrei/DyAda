@@ -46,21 +46,27 @@ def test_no_latex_error():
 
 
 # todo consider comparing images: https://github.com/matplotlib/pytest-mpl
-def test_plot_boxes_2d_matplotlib():
+def test_plot_boxes_2d():
     with plt.ion():  # turns off blocking figures for test
-        level_index = level_index_from_sequence([0, 0], [0, 0])
-        coordinates = get_coordinates_from_level_index(level_index)
-        plot_boxes_2d([coordinates], labels=[str(level_index)])
-        level_index = level_index_from_sequence([0, 1, 0], [0, 0, 0])
-        level_index2 = level_index_from_sequence([0, 1, 0], [0, 1, 0])
-        coordinates = get_coordinates_from_level_index(level_index)
-        coordinates2 = get_coordinates_from_level_index(level_index2)
-        plot_boxes_2d([coordinates, coordinates2], labels=["0", "1"], alpha=0.2)
-        level_index = level_index_from_sequence(
-            [5, 4, 3, 2, 1, 0], [31, 15, 7, 3, 1, 0]
-        )
-        coordinates = get_coordinates_from_level_index(level_index)
-        plot_boxes_2d([coordinates], projection=[3, 4])
+        for backend in ["matplotlib", "tikz"]:
+            level_index = level_index_from_sequence([0, 0], [0, 0])
+            coordinates = get_coordinates_from_level_index(level_index)
+            plot_boxes_2d([coordinates], labels=[str(level_index)], backend=backend)
+            level_index = level_index_from_sequence([0, 1, 0], [0, 0, 0])
+            level_index2 = level_index_from_sequence([0, 1, 0], [0, 1, 0])
+            coordinates = get_coordinates_from_level_index(level_index)
+            coordinates2 = get_coordinates_from_level_index(level_index2)
+            plot_boxes_2d(
+                [coordinates, coordinates2],
+                labels=["0", "1"],
+                alpha=0.2,
+                backend=backend,
+            )
+            level_index = level_index_from_sequence(
+                [5, 4, 3, 2, 1, 0], [31, 15, 7, 3, 1, 0]
+            )
+            coordinates = get_coordinates_from_level_index(level_index)
+            plot_boxes_2d([coordinates], projection=[3, 4], backend=backend)
 
     with pytest.raises(AssertionError):
         plot_boxes_2d([coordinates], projection=[2, 3, 4])
@@ -73,15 +79,22 @@ def test_plot_boxes_2d_from_descriptor():
     descriptor = RefinementDescriptor(4, [0, 1, 2, 3])
     r = Discretization(MortonOrderLinearization(), descriptor)
     with plt.ion():  # turns off blocking figures for test
-        # try all combinations of projections
-        for projection in permutations(range(4), 2):
-            # the transparency should give murky colors for the lower projections
-            # (because many boxes will be stacked on top of each other)
-            # and nicer colors for the higher ones
-            plot_all_boxes_2d(
-                r, projection=list(projection), alpha=0.3, filename="2d_transparent"
-            )
-            plot_all_boxes_2d(r, projection=list(projection), labels="boxes")
+        for backend in ["matplotlib", "tikz"]:
+            # try all combinations of projections
+            for projection in permutations(range(4), 2):
+                # the transparency should give murky colors for the lower projections
+                # (because many boxes will be stacked on top of each other)
+                # and nicer colors for the higher ones
+                plot_all_boxes_2d(
+                    r,
+                    projection=list(projection),
+                    alpha=0.3,
+                    filename="2d_transparent",
+                    backend=backend,
+                )
+                plot_all_boxes_2d(
+                    r, projection=list(projection), labels="boxes", backend=backend
+                )
 
 
 def test_draw_simplest_grandchild_split_tikz():
@@ -154,8 +167,15 @@ def test_plot_boxes_3d_from_descriptor():
     new_descriptor = p.apply_refinements()
     validate_descriptor(new_descriptor)
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    plot_all_boxes_3d(r, labels="boxes", draw_options="fill opacity=0.1")
-    plot_all_boxes_3d(r, wireframe=True, filename="test_filename")
+    for backend in ["matplotlib", "tikz"]:
+        if backend == "matplotlib":
+            with plt.ion():  # turns off blocking figures for test
+                plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
+        else:
+            plot_all_boxes_3d(
+                r, labels="boxes", draw_options="fill opacity=0.1", backend=backend
+            )
+        plot_all_boxes_3d(r, wireframe=True, filename="test_filename", backend=backend)
     plot_tree_tikz(
         new_descriptor, labels=["ö" + str(a) for a in np.arange(len(new_descriptor))]
     )
@@ -175,9 +195,23 @@ def test_plot_octree_3d_from_descriptor():
     p.plan_refinement(new_descriptor.get_num_boxes() - 2, ba.bitarray("111"))
     new_descriptor = p.apply_refinements()
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    plot_all_boxes_3d(
-        r, labels="boxes", filename="octree", draw_options="fill opacity=0.1"
-    )
+    for backend in ["matplotlib", "tikz"]:
+        if backend == "matplotlib":
+            plot_all_boxes_3d(
+                r,
+                labels="boxes",
+                filename="octree",
+                alpha=0.1,
+                backend=backend,
+            )
+        else:
+            plot_all_boxes_3d(
+                r,
+                labels="boxes",
+                filename="octree",
+                draw_options="fill opacity=0.1",
+                backend=backend,
+            )
     plot_all_boxes_3d(r, wireframe=True, filename="octree", labels=None)
     plot_tree_tikz(new_descriptor, filename="octree_tree")
     with pytest.raises(ValueError):

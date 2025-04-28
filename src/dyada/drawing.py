@@ -6,6 +6,7 @@ except ImportError:
     warnings.warn("cmap not found, some plotting functions will not work")
 try:
     import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
 from itertools import product
@@ -13,6 +14,7 @@ from pathlib import Path
 from string import ascii_uppercase
 from typing import Sequence, Union, Mapping, Optional
 import subprocess
+from icecream import ic
 
 from dyada.coordinates import CoordinateInterval, get_coordinates_from_level_index
 from dyada.descriptor import branch_generator, RefinementDescriptor
@@ -71,7 +73,9 @@ def plot_boxes_3d(
     **kwargs,
 ) -> None:
     assert len(projection) == 3
-    if backend == "tikz":
+    if backend == "matplotlib":
+        return plot_boxes_3d_matplotlib(intervals, labels, projection, **kwargs)
+    elif backend == "tikz":
         return plot_boxes_3d_tikz(intervals, labels, projection, **kwargs)
     else:
         raise ValueError(f"Unknown backend: {backend}")
@@ -90,19 +94,18 @@ def plot_all_boxes_3d(
 
 
 @depends_on_optional("matplotlib.pyplot")
-def plot_boxes_2d_matplotlib(
+def get_figure_2d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
     projection: Sequence[int],
     **kwargs,
-) -> None:
+) -> tuple:
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
-    filename = None
-    if "filename" in kwargs:
-        filename = kwargs.pop("filename")
 
     fig, ax1 = plt.subplots(1, 1)
+    ax1.set_xlim(0, 1)
+    ax1.set_ylim(0, 1)
     for i, interval in enumerate(intervals):
         anchor_point = interval.lower_bound[projection]
         extent = interval.upper_bound[projection] - anchor_point
@@ -116,6 +119,7 @@ def plot_boxes_2d_matplotlib(
             **kwargs,
         )
         ax1.add_artist(rectangle)
+        ax1.set_aspect("equal")
 
         if labels is not None:
             rx, ry = rectangle.get_xy()
@@ -130,6 +134,112 @@ def plot_boxes_2d_matplotlib(
             )
     # add title with projection
     ax1.set_title(f"Dimensions {projection[0]} and {projection[1]}")
+    return fig, ax1
+
+
+@depends_on_optional("matplotlib.pyplot")
+def plot_boxes_2d_matplotlib(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int],
+    **kwargs,
+) -> None:
+    filename = kwargs.pop("filename", None)
+    fig, ax1 = get_figure_2d_matplotlib(intervals, labels, projection, **kwargs)
+    if filename is not None:
+        plt.savefig(filename)
+    else:
+        plt.show()
+
+
+@depends_on_optional("matplotlib.pyplot")
+def draw_cube_on_axis(
+    ax: plt.Axes,
+    interval: CoordinateInterval,
+    projection: Sequence[int],
+    color="skyblue",
+    wireframe: bool = False,
+    **kwargs,
+):
+    lower = interval[0][projection]
+    upper = interval[1][projection]
+    # iterate the six sides of the cube
+    # by always selecting four corners that have one coordinate in common
+    corners = list(product(*zip(lower, upper)))
+    faces = []
+    for bound in [lower, upper]:
+        for i, b in enumerate(bound):
+            side_corners = list(filter(lambda c: c[i] == b, corners))
+            assert len(side_corners) == 4
+            face = [
+                side_corners[0],
+                side_corners[1],
+                side_corners[3],
+                side_corners[2],
+            ]
+            faces.append(face)
+    if wireframe:
+        cube = Poly3DCollection(
+            faces,
+            edgecolors=color,
+            alpha=0.0,
+            **kwargs,
+        )
+    else:
+        alpha = kwargs.pop("alpha", 0.5)
+        edgecolors = kwargs.pop("edgecolor", "gray")
+        cube = Poly3DCollection(
+            faces,
+            facecolors=color,
+            alpha=alpha,
+            **kwargs,
+        )
+        cube.set_edgecolor(edgecolors)
+    ax.add_collection(cube)
+    return ax
+
+
+@depends_on_optional("matplotlib.pyplot")
+def get_figure_3d_matplotlib(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]],  # TODO labels currently unused
+    projection: Sequence[int],
+    wireframe: bool = False,
+    **kwargs,
+) -> tuple:
+    # plt.ion()
+    # plt.show() # using this and the pause below gives a neat animation
+    prop_cycle = plt.rcParams["axes.prop_cycle"]
+    colors = kwargs.pop("colors", prop_cycle.by_key()["color"])
+
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111, projection="3d")
+    for i, interval in enumerate(intervals):
+        # draw each as cube
+        draw_cube_on_axis(
+            ax1,
+            interval,
+            projection,
+            colors[i % len(colors)],
+            wireframe,
+            **kwargs,
+        )
+        # plt.pause(0.01)
+
+    # add title with projection
+    ax1.set_title(f"Dimensions {projection[0]}, {projection[1]}, {projection[2]}")
+    return fig, ax1
+
+
+@depends_on_optional("matplotlib.pyplot")
+def plot_boxes_3d_matplotlib(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int],
+    **kwargs,
+) -> None:
+    filename = kwargs.pop("filename", None)
+    fig, ax1 = get_figure_3d_matplotlib(intervals, labels, projection, **kwargs)
     if filename is not None:
         plt.savefig(filename)
     else:
@@ -215,6 +325,8 @@ def plot_boxes_2d_tikz(
 \begin{document}
 \begin{tikzpicture}
 """
+    # add one white rectangle to the background
+    tikz_string += "\\draw[very thin, white] (0,0) rectangle (1,1);\n"
     letter_counter_first = letter_counter(len(intervals))
 
     def tikz_rectangle(interval: CoordinateInterval, option_string="", label_string=""):
