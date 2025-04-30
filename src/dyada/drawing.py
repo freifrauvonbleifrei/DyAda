@@ -7,6 +7,7 @@ except ImportError:
 try:
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # type: ignore
+    from matplotlib.colors import to_rgba
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
 from itertools import product
@@ -96,7 +97,7 @@ def plot_all_boxes_3d(
 def get_figure_2d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
-    projection: Sequence[int],
+    projection: Sequence[int] = [0, 1],
     **kwargs,
 ) -> tuple:
     prop_cycle = plt.rcParams["axes.prop_cycle"]
@@ -155,7 +156,7 @@ def plot_boxes_2d_matplotlib(
 def draw_cuboid_on_axis(
     ax: plt.Axes,
     interval: CoordinateInterval,
-    projection: Sequence[int],
+    projection: Sequence[int] = [0, 1, 2],
     color="skyblue",
     wireframe: bool = False,
     **kwargs,
@@ -187,16 +188,17 @@ def draw_cuboid_on_axis(
                 side_corners[2],
             ]
             faces.append(face)
+    alpha = kwargs.pop("alpha", 0.5)
     if wireframe:
+        color_rgba = to_rgba(color, alpha=alpha)
         cuboid = Poly3DCollection(
             faces,
-            edgecolors=color,
-            alpha=0.0,
+            facecolors=(0, 0, 0, 0),  # fully transparent faces
+            edgecolors=color_rgba,
             **kwargs,
         )
     else:
-        alpha = kwargs.pop("alpha", 0.5)
-        edgecolors = kwargs.pop("edgecolor", "gray")
+        edgecolors = kwargs.pop("edgecolors", "gray")
         cuboid = Poly3DCollection(
             faces,
             facecolors=color,
@@ -211,11 +213,14 @@ def draw_cuboid_on_axis(
 @depends_on_optional("matplotlib.pyplot")
 def get_figure_3d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
-    labels: Optional[Sequence[str]],  # TODO labels currently unused
-    projection: Sequence[int],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int] = [0, 1, 2],
     wireframe: bool = False,
     **kwargs,
 ) -> tuple:
+    if labels is not None:
+        warnings.warn("Labels are currently not used in 3D plots w/ matplotlib")
+
     # plt.ion()
     # plt.show() # using this and the pause below gives a neat animation
     prop_cycle = plt.rcParams["axes.prop_cycle"]
