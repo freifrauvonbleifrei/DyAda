@@ -6,6 +6,8 @@ except ImportError:
     warnings.warn("cmap not found, some plotting functions will not work")
 try:
     import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # type: ignore
+    from matplotlib.colors import to_rgba
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
 from itertools import product
@@ -71,7 +73,9 @@ def plot_boxes_3d(
     **kwargs,
 ) -> None:
     assert len(projection) == 3
-    if backend == "tikz":
+    if backend == "matplotlib":
+        return plot_boxes_3d_matplotlib(intervals, labels, projection, **kwargs)
+    elif backend == "tikz":
         return plot_boxes_3d_tikz(intervals, labels, projection, **kwargs)
     else:
         raise ValueError(f"Unknown backend: {backend}")
@@ -90,24 +94,23 @@ def plot_all_boxes_3d(
 
 
 @depends_on_optional("matplotlib.pyplot")
-def plot_boxes_2d_matplotlib(
+def get_figure_2d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
-    projection: Sequence[int],
+    projection: Sequence[int] = [0, 1],
     **kwargs,
-) -> None:
+) -> tuple:
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
-    filename = None
-    if "filename" in kwargs:
-        filename = kwargs.pop("filename")
 
     fig, ax1 = plt.subplots(1, 1)
+    ax1.set_xlim(0, 1)
+    ax1.set_ylim(0, 1)
     for i, interval in enumerate(intervals):
         anchor_point = interval.lower_bound[projection]
         extent = interval.upper_bound[projection] - anchor_point
         rectangle = plt.Rectangle(
-            (anchor_point[0], anchor_point[1]),
+            tuple(anchor_point),  # type: ignore
             extent[0],
             extent[1],
             fill=True,
@@ -116,6 +119,7 @@ def plot_boxes_2d_matplotlib(
             **kwargs,
         )
         ax1.add_artist(rectangle)
+        ax1.set_aspect("equal")
 
         if labels is not None:
             rx, ry = rectangle.get_xy()
@@ -130,6 +134,126 @@ def plot_boxes_2d_matplotlib(
             )
     # add title with projection
     ax1.set_title(f"Dimensions {projection[0]} and {projection[1]}")
+    return fig, ax1
+
+
+@depends_on_optional("matplotlib.pyplot")
+def plot_boxes_2d_matplotlib(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int],
+    **kwargs,
+) -> None:
+    filename = kwargs.pop("filename", None)
+    fig, ax1 = get_figure_2d_matplotlib(intervals, labels, projection, **kwargs)
+    if filename is not None:
+        plt.savefig(filename)
+    else:
+        plt.show()
+
+
+@depends_on_optional("matplotlib.pyplot")
+def draw_cuboid_on_axis(
+    ax: plt.Axes,
+    interval: CoordinateInterval,
+    projection: Sequence[int] = [0, 1, 2],
+    color="skyblue",
+    wireframe: bool = False,
+    **kwargs,
+) -> plt.Axes:
+    """
+    Draw a cuboid on the given axis.
+    :param ax: The axis to draw on.
+    :param interval: The interval to draw.
+    :param projection: The projection to use.
+    :param color: The color of the cuboid.
+    :param wireframe: Whether to draw the cuboid as a wireframe.
+    :param kwargs: Additional arguments to pass to the Poly3DCollection.
+    :return: The axis with the cuboid drawn on it.
+    """
+    lower = interval[0][projection]
+    upper = interval[1][projection]
+    # iterate the six sides of the cuboid
+    # by always selecting four corners that have one coordinate in common
+    corners = list(product(*zip(lower, upper)))
+    faces = []
+    for bound in [lower, upper]:
+        for i, b in enumerate(bound):
+            side_corners = list(filter(lambda c: c[i] == b, corners))
+            assert len(side_corners) == 4
+            face = [
+                side_corners[0],
+                side_corners[1],
+                side_corners[3],
+                side_corners[2],
+            ]
+            faces.append(face)
+    alpha = kwargs.pop("alpha", 0.5)
+    if wireframe:
+        color_rgba = to_rgba(color, alpha=alpha)
+        cuboid = Poly3DCollection(
+            faces,
+            facecolors=(0, 0, 0, 0),  # fully transparent faces
+            edgecolors=color_rgba,
+            **kwargs,
+        )
+    else:
+        edgecolors = kwargs.pop("edgecolors", "gray")
+        cuboid = Poly3DCollection(
+            faces,
+            facecolors=color,
+            alpha=alpha,
+            **kwargs,
+        )
+        cuboid.set_edgecolor(edgecolors)
+    ax.add_collection(cuboid)
+    return ax
+
+
+@depends_on_optional("matplotlib.pyplot")
+def get_figure_3d_matplotlib(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int] = [0, 1, 2],
+    wireframe: bool = False,
+    **kwargs,
+) -> tuple:
+    if labels is not None:
+        warnings.warn("Labels are currently not used in 3D plots w/ matplotlib")
+
+    # plt.ion()
+    # plt.show() # using this and the pause below gives a neat animation
+    prop_cycle = plt.rcParams["axes.prop_cycle"]
+    colors = kwargs.pop("colors", prop_cycle.by_key()["color"])
+
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111, projection="3d")
+    for i, interval in enumerate(intervals):
+        # draw each as cuboid
+        draw_cuboid_on_axis(
+            ax1,
+            interval,
+            projection,
+            colors[i % len(colors)],
+            wireframe,
+            **kwargs,
+        )
+        # plt.pause(0.01)
+
+    # add title with projection
+    ax1.set_title(f"Dimensions {projection[0]}, {projection[1]}, {projection[2]}")
+    return fig, ax1
+
+
+@depends_on_optional("matplotlib.pyplot")
+def plot_boxes_3d_matplotlib(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int],
+    **kwargs,
+) -> None:
+    filename = kwargs.pop("filename", None)
+    fig, ax1 = get_figure_3d_matplotlib(intervals, labels, projection, **kwargs)
     if filename is not None:
         plt.savefig(filename)
     else:
@@ -215,6 +339,8 @@ def plot_boxes_2d_tikz(
 \begin{document}
 \begin{tikzpicture}
 """
+    # add one white rectangle to the background
+    tikz_string += "\\draw[very thin, white] (0,0) rectangle (1,1);\n"
     letter_counter_first = letter_counter(len(intervals))
 
     def tikz_rectangle(interval: CoordinateInterval, option_string="", label_string=""):
@@ -226,7 +352,7 @@ def plot_boxes_2d_tikz(
             *upper,
         )
         middle = (lower + upper) / 2.0
-        min_extent = min(upper - lower)
+        min_extent = min(upper - lower)  # type: ignore
         if label_string != "":
             if min_extent <= 0.125:
                 label_string = "\\tiny \\relsize{-1} " + label_string
@@ -279,14 +405,14 @@ def plot_boxes_3d_tikz(
     **kwargs,
 ) -> None:
 
-    def tikz_cube(
+    def tikz_cuboid(
         interval: CoordinateInterval, option_string="", label_string=""
     ) -> str:
         tikz_string = ""
         line_string = "\\draw[%s] (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- cycle;\n"
         lower = interval[0][projection]
         upper = interval[1][projection]
-        # iterate the six sides of the cube
+        # iterate the six sides of the cuboid
         # by always selecting four corners that have one coordinate in common
         corners = list(product(*zip(lower, upper)))
         for bound in [lower, upper]:
@@ -301,7 +427,7 @@ def plot_boxes_3d_tikz(
                     *side_corners[2],
                 )
         middle = (lower + upper) / 2.0
-        min_extent = min(upper - lower)
+        min_extent = min(upper - lower)  # type: ignore
         if min_extent < 0.125:
             label_string = "\\tiny \\relsize{-1} " + label_string
         elif min_extent < 0.25:
@@ -341,7 +467,7 @@ def plot_boxes_3d_tikz(
                 option_string = "very thin, gray, fill=%s,fill opacity=0.3" % (
                     color_str
                 )
-            tikz_string += tikz_cube(interval, option_string, next(label_iter))
+            tikz_string += tikz_cuboid(interval, option_string, next(label_iter))
 
         tikz_string += "\\end{tikzpicture}\n"
         tikz_string += "\\end{document}\n"
@@ -349,7 +475,7 @@ def plot_boxes_3d_tikz(
 
     latex_string = tikz_grid(intervals, wireframe)
     if filename is None:
-        filename = "tikz_cubes"
+        filename = "tikz_cuboids"
     if wireframe:
         filename += "_wireframe.tex"
     else:
