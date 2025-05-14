@@ -137,6 +137,7 @@ def test_refine_2d_only_leaves():
         (0, np.array([0, 1])),
         (0, np.array([0, 1])),
         (1, np.array([1, 0])),
+        (3, np.array([3, 2])),
         (2, np.array([1, 1])),
         (4, np.array([1, 1])),
         (6, np.array([0, 1])),
