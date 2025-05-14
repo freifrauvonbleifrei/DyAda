@@ -4,6 +4,10 @@ import numpy.typing as npt
 from typing import NamedTuple, TypeAlias, Sequence
 
 
+class DyadaTooFineError(ValueError):
+    pass
+
+
 @dataclasses.dataclass
 class LevelIndex:
     d_level: npt.NDArray[np.int8]
@@ -17,6 +21,11 @@ class LevelIndex:
 def level_index_from_sequence(
     d_level: Sequence[int], d_index: Sequence[int]
 ) -> LevelIndex:
+    if max(d_level) > 62:
+        raise DyadaTooFineError(
+            f"Level too large, maximum 1d level is 62, \
+              got l={d_level}, i={d_index}"
+        )
     return LevelIndex(
         np.asarray(d_level, dtype=np.int8),
         np.asarray(d_index, dtype=np.int64),
@@ -59,6 +68,11 @@ def interval_from_sequences(
 def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInterval:
     num_dimensions = len(level_index.d_level)
     assert num_dimensions == len(level_index.d_index)
+    if any(level_index.d_level > 62):
+        raise DyadaTooFineError(
+            f"Level too large, maximum 1d level is 62, \
+              got l={level_index.d_level}, i={level_index.d_index}"
+        )
     if (
         any(level_index.d_level < 0)
         or any(level_index.d_index < 0)
