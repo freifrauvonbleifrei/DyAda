@@ -3,14 +3,11 @@ import pytest
 import bitarray as ba
 import numpy as np
 from os.path import abspath
-from icecream import ic
 
 from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
 )
-
-from dyada.drawing import plot_tree_tikz, plot_all_boxes_2d
 
 from dyada.refinement import (
     Discretization,
@@ -136,7 +133,6 @@ def test_get_box_from_coordinate():
 def test_refine_2d_only_leaves():
     desc_initial = RefinementDescriptor(2, [1, 2])
     r = Discretization(MortonOrderLinearization(), desc_initial)
-    # plot_all_boxes_2d(r, labels="patches")
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(0, ba.bitarray("01"))
     p.plan_refinement(0, ba.bitarray("01"))
@@ -147,36 +143,6 @@ def test_refine_2d_only_leaves():
 
     p.apply_refinements()
     assert validate_descriptor(r.descriptor)
-    # refinements_to_apply = [
-    #     (0, np.array([0, 1])),
-    #     # (0, np.array([0, 1])),
-    #     # (1, np.array([1, 0])),
-    #     # (3, np.array([3, 2])),
-    #     # (2, np.array([1, 1])),
-    #     # (4, np.array([1, 1])),
-    #     # (6, np.array([0, 1])),
-    # ]
-
-    # for box_index, refinement in refinements_to_apply:
-    #     p.plan_refinement(box_index, refinement)
-
-    # desc_new, mapping = p.apply_refinements(track_mapping=True)
-    # assert validate_descriptor(desc_new)
-
-    # # # try if the reverse works as well
-    # # r_new = Discretization(MortonOrderLinearization(), desc_new)
-    # # # plot_all_boxes_2d(r_new, labels="patches")
-    # # p = PlannedAdaptiveRefinement(r_new)
-    # # for box_index, refinement in refinements_to_apply:
-    # #     new_indices = mapping[box_index]
-    # #     p.plan_coarsening(new_indices, refinement)
-
-    # # ic(p._planned_refinements)
-
-    # # desc_inverse, mapping_inverse = p.apply_refinements(track_mapping=True)
-    # # ic(desc_new, desc_inverse, mapping, mapping_inverse)
-    # # assert validate_descriptor(desc_inverse)
-    # # assert desc_inverse == desc_initial
 
 
 def test_refine_3d_only_leaves():
