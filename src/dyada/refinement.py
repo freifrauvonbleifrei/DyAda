@@ -103,7 +103,7 @@ class Discretization:
                 yield self.get_level_index(i, False)
 
     def get_containing_box(self, coordinate: Coordinate) -> Union[int, tuple[int, ...]]:
-        coordinates_to_find: set[Coordinate] = {tuple(coordinate)}
+        coordinates_to_find: set[Coordinate] = {tuple(coordinate)}  # type: ignore
         coordinates_found: set[Coordinate] = set()
 
         found_box_indices: set[int] = set()
@@ -130,13 +130,13 @@ class Discretization:
                     # found!
                     box_index += 1
                     found_box_indices.add(box_index)
-                    coordinates_found.add(tuple(coordinate))
-                    assert (
-                        bitarrays_counted_levels
-                        == get_level_index_from_linear_index(
-                            self._linearization, self._descriptor, box_index
-                        ).d_level
-                    ).all()  # todo remove, may be costly
+                    coordinates_found.add(tuple(coordinate))  # type: ignore
+                    # assert (
+                    #     bitarrays_counted_levels
+                    #     == get_level_index_from_linear_index(
+                    #         self._linearization, self._descriptor, box_index
+                    #     ).d_level
+                    # ).all()  # removed, as it may be costly (but should be true nonetheless)
                     break
 
                 history_of_level_increments.append(current_refinement)
@@ -171,15 +171,13 @@ class Discretization:
             ]
             ambiguous_indices = [i for i, a in enumerate(ambiguous_dimensions) if a]
             for num_ambiguous in range(1, len(ambiguous_indices) + 1):
-                for ambiguous_subset in combinations(
-                    ambiguous_indices, num_ambiguous
-                ):
+                for ambiguous_subset in combinations(ambiguous_indices, num_ambiguous):
                     # copy the original coordinate
-                    new_coordinate = coordinate_from_sequence(coordinate)
+                    new_coordinate = coordinate_from_sequence(coordinate)  # type: ignore
                     # and subtract a small epsilon from the ambiguous dimensions
                     for i in ambiguous_subset:
                         new_coordinate[i] = np.nextafter(new_coordinate[i], -np.inf)
-                    coordinates_to_find.add(tuple(new_coordinate))
+                    coordinates_to_find.add(tuple(new_coordinate))  # type: ignore
 
         return (
             tuple(found_box_indices)
