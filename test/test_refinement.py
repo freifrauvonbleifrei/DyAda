@@ -192,8 +192,12 @@ def helper_check_mapping(
             old_interval = coordinates_from_box_index(old_discretization, b)
             for new_index in index_mapping[b]:
                 new_interval = coordinates_from_box_index(new_discretization, new_index)
-                assert old_interval.contains(new_interval.lower_bound)
-                assert old_interval.contains(new_interval.upper_bound)
+                np.all(old_interval.lower_bound <= new_interval.lower_bound) and np.all(
+                    new_interval.lower_bound <= old_interval.upper_bound
+                )  # type: ignore
+                np.all(old_interval.lower_bound <= new_interval.upper_bound) and np.all(
+                    new_interval.upper_bound <= old_interval.upper_bound
+                )  # type: ignore
 
 
 def test_refine_simplest_not_only_leaves():

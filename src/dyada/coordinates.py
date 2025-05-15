@@ -52,12 +52,6 @@ class CoordinateInterval(NamedTuple):
             self.upper_bound == other.upper_bound
         )
 
-    # idea: cache and use morton order for comparison
-    def contains(self, coordinate: Coordinate) -> bool:
-        return np.all(self.lower_bound <= coordinate) and np.all(
-            coordinate <= self.upper_bound
-        )  # type: ignore
-
 
 def interval_from_sequences(
     lower_bound: Sequence[float], upper_bound: Sequence[float]
