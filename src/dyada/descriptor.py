@@ -235,6 +235,15 @@ class RefinementDescriptor:
         # count zeros up to index, zero-indexed
         return self.num_boxes_up_to(index)
 
+    def _to_box_index_recursive(self, index: int) -> int:
+        assert self.is_box(index)
+        # iterate down until we find the prior box
+        for i in range(index - 1, 0, -1):
+            if self[i] == self.d_zeros:
+                return self._to_box_index_recursive(i) + 1
+        # if we are at the first box, return 0
+        return 0
+
     def to_hierarchical_index(self, box_index: int) -> int:
         linear_index = 0
         # count down box index
