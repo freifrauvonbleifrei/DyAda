@@ -641,7 +641,6 @@ class PlannedAdaptiveRefinement:
             self._discretization.descriptor._to_box_index_recursive = lru_cache(
                 maxsize=None
             )(self._discretization.descriptor._to_box_index_recursive)
-            ic("newly cached the old descriptor")
         new_descriptor.to_box_index = lru_cache(maxsize=None)(
             new_descriptor._to_box_index_recursive
         )
