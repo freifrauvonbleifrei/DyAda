@@ -1,6 +1,7 @@
 import bitarray as ba
 from collections import defaultdict
 from functools import lru_cache
+from itertools import combinations
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
@@ -10,7 +11,9 @@ from dyada.coordinates import (
     get_coordinates_from_level_index,
     LevelIndex,
     Coordinate,
+    coordinate_from_sequence,
     CoordinateInterval,
+    deciding_bitarray_from_float,
 )
 
 from dyada.descriptor import (
@@ -101,55 +104,86 @@ class Discretization:
                 yield self.get_level_index(i, False)
 
     def get_containing_box(self, coordinate: Coordinate) -> Union[int, tuple[int, ...]]:
-        # traverse the tree
-        # start at the root, coordinate has to be in the patch
-        current_branch = Branch(self._descriptor.get_num_dimensions())
-        level_index = self.get_level_index_from_branch(current_branch)
-        first_patch_bounds = get_coordinates_from_level_index(level_index)
-        if not first_patch_bounds.contains(coordinate):
-            raise ValueError("Coordinate is not in the domain [0., 1.]^d]")
+        coordinates_to_find: set[Coordinate] = {tuple(coordinate)}  # type: ignore
+        coordinates_found: set[Coordinate] = set()
 
-        found_box_indices = []
-        box_index = -1
-        descriptor_iterator = iter(self._descriptor)
+        found_box_indices: set[int] = set()
 
-        while True:
+        while len(coordinates_to_find - coordinates_found) > 0:
+            coordinate = (coordinates_to_find - coordinates_found).pop()
+            # traverse the tree
+            # start at the root, coordinate has to be in the patch
+            current_branch = Branch(self._descriptor.get_num_dimensions())
+            history_of_indices, history_of_level_increments = (
+                current_branch.to_history()
+            )
+
+            coordinate_bitarrays = [deciding_bitarray_from_float(c) for c in coordinate]
+            bitarrays_counted_levels = [0 for i in range(len(coordinate))]
+
+            box_index = -1
+            descriptor_iterator = iter(self._descriptor)
             while True:
                 current_refinement = next(descriptor_iterator)
-                level_index = self.get_level_index_from_branch(current_branch)
-                current_patch_bounds = get_coordinates_from_level_index(level_index)
+                # go deeper in the branch where the coordinate is
+                current_branch.grow_branch(current_refinement)
+                if current_refinement == self._descriptor.d_zeros:
+                    # found!
+                    box_index += 1
+                    found_box_indices.add(box_index)
+                    coordinates_found.add(tuple(coordinate))  # type: ignore
+                    # assert (
+                    #     bitarrays_counted_levels
+                    #     == get_level_index_from_linear_index(
+                    #         self._linearization, self._descriptor, box_index
+                    #     ).d_level
+                    # ).all()  # removed, as it may be costly (but should be true nonetheless)
+                    break
 
-                # is the coordinate in this patch?
-                if current_patch_bounds.contains(coordinate):
-                    if current_refinement == self._descriptor.d_zeros:
-                        # found!
-                        box_index += 1
-                        break
-                    else:
-                        # go deeper in this branch
-                        current_branch.grow_branch(current_refinement)
-                else:
+                history_of_level_increments.append(current_refinement)
+
+                # increment the counted levels at these indices where refinement is 1
+                new_binary_position = ba.bitarray([0] * len(coordinate))
+                for i, bitarray in enumerate(current_refinement):
+                    if bitarray:
+                        new_binary_position[i] = coordinate_bitarrays[i][
+                            bitarrays_counted_levels[i]
+                        ]
+                        bitarrays_counted_levels[i] += 1
+
+                child_index = self._linearization.get_index_from_binary_position(
+                    new_binary_position, history_of_indices, history_of_level_increments
+                )
+                history_of_indices.append(child_index)
+
+                for _ in range(child_index):
+                    # skip the children where the coordinate is not in the patch
+                    current_refinement = next(descriptor_iterator)
                     box_index += self._descriptor.skip_to_next_neighbor(
                         descriptor_iterator, current_refinement
                     )[0]
                     current_branch.advance_branch()
-
-            found_box_indices.append(box_index)
-            if np.any(
-                current_patch_bounds.upper_bound == coordinate,
-                where=current_patch_bounds.upper_bound < 1.0,
-            ):
-                # if any of the "upper" faces of the patch touches the coordinate,
-                # there is still more to find
-                current_branch.advance_branch()
-            else:
-                # all found!
-                break
+            # check if the coordinate could also be in another box
+            # this is the case if there are only zeros left in the coordinate_bitarrays behind the respective counted levels
+            ambiguous_dimensions = [
+                coordinate_bitarrays[i].count() > 0
+                and coordinate_bitarrays[i][bitarrays_counted_levels[i] :].count() == 0
+                for i in range(len(coordinate))
+            ]
+            ambiguous_indices = [i for i, a in enumerate(ambiguous_dimensions) if a]
+            for num_ambiguous in range(1, len(ambiguous_indices) + 1):
+                for ambiguous_subset in combinations(ambiguous_indices, num_ambiguous):
+                    # copy the original coordinate
+                    new_coordinate = coordinate_from_sequence(coordinate)  # type: ignore
+                    # and subtract a small epsilon from the ambiguous dimensions
+                    for i in ambiguous_subset:
+                        new_coordinate[i] = np.nextafter(new_coordinate[i], -np.inf)
+                    coordinates_to_find.add(tuple(new_coordinate))  # type: ignore
 
         return (
             tuple(found_box_indices)
             if len(found_box_indices) > 1
-            else found_box_indices[0]
+            else found_box_indices.pop()
         )
 
 
