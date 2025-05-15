@@ -134,24 +134,30 @@ def test_refine_2d_only_leaves():
     desc_initial = RefinementDescriptor(2, [1, 2])
     r = Discretization(MortonOrderLinearization(), desc_initial)
     p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(0, ba.bitarray("01"))
-    p.plan_refinement(0, ba.bitarray("01"))
-    p.plan_refinement(1, ba.bitarray("10"))
-    p.plan_refinement(2, ba.bitarray("11"))
-    p.plan_refinement(4, ba.bitarray("11"))
-    p.plan_refinement(6, ba.bitarray("01"))
+    refinements_to_apply = [
+        (0, np.array([0, 1])),
+        (0, np.array([0, 1])),
+        (1, np.array([1, 0])),
+        (3, np.array([3, 2])),
+        (2, np.array([1, 1])),
+        (4, np.array([1, 1])),
+        (6, np.array([0, 1])),
+    ]
 
-    p.apply_refinements()
-    assert validate_descriptor(r.descriptor)
+    for box_index, refinement in refinements_to_apply:
+        p.plan_refinement(box_index, refinement)
+
+    r_new = p.apply_refinements(track_mapping=False)
+    assert validate_descriptor(r_new)
 
 
 def test_refine_3d_only_leaves():
     descriptor = RefinementDescriptor(3, [1, 0, 1])
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(0, ba.bitarray("101"))
-    p.plan_refinement(1, ba.bitarray("001"))
-    p.plan_refinement(2, ba.bitarray("010"))
+    p.plan_refinement(0, "101")
+    p.plan_refinement(1, "001")
+    p.plan_refinement(2, "010")
     new_descriptor = p.apply_refinements()
     assert new_descriptor.get_num_boxes() == 9
     assert validate_descriptor(new_descriptor)
@@ -203,15 +209,15 @@ def helper_check_mapping(
 def test_refine_simplest_not_only_leaves():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
     p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(0, ba.bitarray("01"))
+    p.plan_refinement(0, "01")
 
-    assert p._planned_refinements.queue == [
-        (1, ba.bitarray("01")),
-    ]
+    assert len(p._planned_refinements) == 1
+    assert p._planned_refinements[0][0] == 1
+    assert all(p._planned_refinements[0][-1] == [0, 1])
 
     # don't do this at home -- call p.apply_refinements() directly
     p.populate_queue()
-    assert p._planned_refinements.empty()
+    assert len(p._planned_refinements) == 0
     assert len(p._markers) == 1 and all(p._markers[1] == [0, 1])
     assert p._upward_queue.queue == [(-1, 1)]
 
@@ -225,7 +231,7 @@ def test_refine_simplest_not_only_leaves():
 
     r = Discretization(MortonOrderLinearization(), new_descriptor)
     p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(2, ba.bitarray("01"))
+    p.plan_refinement(2, "01")
 
     new_descriptor_2 = p.apply_refinements()
     assert new_descriptor_2 == RefinementDescriptor(2, [1, 1])
@@ -235,17 +241,18 @@ def test_refine_simplest_not_only_leaves():
 def test_refine_simplest_grandchild_split():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 0]))
     p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(0, ba.bitarray("01"))
-    p.plan_refinement(1, ba.bitarray("10"))
+    p.plan_refinement(0, "01")
+    p.plan_refinement(1, "10")
 
-    assert p._planned_refinements.queue == [
-        (1, ba.bitarray("01")),
-        (2, ba.bitarray("10")),
-    ]
+    assert len(p._planned_refinements) == 2
+    assert p._planned_refinements[0][0] == 1
+    assert all(p._planned_refinements[0][-1] == [0, 1])
+    assert p._planned_refinements[1][0] == 2
+    assert all(p._planned_refinements[1][-1] == [1, 0])
 
     # don't do this at home -- call p.apply_refinements() directly
     p.populate_queue()
-    assert p._planned_refinements.empty()
+    assert len(p._planned_refinements) == 0
     assert (
         len(p._markers) == 2
         and all(p._markers[1] == [0, 1])
@@ -272,10 +279,12 @@ def test_refine_simplest_grandchild_split():
     p = PlannedAdaptiveRefinement(r_2)
     p.plan_refinement(2, ba.bitarray("01"))
     p.plan_refinement(3, ba.bitarray("01"))
-    assert p._planned_refinements.queue == [
-        (5, ba.bitarray("01")),
-        (6, ba.bitarray("01")),
-    ]
+    assert len(p._planned_refinements) == 2
+    assert p._planned_refinements[0][0] == 5
+    assert all(p._planned_refinements[0][-1] == [0, 1])
+    assert p._planned_refinements[1][0] == 6
+    assert all(p._planned_refinements[1][-1] == [0, 1])
+
     p.populate_queue()
     p.upwards_sweep()
     assert (
@@ -433,10 +442,11 @@ def test_refine_2d_2():
     ]
     for box, refinement in refinements:
         p.plan_refinement(box, refinement)
-    assert p._planned_refinements.queue == [
-        (5, ba.bitarray("11")),
-        (7, ba.bitarray("01")),
-    ]
+    assert len(p._planned_refinements) == 2
+    assert p._planned_refinements[0][0] == 5
+    assert all(p._planned_refinements[0][-1] == [1, 1])
+    assert p._planned_refinements[1][0] == 7
+    assert all(p._planned_refinements[1][-1] == [0, 1])
     p.populate_queue()
     p.upwards_sweep()
     assert (
