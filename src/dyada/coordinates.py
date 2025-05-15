@@ -1,3 +1,5 @@
+import bitarray as ba
+import bitarray.util
 import dataclasses
 import numpy as np
 import numpy.typing as npt
@@ -50,6 +52,7 @@ class CoordinateInterval(NamedTuple):
             self.upper_bound == other.upper_bound
         )
 
+    # idea: cache and use morton order for comparison
     def contains(self, coordinate: Coordinate) -> bool:
         return np.all(self.lower_bound <= coordinate) and np.all(
             coordinate <= self.upper_bound
@@ -103,3 +106,39 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
             )
         ),
     )
+
+
+def float_parts_bitarray(value):
+    dtype = value.dtype.type if hasattr(value, "dtype") else np.float64
+    f = dtype(value)
+    if dtype == np.float64:
+        raw_bits = f.view(np.uint64)
+        exp_bits = 11
+        mant_bits = 52
+    elif dtype == np.float32:
+        raw_bits = f.view(np.uint32)
+        exp_bits = 8
+        mant_bits = 23
+    else:
+        raise ValueError("Only float32 and float64 are supported.")
+
+    total_bits = exp_bits + mant_bits + 1
+    bits = ba.bitarray(f"{raw_bits:0{total_bits}b}")
+
+    sign_bit = bits[0]
+    exponent = bits[1 : 1 + exp_bits]
+    mantissa = bits[1 + exp_bits :]
+
+    return sign_bit, exponent, mantissa
+
+
+def deciding_bitarray_from_float(value):
+    if value < 0.0 or value > 1.0:
+        raise ValueError("Value must be in the range [0.0, 1.0]")
+    if value == 1.0:
+        return ba.bitarray("1" * 23)
+    sign_bit, exponent, mantissa = float_parts_bitarray(value + 1)
+    assert sign_bit == 0
+    # exponent represented as 2-complement
+    assert bitarray.util.ba2int(exponent) == 2 ** (len(exponent) - 1) - 1
+    return mantissa
