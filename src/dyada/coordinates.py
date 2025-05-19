@@ -34,7 +34,7 @@ def level_index_from_sequence(
     )
 
 
-Coordinate: TypeAlias = npt.NDArray[np.float32]
+Coordinate: TypeAlias = npt.NDArray[np.float64]
 
 
 def coordinate_from_sequence(c: Sequence[float]) -> Coordinate:
@@ -83,7 +83,7 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
         raise ValueError(error_string)
     get_d_array = lambda x: np.fromiter(
         x,
-        dtype=np.float32,
+        dtype=np.float64,
         count=num_dimensions,
     )
     return CoordinateInterval(
