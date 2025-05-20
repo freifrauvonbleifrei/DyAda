@@ -26,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install black flake8 mypy
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          run: pip install -e .[drawing,matplotlib]
+          pip install -e .[drawing,matplotlib]
       - name: Run linters
         uses: wearerequired/lint-action@v2
         with:
