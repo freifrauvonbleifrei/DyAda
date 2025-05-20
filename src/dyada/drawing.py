@@ -93,6 +93,20 @@ def plot_all_boxes_3d(
     plot_boxes_3d(coordinates, projection=projection, labels=labels, **kwargs)
 
 
+def side_corners_generator(
+    lower_cube_corner: Coordinate, upper_cube_corner: Coordinate
+):
+    # iterate the six sides of the cuboid
+    # by always selecting four corners that have one coordinate in common
+    corners = list(product(*zip(lower_cube_corner, upper_cube_corner)))
+    for bound in [lower_cube_corner, upper_cube_corner]:
+        for i, b in enumerate(bound):
+            side_corners = list(filter(lambda c: c[i] == b, corners))
+            assert len(side_corners) == 4
+            # correct the order
+            yield side_corners[0], side_corners[1], side_corners[3], side_corners[2]
+
+
 @depends_on_optional("matplotlib.pyplot")
 def get_figure_2d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
@@ -173,21 +187,10 @@ def draw_cuboid_on_axis(
     """
     lower = interval[0][projection]
     upper = interval[1][projection]
-    # iterate the six sides of the cuboid
-    # by always selecting four corners that have one coordinate in common
-    corners = list(product(*zip(lower, upper)))
     faces = []
-    for bound in [lower, upper]:
-        for i, b in enumerate(bound):
-            side_corners = list(filter(lambda c: c[i] == b, corners))
-            assert len(side_corners) == 4
-            face = [
-                side_corners[0],
-                side_corners[1],
-                side_corners[3],
-                side_corners[2],
-            ]
-            faces.append(face)
+    for side_corners in side_corners_generator(lower, upper):
+        face = [*side_corners]
+        faces.append(face)
     alpha = kwargs.pop("alpha", 0.5)
     if wireframe:
         color_rgba = to_rgba(color, alpha=alpha)
@@ -412,20 +415,14 @@ def plot_boxes_3d_tikz(
         line_string = "\\draw[%s] (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- cycle;\n"
         lower = interval[0][projection]
         upper = interval[1][projection]
-        # iterate the six sides of the cuboid
-        # by always selecting four corners that have one coordinate in common
-        corners = list(product(*zip(lower, upper)))
-        for bound in [lower, upper]:
-            for i, b in enumerate(bound):
-                side_corners = list(filter(lambda c: c[i] == b, corners))
-                assert len(side_corners) == 4
-                tikz_string += line_string % (
-                    option_string,
-                    *side_corners[0],
-                    *side_corners[1],
-                    *side_corners[3],
-                    *side_corners[2],
-                )
+        for side_corners in side_corners_generator(lower, upper):
+            tikz_string += line_string % (
+                option_string,
+                *side_corners[0],
+                *side_corners[1],
+                *side_corners[2],
+                *side_corners[3],
+            )
         middle = (lower + upper) / 2.0
         min_extent = min(upper - lower)  # type: ignore
         if min_extent < 0.125:
