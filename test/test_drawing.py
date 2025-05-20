@@ -23,7 +23,7 @@ from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
 )
-from dyada.structure import depends_on_optional
+from dyada.structure import depends_on_optional, module_is_available
 
 
 def test_depends_on_optional():
@@ -167,6 +167,12 @@ def test_plot_boxes_3d_from_descriptor():
     new_descriptor = p.apply_refinements()
     validate_descriptor(new_descriptor)
     r = Discretization(MortonOrderLinearization(), new_descriptor)
+    backends = ["tikz"]
+    backends.append("matplotlib") if module_is_available("matplotlib") else None
+    backends.append("opengl") if module_is_available("OpenGL") else None
+    (
+        backends.append("aaaaargh") if module_is_available("aaaaargh") else None
+    )  # should not raise
     for backend in ["matplotlib", "tikz", "opengl"]:
         if backend == "matplotlib" or backend == "opengl":
             with plt.ion():  # turns off blocking figures for test
