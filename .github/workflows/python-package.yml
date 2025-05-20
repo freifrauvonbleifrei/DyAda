@@ -56,7 +56,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y freeglut3-dev
+          sudo apt-get update && sudo apt-get install -y freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-cov
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
