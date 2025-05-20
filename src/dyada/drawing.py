@@ -16,7 +16,11 @@ from string import ascii_uppercase
 from typing import Sequence, Union, Mapping, Optional
 import subprocess
 
-from dyada.coordinates import CoordinateInterval, get_coordinates_from_level_index
+from dyada.coordinates import (
+    Coordinate,
+    CoordinateInterval,
+    get_coordinates_from_level_index,
+)
 from dyada.descriptor import branch_generator, RefinementDescriptor
 from dyada.refinement import Discretization
 from dyada.structure import depends_on_optional
