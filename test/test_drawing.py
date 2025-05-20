@@ -173,7 +173,7 @@ def test_plot_boxes_3d_from_descriptor():
     (
         backends.append("aaaaargh") if module_is_available("aaaaargh") else None
     )  # should not raise
-    for backend in ["matplotlib", "tikz", "opengl"]:
+    for backend in backends:
         if backend == "matplotlib" or backend == "opengl":
             with plt.ion():  # turns off blocking figures for test
                 plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
