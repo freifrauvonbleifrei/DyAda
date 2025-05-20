@@ -1,6 +1,7 @@
 import bitarray as ba
 import bitarray.util
 import dataclasses
+from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from typing import NamedTuple, TypeAlias, Sequence
@@ -86,16 +87,21 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
         dtype=np.float64,
         count=num_dimensions,
     )
+
+    @lru_cache(maxsize=None)  # cache the function to avoid recomputing
+    def get_neg_power_of_two(level):
+        return 2.0 ** -float(level)
+
     return CoordinateInterval(
         get_d_array(
             (
-                2.0 ** -float(l) * i
+                get_neg_power_of_two(l) * i
                 for l, i in zip(level_index.d_level, level_index.d_index)
             )
         ),
         get_d_array(
             (
-                2.0 ** -float(l) * (i + 1)
+                get_neg_power_of_two(l) * (i + 1)
                 for l, i in zip(level_index.d_level, level_index.d_index)
             )
         ),
