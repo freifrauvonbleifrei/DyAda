@@ -298,14 +298,23 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
 
 
 @depends_on_optional("cmap")
+def get_colors(num_colors: int, colormap_name="CET_R3"):
+    cm = Colormap(colormap_name)
+    for leaf in range(num_colors):
+        colormapped = cm(leaf * 1.0 / num_colors)
+        yield colormapped  # RGB values in [0, 1] range
+
+
+def get_colors_byte(num_colors: int, colormap_name="CET_R3"):
+    for color in get_colors(num_colors, colormap_name):
+        color = [int(255 * c) for c in color]  # convert to [0, 255] range
+        yield color
+
+
 def latex_add_color_defs(
     tikz_string: str, num_colors: int, colormap_name="CET_R3"
 ) -> str:
-    cm = Colormap(colormap_name)
-    for leaf in range(num_colors):
-        colormap = cm(leaf * 1.0 / num_colors)
-        color = [int(255 * c) for c in colormap]
-
+    for leaf, color in enumerate(get_colors_byte(num_colors, colormap_name)):
         color_str = "color_%d" % leaf
         tikz_string += "\\definecolor{%s}{RGB}{%d,%d,%d}\n" % (
             color_str,
@@ -316,7 +325,6 @@ def latex_add_color_defs(
     return tikz_string
 
 
-@depends_on_optional("cmap")
 def letter_counter(length):
     """Generate up to `length` Excel-style letter labels (A, B, ..., Z, AA, AB, ...)."""
     count = 0
