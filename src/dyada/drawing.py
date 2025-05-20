@@ -11,9 +11,9 @@ try:
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
 try:
-    import OpenGL.GL as gl
-    import OpenGL.GLU as glu
-    import OpenGL.GLUT as glut
+    import OpenGL.GL as gl  # type: ignore
+    import OpenGL.GLU as glu  # type: ignore
+    import OpenGL.GLUT as glut  # type: ignore
     from PIL import Image, ImageOps
 except ImportError:
     warnings.warn("pyopengl not found, some plotting functions will not work")
