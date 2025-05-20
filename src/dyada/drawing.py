@@ -10,7 +10,15 @@ try:
     from matplotlib.colors import to_rgba
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
-from itertools import product
+try:
+    import OpenGL.GL as gl
+    import OpenGL.GLU as glu
+    import OpenGL.GLUT as glut
+    from PIL import Image, ImageOps
+except ImportError:
+    warnings.warn("pyopengl not found, some plotting functions will not work")
+
+from itertools import pairwise, product
 from pathlib import Path
 from string import ascii_uppercase
 from typing import Sequence, Union, Mapping, Optional
@@ -81,6 +89,8 @@ def plot_boxes_3d(
         return plot_boxes_3d_matplotlib(intervals, labels, projection, **kwargs)
     elif backend == "tikz":
         return plot_boxes_3d_tikz(intervals, labels, projection, **kwargs)
+    elif backend == "opengl":
+        return plot_boxes_3d_pyopengl(intervals, labels, projection, **kwargs)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
@@ -596,3 +606,125 @@ def plot_descriptor_tikz(
     if not filename.endswith(".tex"):
         filename += ".tex"
     latex_write_and_compile(tikz_string, filename)
+
+
+@depends_on_optional("OpenGL")
+def draw_cuboid_opengl(
+    interval: CoordinateInterval,
+    projection: Sequence[int] = [0, 1, 2],
+    wireframe: bool = False,
+    alpha: float = 0.1,
+    color=(0.5, 0.5, 0.5),
+):
+    if wireframe:
+        alpha_faces = 0.0
+        alpha_lines = alpha
+        color_faces = (0.0, 0.0, 0.0)
+        color_lines = color
+    else:
+        alpha_faces = alpha
+        alpha_lines = 1.0
+        color_faces = color
+        color_lines = (0.0, 0.0, 0.0)
+
+    lower = interval[0][projection]
+    upper = interval[1][projection]
+
+    gl.glBegin(gl.GL_LINES)
+    for side_corners in side_corners_generator(lower, upper):
+        gl.glColor4fv((color_lines[0], color_lines[1], color_lines[2], alpha_lines))
+        for side in pairwise(side_corners):
+            gl.glVertex3fv(side[0])
+            gl.glVertex3fv(side[1])
+    gl.glEnd()
+
+    gl.glEnable(gl.GL_POLYGON_OFFSET_FILL)
+    gl.glPolygonOffset(1.0, 1.0)
+    gl.glBegin(gl.GL_QUADS)
+    for side_corners in side_corners_generator(lower, upper):
+        gl.glColor4fv((color_faces[0], color_faces[1], color_faces[2], alpha_faces))
+        for corner in side_corners:
+            gl.glVertex3fv(corner)
+    gl.glEnd()
+    gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
+
+
+@depends_on_optional("OpenGL")
+def gl_save_file(filename: str, width=1024, height=1024) -> None:
+    gl.glFlush()
+    gl.glPixelStorei(gl.GL_PACK_ALIGNMENT, 1)
+    data = gl.glReadPixels(0, 0, width, height, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE)
+    image = Image.frombytes("RGBA", (width, height), data)
+    image = ImageOps.flip(image)
+    if not filename.endswith(".png"):
+        filename += ".png"
+    image.save(filename, "PNG")
+
+
+@depends_on_optional("OpenGL")
+def plot_boxes_3d_pyopengl(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int],
+    wireframe: bool = False,
+    filename: str = "omnitree",
+    width: int = 1024,
+    height: int = 1024,
+    alpha: float = 0.1,
+    **kwargs,
+) -> None:
+    if labels is not None:
+        warnings.warn("Labels are currently not used in 3D plots w/ pyopengl")
+
+    colors = kwargs.pop("colors", get_colors(len(intervals)))
+
+    def init_glu():
+        glut.glutInit()
+        glut.glutInitDisplayMode(glut.GLUT_DOUBLE | glut.GLUT_RGB)
+        glut.glutInitWindowSize(width, height)
+        glut.glutCreateWindow(b"Dyada OpenGL")
+        glut.glutHideWindow()
+        gl.glClearColor(1.0, 1.0, 1.0, 1.0)
+        gl.glViewport(0, 0, width, height)
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glLoadIdentity()
+        glu.gluPerspective(
+            45.0,
+            float(width) / height,
+            0.1,
+            10.0,
+        )
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        # move camera back to see the unit cube
+        glu.gluLookAt(
+            1.5,
+            1.5,
+            3.0,
+            0.5,
+            0.5,
+            0.5,
+            0,
+            1,
+            0,
+        )
+        # for opacity
+        gl.glEnable(gl.GL_BLEND)
+        gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+        # draw background
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+        # if wireframe: #not sure about this one yet
+        #     gl.glLineWidth(2.0)
+
+    init_glu()
+
+    for interval, color in zip(intervals, colors):
+        draw_cuboid_opengl(
+            interval,
+            projection,
+            wireframe=wireframe,
+            alpha=alpha,
+            color=color,
+        )
+
+    if filename is not None:
+        gl_save_file(filename)

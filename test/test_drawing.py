@@ -167,8 +167,8 @@ def test_plot_boxes_3d_from_descriptor():
     new_descriptor = p.apply_refinements()
     validate_descriptor(new_descriptor)
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    for backend in ["matplotlib", "tikz"]:
-        if backend == "matplotlib":
+    for backend in ["matplotlib", "tikz", "opengl"]:
+        if backend == "matplotlib" or backend == "opengl":
             with plt.ion():  # turns off blocking figures for test
                 plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
         else:
