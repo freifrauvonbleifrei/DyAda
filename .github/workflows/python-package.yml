@@ -56,13 +56,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev xvfb # all for OpenGL rendering, xvfb for OpenGL context
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-cov
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Install DyAda module
-        run: pip install -e .
+        run: pip install -e .[drawing,matplotlib]
       - name: Test with pytest
         run: |
           xvfb-run -a pytest test/ --doctest-modules --junitxml=junit/test-results.xml
@@ -79,11 +77,13 @@ jobs:
           python-version: "3.10"
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev xvfb # all for OpenGL rendering, xvfb for OpenGL context
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-cov
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Install DyAda module
-        run: pip install -e .
+        run: pip install -e .[drawing,matplotlib,opengl]
       - name: Test with pytest, to create cov report
         run: |
           pytest test/ --cov=dyada --cov-report=xml --cov-report=html
