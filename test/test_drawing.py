@@ -91,6 +91,7 @@ def test_plot_boxes_2d_from_descriptor():
                     alpha=0.3,
                     filename="2d_transparent",
                     backend=backend,
+                    colors="orange",
                 )
                 plot_all_boxes_2d(
                     r, projection=list(projection), labels="boxes", backend=backend
