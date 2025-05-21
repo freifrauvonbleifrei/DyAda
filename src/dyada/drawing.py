@@ -129,7 +129,9 @@ def get_figure_2d_matplotlib(
     **kwargs,
 ) -> tuple:
     prop_cycle = plt.rcParams["axes.prop_cycle"]
-    colors = prop_cycle.by_key()["color"]
+    colors = kwargs.pop("colors", prop_cycle.by_key()["color"])
+    if isinstance(colors, str):
+        colors = [colors] * len(intervals)
 
     fig, ax1 = plt.subplots(1, 1)
     ax1.set_xlim(0, 1)
@@ -242,6 +244,8 @@ def get_figure_3d_matplotlib(
     # plt.show() # using this and the pause below gives a neat animation
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = kwargs.pop("colors", prop_cycle.by_key()["color"])
+    if isinstance(colors, str):
+        colors = [colors] * len(intervals)
 
     fig = plt.figure()
     ax1 = fig.add_subplot(111, projection="3d")
@@ -250,9 +254,9 @@ def get_figure_3d_matplotlib(
         draw_cuboid_on_axis(
             ax1,
             interval,
-            projection,
-            colors[i % len(colors)],
-            wireframe,
+            projection=projection,
+            color=colors[i % len(colors)],
+            wireframe=wireframe,
             **kwargs,
         )
         # plt.pause(0.01)

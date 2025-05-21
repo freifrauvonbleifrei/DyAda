@@ -3,6 +3,7 @@ import pytest
 from random import randint
 
 from dyada.coordinates import (
+    DyadaTooFineError,
     LevelIndex,
     level_index_from_sequence,
     interval_from_sequences,
@@ -30,6 +31,10 @@ def test_get_coordinates_from_level_index():
     assert get_coordinates_from_level_index(level_index) == interval_from_sequences(
         [0.0, 0.0, 0.0, 0.0], [1.0, 0.5, 0.25, 0.125]
     )
+    # make sure that if too large, we get a DyadaTooFineError
+    with pytest.raises(DyadaTooFineError):
+        level_index_from_sequence([0, 63, 2, 3], [0, 0, 0, 0])
+
     # some randomization
     for _ in range(100):
         num_dimensions = randint(1, 10)

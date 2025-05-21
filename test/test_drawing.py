@@ -201,14 +201,19 @@ def test_plot_octree_3d_from_descriptor():
     p.plan_refinement(new_descriptor.get_num_boxes() - 2, ba.bitarray("111"))
     new_descriptor = p.apply_refinements()
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    for backend in ["matplotlib", "tikz"]:
-        if backend == "matplotlib":
+    backends = ["tikz"]
+    backends.append("matplotlib") if module_is_available("matplotlib") else None
+    backends.append("opengl") if module_is_available("OpenGL") else None
+    for backend in backends:
+        if backend == "matplotlib" or backend == "opengl":
             plot_all_boxes_3d(
                 r,
                 labels="boxes",
                 filename="octree",
                 alpha=0.1,
                 backend=backend,
+                colors="red",
+                linewidth=3.0,
             )
         else:
             plot_all_boxes_3d(
