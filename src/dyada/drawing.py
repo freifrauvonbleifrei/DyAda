@@ -7,7 +7,7 @@ except ImportError:
 try:
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # type: ignore
-    from matplotlib.colors import to_rgba
+    from matplotlib.colors import to_rgba, to_rgb
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
 try:
@@ -616,6 +616,8 @@ def draw_cuboid_opengl(
     alpha: float = 0.1,
     color=(0.5, 0.5, 0.5),
 ):
+    color = to_rgb(color)
+
     if wireframe:
         alpha_faces = 0.0
         alpha_lines = alpha
@@ -631,18 +633,18 @@ def draw_cuboid_opengl(
     upper = interval[1][projection]
 
     gl.glBegin(gl.GL_LINES)
+    gl.glColor4fv((*color_lines, alpha_lines))
     for side_corners in side_corners_generator(lower, upper):
-        gl.glColor4fv((color_lines[0], color_lines[1], color_lines[2], alpha_lines))
         for side in pairwise(side_corners):
             gl.glVertex3fv(side[0])
             gl.glVertex3fv(side[1])
     gl.glEnd()
 
-    gl.glEnable(gl.GL_POLYGON_OFFSET_FILL)
+    gl.glEnable(gl.GL_POLYGON_OFFSET_FILL)  # try to avoid overdrawing
     gl.glPolygonOffset(1.0, 1.0)
     gl.glBegin(gl.GL_QUADS)
+    gl.glColor4fv((*color_faces, alpha_faces))
     for side_corners in side_corners_generator(lower, upper):
-        gl.glColor4fv((color_faces[0], color_faces[1], color_faces[2], alpha_faces))
         for corner in side_corners:
             gl.glVertex3fv(corner)
     gl.glEnd()
@@ -664,8 +666,8 @@ def gl_save_file(filename: str, width=1024, height=1024) -> None:
 @depends_on_optional("OpenGL")
 def plot_boxes_3d_pyopengl(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
-    labels: Optional[Sequence[str]],
-    projection: Sequence[int],
+    labels: Optional[Sequence[str]] = None,
+    projection: Sequence[int] = [0, 1, 2],
     wireframe: bool = False,
     filename: str = "omnitree",
     width: int = 1024,
@@ -677,6 +679,8 @@ def plot_boxes_3d_pyopengl(
         warnings.warn("Labels are currently not used in 3D plots w/ pyopengl")
 
     colors = kwargs.pop("colors", get_colors(len(intervals)))
+    if isinstance(colors, str):
+        colors = [colors] * len(intervals)
 
     def init_glu():
         glut.glutInit()
@@ -689,7 +693,7 @@ def plot_boxes_3d_pyopengl(
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
         glu.gluPerspective(
-            45.0,
+            35.0,
             float(width) / height,
             0.1,
             10.0,
@@ -697,15 +701,9 @@ def plot_boxes_3d_pyopengl(
         gl.glMatrixMode(gl.GL_MODELVIEW)
         # move camera back to see the unit cube
         glu.gluLookAt(
-            1.5,
-            1.5,
-            3.0,
-            0.5,
-            0.5,
-            0.5,
-            0,
-            1,
-            0,
+            *(-1.5, 1.5, 3.0),
+            *(0.5, 0.5, 0.5),
+            *(0, 1, 0),
         )
         # for opacity
         gl.glEnable(gl.GL_BLEND)
