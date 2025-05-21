@@ -7,16 +7,28 @@ except ImportError:
 try:
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # type: ignore
-    from matplotlib.colors import to_rgba
+    from matplotlib.colors import to_rgba, to_rgb
 except ImportError:
     warnings.warn("matplotlib not found, some plotting functions will not work")
-from itertools import product
+try:
+    import OpenGL.GL as gl  # type: ignore
+    import OpenGL.GLU as glu  # type: ignore
+    import OpenGL.GLUT as glut  # type: ignore
+    from PIL import Image, ImageOps
+except ImportError:
+    warnings.warn("pyopengl not found, some plotting functions will not work")
+
+from itertools import pairwise, product
 from pathlib import Path
 from string import ascii_uppercase
 from typing import Sequence, Union, Mapping, Optional
 import subprocess
 
-from dyada.coordinates import CoordinateInterval, get_coordinates_from_level_index
+from dyada.coordinates import (
+    Coordinate,
+    CoordinateInterval,
+    get_coordinates_from_level_index,
+)
 from dyada.descriptor import branch_generator, RefinementDescriptor
 from dyada.refinement import Discretization
 from dyada.structure import depends_on_optional
@@ -77,6 +89,8 @@ def plot_boxes_3d(
         return plot_boxes_3d_matplotlib(intervals, labels, projection, **kwargs)
     elif backend == "tikz":
         return plot_boxes_3d_tikz(intervals, labels, projection, **kwargs)
+    elif backend == "opengl":
+        return plot_boxes_3d_pyopengl(intervals, labels, projection, **kwargs)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
@@ -93,6 +107,20 @@ def plot_all_boxes_3d(
     plot_boxes_3d(coordinates, projection=projection, labels=labels, **kwargs)
 
 
+def side_corners_generator(
+    lower_cube_corner: Coordinate, upper_cube_corner: Coordinate
+):
+    # iterate the six sides of the cuboid
+    # by always selecting four corners that have one coordinate in common
+    corners = list(product(*zip(lower_cube_corner, upper_cube_corner)))
+    for bound in [lower_cube_corner, upper_cube_corner]:
+        for i, b in enumerate(bound):
+            side_corners = list(filter(lambda c: c[i] == b, corners))
+            assert len(side_corners) == 4
+            # correct the order
+            yield side_corners[0], side_corners[1], side_corners[3], side_corners[2]
+
+
 @depends_on_optional("matplotlib.pyplot")
 def get_figure_2d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
@@ -101,7 +129,9 @@ def get_figure_2d_matplotlib(
     **kwargs,
 ) -> tuple:
     prop_cycle = plt.rcParams["axes.prop_cycle"]
-    colors = prop_cycle.by_key()["color"]
+    colors = kwargs.pop("colors", prop_cycle.by_key()["color"])
+    if isinstance(colors, str):
+        colors = [colors] * len(intervals)
 
     fig, ax1 = plt.subplots(1, 1)
     ax1.set_xlim(0, 1)
@@ -173,21 +203,10 @@ def draw_cuboid_on_axis(
     """
     lower = interval[0][projection]
     upper = interval[1][projection]
-    # iterate the six sides of the cuboid
-    # by always selecting four corners that have one coordinate in common
-    corners = list(product(*zip(lower, upper)))
     faces = []
-    for bound in [lower, upper]:
-        for i, b in enumerate(bound):
-            side_corners = list(filter(lambda c: c[i] == b, corners))
-            assert len(side_corners) == 4
-            face = [
-                side_corners[0],
-                side_corners[1],
-                side_corners[3],
-                side_corners[2],
-            ]
-            faces.append(face)
+    for side_corners in side_corners_generator(lower, upper):
+        face = [*side_corners]
+        faces.append(face)
     alpha = kwargs.pop("alpha", 0.5)
     if wireframe:
         color_rgba = to_rgba(color, alpha=alpha)
@@ -225,6 +244,8 @@ def get_figure_3d_matplotlib(
     # plt.show() # using this and the pause below gives a neat animation
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = kwargs.pop("colors", prop_cycle.by_key()["color"])
+    if isinstance(colors, str):
+        colors = [colors] * len(intervals)
 
     fig = plt.figure()
     ax1 = fig.add_subplot(111, projection="3d")
@@ -233,9 +254,9 @@ def get_figure_3d_matplotlib(
         draw_cuboid_on_axis(
             ax1,
             interval,
-            projection,
-            colors[i % len(colors)],
-            wireframe,
+            projection=projection,
+            color=colors[i % len(colors)],
+            wireframe=wireframe,
             **kwargs,
         )
         # plt.pause(0.01)
@@ -291,14 +312,23 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
 
 
 @depends_on_optional("cmap")
+def get_colors(num_colors: int, colormap_name="CET_R3"):
+    cm = Colormap(colormap_name)
+    for leaf in range(num_colors):
+        colormapped = cm(leaf * 1.0 / num_colors)
+        yield colormapped  # RGB values in [0, 1] range
+
+
+def get_colors_byte(num_colors: int, colormap_name="CET_R3"):
+    for color in get_colors(num_colors, colormap_name):
+        color = [int(255 * c) for c in color]  # convert to [0, 255] range
+        yield color
+
+
 def latex_add_color_defs(
     tikz_string: str, num_colors: int, colormap_name="CET_R3"
 ) -> str:
-    cm = Colormap(colormap_name)
-    for leaf in range(num_colors):
-        colormap = cm(leaf * 1.0 / num_colors)
-        color = [int(255 * c) for c in colormap]
-
+    for leaf, color in enumerate(get_colors_byte(num_colors, colormap_name)):
         color_str = "color_%d" % leaf
         tikz_string += "\\definecolor{%s}{RGB}{%d,%d,%d}\n" % (
             color_str,
@@ -309,7 +339,6 @@ def latex_add_color_defs(
     return tikz_string
 
 
-@depends_on_optional("cmap")
 def letter_counter(length):
     """Generate up to `length` Excel-style letter labels (A, B, ..., Z, AA, AB, ...)."""
     count = 0
@@ -412,20 +441,14 @@ def plot_boxes_3d_tikz(
         line_string = "\\draw[%s] (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- (%f,%f,%f) -- cycle;\n"
         lower = interval[0][projection]
         upper = interval[1][projection]
-        # iterate the six sides of the cuboid
-        # by always selecting four corners that have one coordinate in common
-        corners = list(product(*zip(lower, upper)))
-        for bound in [lower, upper]:
-            for i, b in enumerate(bound):
-                side_corners = list(filter(lambda c: c[i] == b, corners))
-                assert len(side_corners) == 4
-                tikz_string += line_string % (
-                    option_string,
-                    *side_corners[0],
-                    *side_corners[1],
-                    *side_corners[3],
-                    *side_corners[2],
-                )
+        for side_corners in side_corners_generator(lower, upper):
+            tikz_string += line_string % (
+                option_string,
+                *side_corners[0],
+                *side_corners[1],
+                *side_corners[2],
+                *side_corners[3],
+            )
         middle = (lower + upper) / 2.0
         min_extent = min(upper - lower)  # type: ignore
         if min_extent < 0.125:
@@ -587,3 +610,125 @@ def plot_descriptor_tikz(
     if not filename.endswith(".tex"):
         filename += ".tex"
     latex_write_and_compile(tikz_string, filename)
+
+
+@depends_on_optional("OpenGL")
+def draw_cuboid_opengl(
+    interval: CoordinateInterval,
+    projection: Sequence[int] = [0, 1, 2],
+    wireframe: bool = False,
+    alpha: float = 0.1,
+    linewidth: float = 1.0,
+    color=(0.5, 0.5, 0.5),
+):
+    color = to_rgb(color)
+
+    if wireframe:
+        alpha_faces = 0.0
+        alpha_lines = alpha
+        color_faces = (0.0, 0.0, 0.0)
+        color_lines = color
+    else:
+        alpha_faces = alpha
+        alpha_lines = 1.0
+        color_faces = color
+        color_lines = (0.0, 0.0, 0.0)
+
+    lower = interval[0][projection]
+    upper = interval[1][projection]
+
+    gl.glLineWidth(linewidth)
+    gl.glBegin(gl.GL_LINES)
+    gl.glColor4fv((*color_lines, alpha_lines))
+    for side_corners in side_corners_generator(lower, upper):
+        for side in pairwise(side_corners):
+            gl.glVertex3fv(side[0])
+            gl.glVertex3fv(side[1])
+    gl.glEnd()
+
+    gl.glEnable(gl.GL_POLYGON_OFFSET_FILL)  # try to avoid overdrawing
+    gl.glPolygonOffset(1.0, 1.0)
+    gl.glBegin(gl.GL_QUADS)
+    gl.glColor4fv((*color_faces, alpha_faces))
+    for side_corners in side_corners_generator(lower, upper):
+        for corner in side_corners:
+            gl.glVertex3fv(corner)
+    gl.glEnd()
+    gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
+
+
+@depends_on_optional("OpenGL")
+def gl_save_file(filename: str, width=1024, height=1024) -> None:
+    gl.glFlush()
+    gl.glPixelStorei(gl.GL_PACK_ALIGNMENT, 1)
+    data = gl.glReadPixels(0, 0, width, height, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE)
+    image = Image.frombytes("RGBA", (width, height), data)
+    image = ImageOps.flip(image)
+    if not filename.endswith(".png"):
+        filename += ".png"
+    image.save(filename, "PNG")
+
+
+@depends_on_optional("OpenGL")
+def plot_boxes_3d_pyopengl(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]] = None,
+    projection: Sequence[int] = [0, 1, 2],
+    wireframe: bool = False,
+    filename: str = "omnitree",
+    width: int = 1024,
+    height: int = 1024,
+    alpha: float = 0.1,
+    linewidth: float = 1.0,
+    **kwargs,
+) -> None:
+    if labels is not None:
+        warnings.warn("Labels are currently not used in 3D plots w/ pyopengl")
+
+    colors = kwargs.pop("colors", get_colors(len(intervals)))
+    if isinstance(colors, str):
+        colors = [colors] * len(intervals)
+
+    def init_glu():
+        glut.glutInit()
+        glut.glutInitDisplayMode(glut.GLUT_DOUBLE | glut.GLUT_RGB)
+        glut.glutInitWindowSize(width, height)
+        glut.glutCreateWindow(b"Dyada OpenGL")
+        glut.glutHideWindow()
+        gl.glClearColor(1.0, 1.0, 1.0, 1.0)
+        gl.glViewport(0, 0, width, height)
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glLoadIdentity()
+        glu.gluPerspective(
+            35.0,
+            float(width) / height,
+            0.1,
+            10.0,
+        )
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        # move camera back to see the unit cube
+        glu.gluLookAt(
+            *(-1.5, 1.5, 3.0),
+            *(0.5, 0.5, 0.5),
+            *(0, 1, 0),
+        )
+        # for opacity
+        gl.glEnable(gl.GL_BLEND)
+        gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+        # draw background
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+
+    init_glu()
+
+    for interval, color in zip(intervals, colors):
+        draw_cuboid_opengl(
+            interval,
+            projection,
+            wireframe=wireframe,
+            alpha=alpha,
+            linewidth=linewidth,
+            color=color,
+        )
+
+    if filename is not None:
+        gl_save_file(filename)

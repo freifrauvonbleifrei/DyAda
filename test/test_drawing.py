@@ -23,7 +23,7 @@ from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
 )
-from dyada.structure import depends_on_optional
+from dyada.structure import depends_on_optional, module_is_available
 
 
 def test_depends_on_optional():
@@ -91,6 +91,7 @@ def test_plot_boxes_2d_from_descriptor():
                     alpha=0.3,
                     filename="2d_transparent",
                     backend=backend,
+                    colors="orange",
                 )
                 plot_all_boxes_2d(
                     r, projection=list(projection), labels="boxes", backend=backend
@@ -167,8 +168,14 @@ def test_plot_boxes_3d_from_descriptor():
     new_descriptor = p.apply_refinements()
     validate_descriptor(new_descriptor)
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    for backend in ["matplotlib", "tikz"]:
-        if backend == "matplotlib":
+    backends = ["tikz"]
+    backends.append("matplotlib") if module_is_available("matplotlib") else None
+    backends.append("opengl") if module_is_available("OpenGL") else None
+    (
+        backends.append("aaaaargh") if module_is_available("aaaaargh") else None
+    )  # should not raise
+    for backend in backends:
+        if backend == "matplotlib" or backend == "opengl":
             with plt.ion():  # turns off blocking figures for test
                 plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
         else:
@@ -195,14 +202,19 @@ def test_plot_octree_3d_from_descriptor():
     p.plan_refinement(new_descriptor.get_num_boxes() - 2, ba.bitarray("111"))
     new_descriptor = p.apply_refinements()
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    for backend in ["matplotlib", "tikz"]:
-        if backend == "matplotlib":
+    backends = ["tikz"]
+    backends.append("matplotlib") if module_is_available("matplotlib") else None
+    backends.append("opengl") if module_is_available("OpenGL") else None
+    for backend in backends:
+        if backend == "matplotlib" or backend == "opengl":
             plot_all_boxes_3d(
                 r,
                 labels="boxes",
                 filename="octree",
                 alpha=0.1,
                 backend=backend,
+                colors="red",
+                linewidth=3.0,
             )
         else:
             plot_all_boxes_3d(

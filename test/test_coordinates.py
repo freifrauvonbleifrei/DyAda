@@ -3,10 +3,13 @@ import pytest
 from random import randint
 
 from dyada.coordinates import (
+    DyadaTooFineError,
     LevelIndex,
     level_index_from_sequence,
     interval_from_sequences,
     get_coordinates_from_level_index,
+    float_parts_bitarray,
+    deciding_bitarray_from_float,
 )
 
 
@@ -30,6 +33,10 @@ def test_get_coordinates_from_level_index():
     assert get_coordinates_from_level_index(level_index) == interval_from_sequences(
         [0.0, 0.0, 0.0, 0.0], [1.0, 0.5, 0.25, 0.125]
     )
+    # make sure that if too large, we get a DyadaTooFineError
+    with pytest.raises(DyadaTooFineError):
+        level_index_from_sequence([0, 63, 2, 3], [0, 0, 0, 0])
+
     # some randomization
     for _ in range(100):
         num_dimensions = randint(1, 10)
@@ -43,3 +50,18 @@ def test_get_coordinates_from_level_index():
         assert np.all(interval.lower_bound < interval.upper_bound)
         assert np.all(interval.lower_bound >= 0.0)
         assert np.all(interval.upper_bound <= 1.0)
+
+
+def test_float_parts_bitarray():
+    # test the float_parts_bitarray function
+    # 1.0 should be 0b
+    _, _, mantissa_bits = float_parts_bitarray(1.0)
+    assert mantissa_bits.count() == 0
+    # but putting 1.0 in the deciding_bitarray should give us 1111...
+    mantissa_bits = deciding_bitarray_from_float(1.0)
+    assert mantissa_bits.count() == len(mantissa_bits)
+
+    with pytest.raises(ValueError):
+        float_parts_bitarray(np.float128(1.0))
+    with pytest.raises(ValueError):
+        float_parts_bitarray(np.float16(1.0))
