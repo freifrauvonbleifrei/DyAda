@@ -614,6 +614,7 @@ def draw_cuboid_opengl(
     projection: Sequence[int] = [0, 1, 2],
     wireframe: bool = False,
     alpha: float = 0.1,
+    linewidth: float = 1.0,
     color=(0.5, 0.5, 0.5),
 ):
     color = to_rgb(color)
@@ -632,6 +633,7 @@ def draw_cuboid_opengl(
     lower = interval[0][projection]
     upper = interval[1][projection]
 
+    gl.glLineWidth(linewidth)
     gl.glBegin(gl.GL_LINES)
     gl.glColor4fv((*color_lines, alpha_lines))
     for side_corners in side_corners_generator(lower, upper):
@@ -673,6 +675,7 @@ def plot_boxes_3d_pyopengl(
     width: int = 1024,
     height: int = 1024,
     alpha: float = 0.1,
+    linewidth: float = 1.0,
     **kwargs,
 ) -> None:
     if labels is not None:
@@ -710,8 +713,6 @@ def plot_boxes_3d_pyopengl(
         gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
         # draw background
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
-        # if wireframe: #not sure about this one yet
-        #     gl.glLineWidth(2.0)
 
     init_glu()
 
@@ -721,6 +722,7 @@ def plot_boxes_3d_pyopengl(
             projection,
             wireframe=wireframe,
             alpha=alpha,
+            linewidth=linewidth,
             color=color,
         )
 
