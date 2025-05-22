@@ -11,6 +11,9 @@ from dyada.descriptor import (
     validate_descriptor,
 )
 
+from dyada.refinement import Discretization, apply_single_refinement
+from dyada.linearization import MortonOrderLinearization
+
 
 def test_ruler():
     one = generalized_ruler(2, 0)
@@ -197,6 +200,28 @@ def test_write_read():
 
     r_read = RefinementDescriptor.from_file("test_write_3d.bin")
     assert r == r_read
+
+
+def test_get_maximum_level_randomized():
+    for d in range(1, 6):
+        r = RefinementDescriptor(d, 2)
+        # have a random refinement
+        refinement = np.random.randint(
+            0,
+            4,
+            size=d,
+        )
+        # apply to a random index in the discretization
+        discretization = Discretization(MortonOrderLinearization(), r)
+        index = np.random.randint(0, len(discretization))
+        new_discretization, _ = apply_single_refinement(
+            discretization,
+            index,
+            refinement,
+        )
+
+        max_level = new_discretization.descriptor.get_maximum_level()
+        assert all(max_level == refinement + 2 * np.ones(d, dtype=int))
 
 
 if __name__ == "__main__":
