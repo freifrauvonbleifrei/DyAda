@@ -1,5 +1,6 @@
 import bitarray as ba
 from collections import defaultdict
+from functools import lru_cache
 from itertools import combinations
 import numpy as np
 import numpy.typing as npt
@@ -205,11 +206,19 @@ def coordinates_from_box_index(
     return coordinates
 
 
+def is_lru_cached(func):
+    while hasattr(func, "__wrapped__"):
+        if hasattr(func, "cache_info"):
+            return True
+        func = func.__wrapped__
+    return hasattr(func, "cache_info")
+
+
 class PlannedAdaptiveRefinement:
     def __init__(self, discretization: Discretization):
         self._discretization = discretization
         # initialize planned refinement list and data structures used later
-        self._planned_refinements: PriorityQueue = PriorityQueue()
+        self._planned_refinements: list[tuple[int, npt.NDArray[np.int8]]] = []
 
         def get_d_zeros_as_array():
             return np.zeros(
@@ -220,25 +229,33 @@ class PlannedAdaptiveRefinement:
             get_d_zeros_as_array
         )
         self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
-        self._remembered_splits: dict[int, tuple[ba.bitarray, int]] = {}
 
     def plan_refinement(self, box_index: int, dimensions_to_refine=None) -> None:
         if dimensions_to_refine is None:
-            dimensions_to_refine = ba.frozenbitarray(
+            dimensions_to_refine = (
                 "1" * self._discretization.descriptor.get_num_dimensions()
             )
-        else:
-            dimensions_to_refine = ba.frozenbitarray(dimensions_to_refine)
+        # must be iterable, convert to np.array
+        dimensions_to_refine = np.fromiter(
+            dimensions_to_refine,
+            dtype=np.int8,
+            count=self._discretization.descriptor.get_num_dimensions(),
+        )
         # get hierarchical index
         linear_index = self._discretization.descriptor.to_hierarchical_index(box_index)
         # store by linear index
-        self._planned_refinements.put((linear_index, dimensions_to_refine))
+        self._planned_refinements.append(
+            (
+                linear_index,
+                dimensions_to_refine,
+            )
+        )
 
     def populate_queue(self) -> None:
         assert len(self._markers) == 0 and self._upward_queue.empty()
 
         # put initial markers
-        for linear_index, dimensions_to_refine in self._planned_refinements.queue:
+        for linear_index, dimensions_to_refine in self._planned_refinements:
             self._markers[linear_index] += np.fromiter(
                 dimensions_to_refine,
                 dtype=np.int8,
@@ -253,7 +270,7 @@ class PlannedAdaptiveRefinement:
             )
             self._upward_queue.put((-level_sum, linear_index))
 
-        self._planned_refinements = PriorityQueue()
+        self._planned_refinements = []  # clear the planned refinements
 
     def move_marker_to_parent(
         self, marker: npt.NDArray[np.int8], sibling_indices
@@ -648,6 +665,23 @@ class PlannedAdaptiveRefinement:
             self._discretization.descriptor.get_num_dimensions()
         )
         new_descriptor._data = ba.bitarray()
+
+        # we are not changing the old descriptor, and greedily build the new one
+        # so we can cache the box indices of both
+        if not is_lru_cached(self._discretization.descriptor.to_box_index):
+            self._discretization.descriptor.to_box_index = lru_cache(maxsize=None)(
+                self._discretization.descriptor._to_box_index_recursive
+            )
+            self._discretization.descriptor._to_box_index_recursive = lru_cache(
+                maxsize=None
+            )(self._discretization.descriptor._to_box_index_recursive)
+        new_descriptor.to_box_index = lru_cache(maxsize=None)(  # type: ignore
+            new_descriptor._to_box_index_recursive
+        )
+        new_descriptor._to_box_index_recursive = lru_cache(maxsize=None)(  # type: ignore
+            new_descriptor._to_box_index_recursive
+        )
+
         new_descriptor = self.add_refined_data(new_descriptor)
 
         assert len(new_descriptor._data) >= len(self._discretization.descriptor)
@@ -664,7 +698,7 @@ class PlannedAdaptiveRefinement:
         self.populate_queue()
         self.upwards_sweep()
         self.downwards_sweep()
-        assert self._planned_refinements.empty()
+        assert len(self._planned_refinements) == 0
 
         return self.create_new_descriptor(track_mapping)
 
