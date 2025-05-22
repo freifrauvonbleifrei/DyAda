@@ -4,6 +4,7 @@ from queue import PriorityQueue
 
 
 import dyada.coordinates
+import dyada.discretization
 import dyada.drawing
 import dyada.linearization
 import dyada.refinement
@@ -48,7 +49,7 @@ def test_partitioning_queued():
         priority_queue = PriorityQueue()
         for i in range(len(discretization)):
             # what area does the i-th partition represent?
-            interval = dyada.refinement.coordinates_from_box_index(
+            interval = dyada.discretization.coordinates_from_box_index(
                 discretization, i, full_domain
             )
             # use exactly the voxels, slightly more if necessary
@@ -82,7 +83,7 @@ def test_partitioning_queued():
     # dummy variant: take the mean in the last dimension, resample to 16 in the other dimensions
     partitions_resampled = []
     for i in range(len(discretization)):
-        interval = dyada.refinement.coordinates_from_box_index(
+        interval = dyada.discretization.coordinates_from_box_index(
             discretization, i, full_domain
         )
         sub_tensor = tensor[

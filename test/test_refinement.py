@@ -8,13 +8,13 @@ from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
 )
-
+from dyada.discretization import (
+    coordinates_from_box_index,
+)
 from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
     apply_single_refinement,
-    RefinementError,
-    coordinates_from_box_index,
 )
 from dyada.linearization import MortonOrderLinearization, single_bit_set_gen
 
