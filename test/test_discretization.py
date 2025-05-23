@@ -127,24 +127,12 @@ def test_get_box_from_coordinate():
 
 def test_slice_discretization_3d():
     # same 3d discretization as in test_plot_boxes_3d_from_descriptor
-    descriptor = RefinementDescriptor(3, [1, 0, 1])
-    r = Discretization(MortonOrderLinearization(), descriptor)
-    p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(3, ba.bitarray("101"))
-    p.plan_refinement(1, ba.bitarray("001"))
-    p.plan_refinement(2, ba.bitarray("010"))
-    descriptor = p.apply_refinements()
-    validate_descriptor(descriptor)
-    r = Discretization(MortonOrderLinearization(), descriptor)
-    p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(3, ba.bitarray("100"))
-    p.plan_refinement(7, ba.bitarray("010"))
-    descriptor = p.apply_refinements()
-    validate_descriptor(descriptor)
-    r = Discretization(MortonOrderLinearization(), descriptor)
-    p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(9, ba.bitarray("101"))
-    new_descriptor = p.apply_refinements()
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "101 000 001 000 000 010 100 000 000 000 101 000 000 010 000 101 000 000 000 000 000"
+        ),
+    )
     discretization = Discretization(MortonOrderLinearization(), new_descriptor)
 
     for z_i in range(0, 20):
@@ -167,6 +155,12 @@ def test_slice_discretization_3d():
             discretization_y_at_once, mapping_y_at_once = discretization.slice(
                 [x, None, z]
             )
-            # assert mapping_y_at_once == mapping_z_to_x_to_y
+            # assert that everything in mapping_z_to_x_to_y is in mapping_y
+            assert all(
+                [
+                    mapping_y_at_once[old_y] == new_y
+                    for old_y, new_y in mapping_z_to_x_to_y.items()
+                ]
+            )
             assert validate_descriptor(discretization_y_at_once.descriptor)
             assert discretization_y == discretization_y_at_once
