@@ -17,7 +17,6 @@ from dyada.coordinates import (
 from dyada.descriptor import (
     Branch,
     RefinementDescriptor,
-    get_level_from_branch,
     branch_generator,
 )
 from dyada.linearization import (
@@ -26,30 +25,51 @@ from dyada.linearization import (
 )
 
 
-def get_level_index_from_branch(
+def get_binary_index_from_branch(
     linearization: Linearization, branch: Branch
-) -> LevelIndex:
+) -> list[ba.bitarray]:
     num_dimensions = len(branch[0].level_increment)
-    found_level = get_level_from_branch(branch)
 
     # once the branch is found, we can infer the vector index from the branch stack
-    current_index: np.ndarray = np.array([0] * num_dimensions, dtype=np.int64)
-    decreasing_level_difference = found_level.copy()
+    current_index_bitarray = [ba.bitarray() for d in range(num_dimensions)]
     history_of_indices, history_of_level_increments = branch.to_history()
     for level_count in range(1, len(branch)):
         bit_index = linearization.get_binary_position_from_index(
             history_of_indices[:level_count],
             history_of_level_increments[:level_count],
         )
-        array_index = np.fromiter(bit_index, dtype=np.int64, count=num_dimensions)
-        assert len(array_index) == num_dimensions
-        decreasing_level_difference -= np.fromiter(
-            branch[level_count].level_increment, dtype=np.uint8, count=num_dimensions
-        )
-        # power of two by bitshift
-        current_index += array_index * 1 << decreasing_level_difference
+        for d in range(num_dimensions):
+            d_level_increment = branch[level_count].level_increment[d]
+            if d_level_increment > 0:
+                current_index_bitarray[d] += bit_index[d : d + 1]
 
-    return LevelIndex(found_level, current_index)
+    return current_index_bitarray
+
+
+def get_level_index_from_branch(
+    linearization: Linearization, branch: Branch
+) -> LevelIndex:
+    num_dimensions = len(branch[0].level_increment)
+
+    current_index_bitarray = get_binary_index_from_branch(linearization, branch)
+    current_level = np.fromiter(
+        [len(b) for b in current_index_bitarray],
+        dtype=np.int8,
+        count=num_dimensions,
+    )
+    current_index = np.fromiter(
+        [
+            (bitarray.util.ba2int(b) if len(b) > 0 else 0)
+            for b in current_index_bitarray
+        ],
+        dtype=np.int64,
+        count=num_dimensions,
+    )
+
+    return LevelIndex(
+        current_level,
+        current_index,
+    )
 
 
 def get_level_index_from_linear_index(
