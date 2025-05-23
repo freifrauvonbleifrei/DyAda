@@ -244,6 +244,10 @@ class RefinementDescriptor:
         # if we are at the first box, return 0
         return 0
 
+    def get_maximum_level(self) -> npt.NDArray[np.int8]:
+        max_level = np.max(list(self.level_iterator()), axis=0)
+        return max_level
+
     def to_hierarchical_index(self, box_index: int) -> int:
         linear_index = 0
         # count down box index
@@ -273,7 +277,8 @@ class RefinementDescriptor:
         else:
             i, current_branch = hint_previous_branch
             current_branch = current_branch.copy()
-            box_counter = self.num_boxes_up_to(i)
+            if is_box_index:
+                box_counter = self.num_boxes_up_to(i)
             current_iterator = iter(self)
             for _ in range(i):
                 next(current_iterator)
@@ -282,9 +287,10 @@ class RefinementDescriptor:
         while is_box_index or i < index:
             current_refinement = next(current_iterator)
             if current_refinement == self.d_zeros:
-                box_counter += 1
-                if is_box_index and box_counter > index:
-                    break
+                if is_box_index:
+                    box_counter += 1
+                    if is_box_index and box_counter > index:
+                        break
                 current_branch.advance_branch()
             else:
                 current_branch.grow_branch(current_refinement)
@@ -434,6 +440,10 @@ class RefinementDescriptor:
                     boxes_to_close += 1 << next_refinement.count()
 
         return added_box_index, added_hierarchical_index
+
+    def level_iterator(self):
+        for current_branch, _ in branch_generator(self):
+            yield get_level_from_branch(current_branch)
 
 
 def branch_generator(descriptor: RefinementDescriptor):

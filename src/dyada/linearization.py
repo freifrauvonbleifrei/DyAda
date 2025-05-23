@@ -50,6 +50,12 @@ class Linearization(ABC):
         history_of_level_increments: Sequence[ba.bitarray],
     ) -> int: ...
 
+    def __eq__(self, other):
+        if not isinstance(other, Linearization):
+            return False
+        # for now, equality is just type equality
+        return type(self) == type(other)
+
 
 class MortonOrderLinearization(Linearization):
     @staticmethod
