@@ -93,7 +93,7 @@ class Discretization:
 
     def __eq__(self, other):
         return (
-            type(self._linearization) == type(other._linearization)
+            self._linearization == other._linearization
             and self._descriptor == other._descriptor
         )
 
@@ -207,13 +207,14 @@ class Discretization:
         ), "only MortonOrderLinearization is supported (b/c separable),"
         "if you need another one, please imlement the necessary reordering like in refinement"
         assert not all(c is None for c in fixed_unit_coordinates)
-        assert len(fixed_unit_coordinates) == self.descriptor.get_num_dimensions()
+        num_dimensions = self._descriptor.get_num_dimensions()
+        assert len(fixed_unit_coordinates) == num_dimensions
         fixed_dimensions = [
             i for i, c in enumerate(fixed_unit_coordinates) if c is not None
         ]
         num_fixed_dimensions = len(fixed_dimensions)
         assert num_fixed_dimensions > 0
-        assert num_fixed_dimensions < self.descriptor.get_num_dimensions()
+        assert num_fixed_dimensions < num_dimensions
         deciding_bitarrays = [
             deciding_bitarray_from_float(c) if c is not None else None
             for c in fixed_unit_coordinates
@@ -224,10 +225,19 @@ class Discretization:
         )
         new_descriptor._data = ba.bitarray()
         index_mapping: dict[int, int] = {}
+
         # iterate the whole descriptor
+        max_depth = np.iinfo(np.int16).max
+        skip_depth = max_depth
         for current_descriptor_index, (branch, old_refinement) in enumerate(
             branch_generator(self.descriptor)
         ):
+            if len(branch) > skip_depth:
+                # skip all children
+                continue
+            else:
+                # then continue normal operation
+                skip_depth = max_depth
             bitarray_index = get_binary_index_from_branch(self._linearization, branch)
             level = [len(b) for b in bitarray_index]
             keep = True
@@ -261,6 +271,9 @@ class Discretization:
                 else:
                     new_descriptor.get_data().extend(new_refinement)
                     index_mapping[current_descriptor_index] = len(new_descriptor) - 1
+            else:
+                # skip all children as well
+                skip_depth = len(branch)
         assert len(new_descriptor) > 0
 
         return Discretization(MortonOrderLinearization(), new_descriptor), index_mapping

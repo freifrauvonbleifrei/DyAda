@@ -7,10 +7,7 @@ from dyada.descriptor import (
     validate_descriptor,
 )
 
-from dyada.refinement import (
-    Discretization,
-    PlannedAdaptiveRefinement,
-)
+from dyada.discretization import Discretization
 from dyada.linearization import MortonOrderLinearization
 
 
@@ -130,7 +127,8 @@ def test_slice_discretization_3d():
     descriptor = RefinementDescriptor.from_binary(
         3,
         ba.bitarray(
-            "101 000 001 000 000 010 100 000 000 000 101 000 000 010 000 101 000 000 000 000 000"
+            "101 000 001 000 000 010 100 000 000 000"
+            "101 000 000 010 000 101 000 000 000 000 000"
         ),
     )
     discretization = Discretization(MortonOrderLinearization(), descriptor)
