@@ -137,8 +137,8 @@ class Discretization:
 
                 # increment the counted levels at these indices where refinement is 1
                 new_binary_position = ba.bitarray([0] * len(coordinate))
-                for i, bitarray in enumerate(current_refinement):
-                    if bitarray:
+                for i, bitarray_i in enumerate(current_refinement):
+                    if bitarray_i:
                         new_binary_position[i] = coordinate_bitarrays[i][
                             bitarrays_counted_levels[i]
                         ]
