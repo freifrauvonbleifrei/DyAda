@@ -123,3 +123,50 @@ def test_get_box_from_coordinate():
         r.get_containing_box(np.array([1.5, 0.0]))
     with pytest.raises(ValueError):
         r.get_containing_box(np.array([1.5, 1.5]))
+
+
+def test_slice_discretization_3d():
+    # same 3d discretization as in test_plot_boxes_3d_from_descriptor
+    descriptor = RefinementDescriptor(3, [1, 0, 1])
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(3, ba.bitarray("101"))
+    p.plan_refinement(1, ba.bitarray("001"))
+    p.plan_refinement(2, ba.bitarray("010"))
+    descriptor = p.apply_refinements()
+    validate_descriptor(descriptor)
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(3, ba.bitarray("100"))
+    p.plan_refinement(7, ba.bitarray("010"))
+    descriptor = p.apply_refinements()
+    validate_descriptor(descriptor)
+    r = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(r)
+    p.plan_refinement(9, ba.bitarray("101"))
+    new_descriptor = p.apply_refinements()
+    discretization = Discretization(MortonOrderLinearization(), new_descriptor)
+
+    for z_i in range(0, 20):
+        z = z_i / 19
+        discretization_xy, mapping_xy = discretization.slice([None, None, z])
+        assert validate_descriptor(discretization_xy.descriptor)
+
+        for x_i in range(0, 20):
+            x = x_i / 19
+            discretization_y, mapping_y = discretization_xy.slice([x, None])
+            assert validate_descriptor(discretization_y.descriptor)
+            mapping_z_to_x_to_y = {}
+            for old_y, new_y in mapping_y.items():
+                # invert the xy mapping, find old_y
+                for old_xy, new_xy in mapping_xy.items():
+                    if new_xy == old_y:
+                        mapping_z_to_x_to_y[old_xy] = new_y
+                        break
+            # check if slicing in two steps is the same as slicing in one step
+            discretization_y_at_once, mapping_y_at_once = discretization.slice(
+                [x, None, z]
+            )
+            # assert mapping_y_at_once == mapping_z_to_x_to_y
+            assert validate_descriptor(discretization_y_at_once.descriptor)
+            assert discretization_y == discretization_y_at_once

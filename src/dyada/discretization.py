@@ -1,7 +1,8 @@
 import bitarray as ba
+import bitarray.util
 from itertools import combinations
 import numpy as np
-from typing import Generator, Optional, Union
+from typing import Generator, Optional, Sequence, Union
 
 
 from dyada.coordinates import (
@@ -17,9 +18,11 @@ from dyada.descriptor import (
     Branch,
     RefinementDescriptor,
     get_level_from_branch,
+    branch_generator,
 )
 from dyada.linearization import (
     Linearization,
+    MortonOrderLinearization,
 )
 
 
@@ -68,8 +71,17 @@ class Discretization:
     def descriptor(self):
         return self._descriptor
 
+    def __eq__(self, other):
+        return (
+            type(self._linearization) == type(other._linearization)
+            and self._descriptor == other._descriptor
+        )
+
     def __len__(self):
         return self._descriptor.get_num_boxes()
+
+    def __repr__(self):
+        return f"Discretization({self._linearization}, {self._descriptor})"
 
     def get_level_index_from_branch(self, branch: Branch) -> LevelIndex:
         return get_level_index_from_branch(self._linearization, branch)
@@ -166,6 +178,77 @@ class Discretization:
             if len(found_box_indices) > 1
             else found_box_indices.pop()
         )
+
+    def slice(
+        self, fixed_unit_coordinates: Sequence[Union[float, None]]
+    ) -> tuple["Discretization", dict[int, int]]:
+        assert isinstance(
+            self._linearization, MortonOrderLinearization
+        ), "only MortonOrderLinearization is supported (b/c separable),"
+        "if you need another one, please imlement the necessary reordering like in refinement"
+        assert not all(c is None for c in fixed_unit_coordinates)
+        assert len(fixed_unit_coordinates) == self.descriptor.get_num_dimensions()
+        fixed_dimensions = [
+            i for i, c in enumerate(fixed_unit_coordinates) if c is not None
+        ]
+        num_fixed_dimensions = len(fixed_dimensions)
+        assert num_fixed_dimensions > 0
+        assert num_fixed_dimensions < self.descriptor.get_num_dimensions()
+        deciding_bitarrays = [
+            deciding_bitarray_from_float(c) if c is not None else None
+            for c in fixed_unit_coordinates
+        ]
+        # create new empty descriptor
+        new_descriptor = RefinementDescriptor(
+            self._descriptor.get_num_dimensions() - num_fixed_dimensions,
+        )
+        new_descriptor._data = ba.bitarray()
+        index_mapping: dict[int, int] = {}
+        # iterate the whole descriptor
+        for current_descriptor_index, (branch, old_refinement) in enumerate(
+            branch_generator(self.descriptor)
+        ):
+            level, index = get_level_index_from_branch(self._linearization, branch)
+            keep = True
+            for d in fixed_dimensions:
+                # intrepret the index as a bitarray, and fill the front with zeros
+                # until the bitarray is the same length as the level
+                if level[d] == 0:
+                    continue
+                bitarray_index = bitarray.util.int2ba(
+                    int(index[d]), length=int(level[d]), endian="big"
+                )
+                assert len(bitarray_index) == level[d]
+                # check if the bitarray is equal to the beginnig of the deciding bitarray
+                if not bitarray_index == deciding_bitarrays[d][: len(bitarray_index)]:  # type: ignore
+                    keep = False
+                    break
+            if keep:
+                # add this refinement to the new descriptor, omitting the fixed dimensions
+                new_refinement = old_refinement.copy()
+                del new_refinement[fixed_dimensions]
+                # if the refinement is perpendicular to the fixed dimensions, keep track but don't append
+                is_perpendicular = (
+                    new_refinement.count() == 0 and old_refinement.count() > 0
+                )
+                if is_perpendicular:
+                    if len(new_descriptor) == 0:
+                        index_mapping[current_descriptor_index] = 0
+                    else:
+                        # look for the parent in the index mapping
+                        siblings = self.descriptor.get_siblings(
+                            current_descriptor_index
+                        )
+                        parent_index = siblings[0] - 1
+                        index_mapping[current_descriptor_index] = index_mapping[
+                            parent_index
+                        ]
+                else:
+                    new_descriptor.get_data().extend(new_refinement)
+                    index_mapping[current_descriptor_index] = len(new_descriptor) - 1
+        assert len(new_descriptor) > 0
+
+        return Discretization(MortonOrderLinearization(), new_descriptor), index_mapping
 
 
 def coordinates_from_box_index(
