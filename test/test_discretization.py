@@ -133,7 +133,7 @@ def test_slice_discretization_3d():
             "101 000 001 000 000 010 100 000 000 000 101 000 000 010 000 101 000 000 000 000 000"
         ),
     )
-    discretization = Discretization(MortonOrderLinearization(), new_descriptor)
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
 
     for z_i in range(0, 20):
         z = z_i / 19
