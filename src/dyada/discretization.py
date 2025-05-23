@@ -228,19 +228,14 @@ class Discretization:
         for current_descriptor_index, (branch, old_refinement) in enumerate(
             branch_generator(self.descriptor)
         ):
-            level, index = get_level_index_from_branch(self._linearization, branch)
+            bitarray_index = get_binary_index_from_branch(self._linearization, branch)
+            level = [len(b) for b in bitarray_index]
             keep = True
             for d in fixed_dimensions:
-                # intrepret the index as a bitarray, and fill the front with zeros
-                # until the bitarray is the same length as the level
                 if level[d] == 0:
                     continue
-                bitarray_index = bitarray.util.int2ba(
-                    int(index[d]), length=int(level[d]), endian="big"
-                )
-                assert len(bitarray_index) == level[d]
                 # check if the bitarray is equal to the beginnig of the deciding bitarray
-                if not bitarray_index == deciding_bitarrays[d][: len(bitarray_index)]:  # type: ignore
+                if not bitarray_index[d] == deciding_bitarrays[d][: level[d]]:  # type: ignore
                     keep = False
                     break
             if keep:
