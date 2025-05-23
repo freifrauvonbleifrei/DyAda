@@ -225,7 +225,7 @@ class Discretization:
                     break
             if keep:
                 # add this refinement to the new descriptor, omitting the fixed dimensions
-                new_refinement = old_refinement.copy()
+                new_refinement = ba.bitarray(old_refinement)
                 del new_refinement[fixed_dimensions]
                 # if the refinement is perpendicular to the fixed dimensions, keep track but don't append
                 is_perpendicular = (
