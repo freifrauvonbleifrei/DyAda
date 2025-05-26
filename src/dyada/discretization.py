@@ -1,5 +1,7 @@
+import bisect
 import bitarray as ba
 import bitarray.util
+from collections import UserDict
 from itertools import combinations
 import numpy as np
 from typing import Generator, Optional, Sequence, Union
@@ -318,3 +320,46 @@ def coordinates_from_box_index(
             upper_bound=coordinates.upper_bound * scaling_factor + offset,
         )
     return coordinates
+
+
+class SliceDictInDimension(UserDict):
+    def __init__(
+        self, discretization: Discretization, dimension_index: int, box_mapping: bool
+    ):
+        super().__init__()
+        num_dimensions = discretization.descriptor.get_num_dimensions()
+        assert dimension_index < num_dimensions
+        start = 0.0
+        while start < 1.0:
+            d_slice, mapping, level_t = discretization.slice(
+                [
+                    start if d == dimension_index else None
+                    for d in range(num_dimensions)
+                ],
+                get_level=True,  # type: ignore
+            )
+            if box_mapping:
+                mapping = {
+                    discretization.descriptor.to_box_index(
+                        k
+                    ): d_slice.descriptor.to_box_index(v)
+                    for k, v in mapping.items()
+                    if discretization.descriptor.is_box(k)
+                }
+            super().__setitem__(start, (d_slice, mapping))
+            start += 2.0 ** -int(level_t[dimension_index])  # type: ignore
+        self._sorted_keys = sorted(self.data)
+
+    def __setitem__(self, key, value):
+        if key < 0.0 or key > 1.0:
+            raise KeyError(f"Key {key} out of bounds (0.0 to 1.0)")
+        super().__setitem__(key, value)
+        bisect.insort(self._sorted_keys, key)
+
+    def __getitem__(self, key):
+        if key < 0.0 or key > 1.0:
+            raise KeyError(f"Key {key} out of bounds (0.0 to 1.0)")
+        idx = bisect.bisect_right(self._sorted_keys, key) - 1
+        if idx >= 0:
+            return self.data[self._sorted_keys[idx]]
+        raise KeyError

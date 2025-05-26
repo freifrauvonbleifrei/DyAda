@@ -6,8 +6,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
 )
-
-from dyada.discretization import Discretization
+from dyada.discretization import Discretization, SliceDictInDimension
 from dyada.linearization import MortonOrderLinearization
 
 
@@ -236,3 +235,26 @@ def test_all_slices_3d():
 
     assert len(z_used) == 3
     assert len(x_used) == 3
+
+
+def test_slice_dict_3d():
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "101 000 001 000 000 010 100 000 000 000"
+            "101 000 000 010 000 101 000 000 000 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    slice_dict_z = SliceDictInDimension(discretization, 2, True)
+    assert slice_dict_z.keys() == {0.0, 0.25, 0.5, 0.75, 0.875}
+    for key, item in slice_dict_z.items():
+        assert key in slice_dict_z.keys()
+        assert isinstance(item[0], Discretization)
+        assert item[0].descriptor.get_num_dimensions() == 2
+        assert isinstance(item[1], dict)
+    assert slice_dict_z[0.1] is slice_dict_z[0.0]
+    assert slice_dict_z[0.4999] is slice_dict_z[0.25]
+    assert slice_dict_z[1.0] is slice_dict_z[0.875]
+    with pytest.raises(KeyError):
+        slice_dict_z[1.00001]
