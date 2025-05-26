@@ -162,3 +162,33 @@ def test_slice_discretization_3d():
             )
             assert validate_descriptor(discretization_y_at_once.descriptor)
             assert discretization_y == discretization_y_at_once
+
+
+def test_all_slices_3d():
+    # same 3d discretization as in test_plot_boxes_3d_from_descriptor
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "101 000 001 000 000 010 100 000 000 000"
+            "101 000 000 010 000 101 000 000 000 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+
+    z_start = 0.0
+    x_start = 0.0
+    z_used = set()
+    x_used = set()
+    while z_start < 1.0 and x_start < 1.0:
+        # slice at z_start and x_start
+        discretization_xz, mapping_xz, levels_xz = discretization.slice(
+            [x_start, None, z_start], get_level=True
+        )
+        z_used.add(z_start)
+        x_used.add(x_start)
+        assert validate_descriptor(discretization_xz.descriptor)
+        x_start += 2.0 ** -levels_xz[0]
+        z_start += 2.0 ** -levels_xz[2]
+
+    assert len(z_used) == 3
+    assert len(x_used) == 3

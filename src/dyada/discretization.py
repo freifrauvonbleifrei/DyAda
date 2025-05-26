@@ -200,8 +200,13 @@ class Discretization:
         )
 
     def slice(
-        self, fixed_unit_coordinates: Sequence[Union[float, None]]
-    ) -> tuple["Discretization", dict[int, int]]:
+        self,
+        fixed_unit_coordinates: Sequence[Union[float, None]],
+        get_level: bool = False,
+    ) -> Union[
+        tuple["Discretization", dict[int, int]],
+        tuple["Discretization", dict[int, int], list[int | None]],
+    ]:
         assert isinstance(
             self._linearization, MortonOrderLinearization
         ), "only MortonOrderLinearization is supported (b/c separable),"
@@ -215,6 +220,9 @@ class Discretization:
         num_fixed_dimensions = len(fixed_dimensions)
         assert num_fixed_dimensions > 0
         assert num_fixed_dimensions < num_dimensions
+        maximum_level_in_slice = [
+            0 if d in fixed_dimensions else None for d in range(num_dimensions)
+        ]
         deciding_bitarrays = [
             deciding_bitarray_from_float(c) if c is not None else None
             for c in fixed_unit_coordinates
@@ -271,11 +279,25 @@ class Discretization:
                 else:
                     new_descriptor.get_data().extend(new_refinement)
                     index_mapping[current_descriptor_index] = len(new_descriptor) - 1
+                if get_level:
+                    maximum_level_in_slice = [
+                        (
+                            max(maximum_level_in_slice[d], level[d])  # type: ignore
+                            if d in fixed_dimensions
+                            else None
+                        )
+                        for d in range(num_dimensions)
+                    ]
             else:
                 # skip all children as well
                 skip_depth = len(branch)
         assert len(new_descriptor) > 0
-
+        if get_level:
+            return (
+                Discretization(MortonOrderLinearization(), new_descriptor),
+                index_mapping,
+                maximum_level_in_slice,
+            )
         return Discretization(MortonOrderLinearization(), new_descriptor), index_mapping
 
 
