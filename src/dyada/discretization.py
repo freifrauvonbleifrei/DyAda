@@ -1,5 +1,7 @@
+import bisect
 import bitarray as ba
 import bitarray.util
+from collections import UserDict
 from itertools import combinations
 import numpy as np
 from typing import Generator, Optional, Sequence, Union
@@ -200,8 +202,13 @@ class Discretization:
         )
 
     def slice(
-        self, fixed_unit_coordinates: Sequence[Union[float, None]]
-    ) -> tuple["Discretization", dict[int, int]]:
+        self,
+        fixed_unit_coordinates: Sequence[Union[float, None]],
+        get_level: bool = False,
+    ) -> Union[
+        tuple["Discretization", dict[int, int]],
+        tuple["Discretization", dict[int, int], list[int | None]],
+    ]:
         assert isinstance(
             self._linearization, MortonOrderLinearization
         ), "only MortonOrderLinearization is supported (b/c separable),"
@@ -215,6 +222,9 @@ class Discretization:
         num_fixed_dimensions = len(fixed_dimensions)
         assert num_fixed_dimensions > 0
         assert num_fixed_dimensions < num_dimensions
+        maximum_level_in_slice = [
+            0 if d in fixed_dimensions else None for d in range(num_dimensions)
+        ]
         deciding_bitarrays = [
             deciding_bitarray_from_float(c) if c is not None else None
             for c in fixed_unit_coordinates
@@ -271,11 +281,25 @@ class Discretization:
                 else:
                     new_descriptor.get_data().extend(new_refinement)
                     index_mapping[current_descriptor_index] = len(new_descriptor) - 1
+                if get_level:
+                    maximum_level_in_slice = [
+                        (
+                            max(maximum_level_in_slice[d], level[d])  # type: ignore
+                            if d in fixed_dimensions
+                            else None
+                        )
+                        for d in range(num_dimensions)
+                    ]
             else:
                 # skip all children as well
                 skip_depth = len(branch)
         assert len(new_descriptor) > 0
-
+        if get_level:
+            return (
+                Discretization(MortonOrderLinearization(), new_descriptor),
+                index_mapping,
+                maximum_level_in_slice,
+            )
         return Discretization(MortonOrderLinearization(), new_descriptor), index_mapping
 
 
@@ -296,3 +320,46 @@ def coordinates_from_box_index(
             upper_bound=coordinates.upper_bound * scaling_factor + offset,
         )
     return coordinates
+
+
+class SliceDictInDimension(UserDict):
+    def __init__(
+        self, discretization: Discretization, dimension_index: int, box_mapping: bool
+    ):
+        super().__init__()
+        num_dimensions = discretization.descriptor.get_num_dimensions()
+        assert dimension_index < num_dimensions
+        start = 0.0
+        while start < 1.0:
+            d_slice, mapping, level_t = discretization.slice(
+                [
+                    start if d == dimension_index else None
+                    for d in range(num_dimensions)
+                ],
+                get_level=True,  # type: ignore
+            )
+            if box_mapping:
+                mapping = {
+                    discretization.descriptor.to_box_index(
+                        k
+                    ): d_slice.descriptor.to_box_index(v)
+                    for k, v in mapping.items()
+                    if discretization.descriptor.is_box(k)
+                }
+            super().__setitem__(start, (d_slice, mapping))
+            start += 2.0 ** -int(level_t[dimension_index])  # type: ignore
+        self._sorted_keys = sorted(self.data)
+
+    def __setitem__(self, key, value):
+        if key < 0.0 or key > 1.0:
+            raise KeyError(f"Key {key} out of bounds (0.0 to 1.0)")
+        super().__setitem__(key, value)
+        bisect.insort(self._sorted_keys, key)
+
+    def __getitem__(self, key):
+        if key < 0.0 or key > 1.0:
+            raise KeyError(f"Key {key} out of bounds (0.0 to 1.0)")
+        idx = bisect.bisect_right(self._sorted_keys, key) - 1
+        if idx >= 0:
+            return self.data[self._sorted_keys[idx]]
+        raise KeyError

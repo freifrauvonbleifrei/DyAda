@@ -6,8 +6,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
 )
-
-from dyada.discretization import Discretization
+from dyada.discretization import Discretization, SliceDictInDimension
 from dyada.linearization import MortonOrderLinearization
 
 
@@ -122,6 +121,33 @@ def test_get_box_from_coordinate():
         r.get_containing_box(np.array([1.5, 1.5]))
 
 
+def helper_mapping_as_box_mapping(
+    old_descriptor: RefinementDescriptor, new_descriptor: RefinementDescriptor, mapping
+):
+    """
+    Helper function to assert that a mapping can be converted to a box mapping.
+    """
+    box_keys = list()
+    box_values = list()
+    for key, value in mapping.items():
+        try:
+            box_keys.append(old_descriptor.to_box_index(key))
+        except AssertionError:
+            # if the key is not a box index, we skip it
+            continue
+        box_values.append(new_descriptor.to_box_index(value))
+
+    assert len(set(box_keys)) == len(box_keys)
+    assert len(set(box_values)) == len(box_values)
+
+    box_mapping = {
+        old_descriptor.to_box_index(k): new_descriptor.to_box_index(v)
+        for k, v in mapping.items()
+        if old_descriptor.is_box(k)
+    }
+    assert set(box_mapping.keys()) == set(box_keys)
+
+
 def test_slice_discretization_3d():
     # same 3d discretization as in test_plot_boxes_3d_from_descriptor
     descriptor = RefinementDescriptor.from_binary(
@@ -137,11 +163,19 @@ def test_slice_discretization_3d():
         z = z_i / 19
         discretization_xy, mapping_xy = discretization.slice([None, None, z])
         assert validate_descriptor(discretization_xy.descriptor)
+        helper_mapping_as_box_mapping(
+            descriptor, discretization_xy.descriptor, mapping_xy
+        )
 
         for x_i in range(0, 20):
             x = x_i / 19
             discretization_y, mapping_y = discretization_xy.slice([x, None])
             assert validate_descriptor(discretization_y.descriptor)
+            helper_mapping_as_box_mapping(
+                discretization_xy.descriptor,
+                discretization_y.descriptor,
+                mapping_y,
+            )
             mapping_z_to_x_to_y = {}
             for old_y, new_y in mapping_y.items():
                 # invert the xy mapping, find old_y
@@ -153,6 +187,11 @@ def test_slice_discretization_3d():
             discretization_y_at_once, mapping_y_at_once = discretization.slice(
                 [x, None, z]
             )
+            helper_mapping_as_box_mapping(
+                discretization.descriptor,
+                discretization_y_at_once.descriptor,
+                mapping_y_at_once,
+            )
             # assert that everything in mapping_z_to_x_to_y is in mapping_y
             assert all(
                 [
@@ -162,3 +201,60 @@ def test_slice_discretization_3d():
             )
             assert validate_descriptor(discretization_y_at_once.descriptor)
             assert discretization_y == discretization_y_at_once
+
+
+def test_all_slices_3d():
+    # same 3d discretization as in test_plot_boxes_3d_from_descriptor
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "101 000 001 000 000 010 100 000 000 000"
+            "101 000 000 010 000 101 000 000 000 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+
+    z_start = 0.0
+    x_start = 0.0
+    z_used = set()
+    x_used = set()
+    while z_start < 1.0 and x_start < 1.0:
+        # slice at z_start and x_start
+        discretization_xz, mapping_xz, levels_xz = discretization.slice(
+            [x_start, None, z_start], get_level=True
+        )
+        z_used.add(z_start)
+        x_used.add(x_start)
+        assert validate_descriptor(discretization_xz.descriptor)
+        x_start += 2.0 ** -levels_xz[0]
+        z_start += 2.0 ** -levels_xz[2]
+
+        helper_mapping_as_box_mapping(
+            descriptor, discretization_xz.descriptor, mapping_xz
+        )
+
+    assert len(z_used) == 3
+    assert len(x_used) == 3
+
+
+def test_slice_dict_3d():
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "101 000 001 000 000 010 100 000 000 000"
+            "101 000 000 010 000 101 000 000 000 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    slice_dict_z = SliceDictInDimension(discretization, 2, True)
+    assert slice_dict_z.keys() == {0.0, 0.25, 0.5, 0.75, 0.875}
+    for key, item in slice_dict_z.items():
+        assert key in slice_dict_z.keys()
+        assert isinstance(item[0], Discretization)
+        assert item[0].descriptor.get_num_dimensions() == 2
+        assert isinstance(item[1], dict)
+    assert slice_dict_z[0.1] is slice_dict_z[0.0]
+    assert slice_dict_z[0.4999] is slice_dict_z[0.25]
+    assert slice_dict_z[1.0] is slice_dict_z[0.875]
+    with pytest.raises(KeyError):
+        slice_dict_z[1.00001]
