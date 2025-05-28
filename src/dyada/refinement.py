@@ -266,13 +266,12 @@ class PlannedAdaptiveRefinement:
         current_old_index = starting_index
 
         while True:
-            current_refinement = descriptor[current_old_index]
             next_refinement, next_marker = self.refinement_with_marker_applied(
                 current_old_index
             )
             if next_refinement == descriptor.d_zeros:
-                # only on leaves, we can potentially advance the branch
-                assert (current_refinement).count() == 0
+                # only on leaves, we can advance the branch
+                assert descriptor[current_old_index].count() == 0
                 # on leaves, add end-refinement info
                 yield current_old_index, next_refinement, next_marker
                 try:
@@ -393,28 +392,19 @@ class PlannedAdaptiveRefinement:
     ) -> None:
         previous_length = len(new_descriptor)
         new_descriptor._data.extend(extension)
-        if self._box_index_mapping is None:
+        if self._index_mapping is None:
             return
 
-        old_descriptor = self._discretization.descriptor
         if isinstance(range_to_extend, int):
-            self._box_index_mapping[
-                old_descriptor.to_box_index(range_to_extend)
-            ] += list(
-                new_descriptor.to_box_index(i)
-                for i in range(previous_length, len(new_descriptor))
-                if new_descriptor.is_box(i)
+            self._index_mapping[range_to_extend] += list(
+                i for i in range(previous_length, len(new_descriptor))
             )
         else:
             for old_index, new_index in zip(
                 range(range_to_extend[0], range_to_extend[1]),
                 range(previous_length, len(new_descriptor)),
             ):
-                if old_descriptor.is_box(old_index):
-                    assert new_descriptor.is_box(new_index)
-                    self._box_index_mapping[old_descriptor.to_box_index(old_index)] += [
-                        new_descriptor.to_box_index(new_index)
-                    ]
+                self._index_mapping[old_index] += [new_index]
 
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor
@@ -464,11 +454,11 @@ class PlannedAdaptiveRefinement:
         return new_descriptor
 
     def create_new_descriptor(
-        self, track_mapping: bool
+        self, track_mapping: Optional[str] = None
     ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
-        self._box_index_mapping: Optional[dict[int, list[int]]] = None
-        if track_mapping:
-            self._box_index_mapping = defaultdict(list)
+        self._index_mapping: Optional[dict[int, list[int]]] = None
+        if track_mapping is not None:
+            self._index_mapping = defaultdict(list)
 
         # start generating the new descriptor
         new_descriptor = RefinementDescriptor(
@@ -494,14 +484,33 @@ class PlannedAdaptiveRefinement:
 
         new_descriptor = self.add_refined_data(new_descriptor)
 
-        assert len(new_descriptor._data) >= len(self._discretization.descriptor)
-        if track_mapping:
-            assert self._box_index_mapping is not None
-            return new_descriptor, self._box_index_mapping
+        # assert len(new_descriptor._data) >= len(self._discretization.descriptor)
+        if track_mapping is not None:
+            assert self._index_mapping is not None
+            if track_mapping == "boxes":
+                # transform the mapping to box indices
+                box_mapping = {
+                    self._discretization.descriptor.to_box_index(old_index): [
+                        new_descriptor.to_box_index(new_index)
+                        for new_index in new_indices
+                        if new_descriptor.is_box(new_index)
+                    ]
+                    for old_index, new_indices in self._index_mapping.items()
+                    if self._discretization.descriptor.is_box(old_index)
+                }
+                self._index_mapping = box_mapping
+            elif track_mapping == "patches":
+                pass
+            else:
+                raise ValueError(
+                    "track_mapping must be either 'boxes' or 'patches', got "
+                    + str(track_mapping)
+                )
+            return new_descriptor, self._index_mapping
         return new_descriptor
 
     def apply_refinements(
-        self, track_mapping: bool = False
+        self, track_mapping: Optional[str] = None
     ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
         assert self._upward_queue.empty()
         assert self._markers == {}
@@ -520,5 +529,5 @@ def apply_single_refinement(
 ) -> tuple[Discretization, dict]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
-    new_descriptor, mapping = p.apply_refinements(track_mapping=True)
+    new_descriptor, mapping = p.apply_refinements(track_mapping="boxes")
     return Discretization(discretization._linearization, new_descriptor), mapping

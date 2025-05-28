@@ -36,7 +36,7 @@ def test_refine_2d_only_leaves():
     for box_index, refinement in refinements_to_apply:
         p.plan_refinement(box_index, refinement)
 
-    r_new = p.apply_refinements(track_mapping=False)
+    r_new = p.apply_refinements(track_mapping=None)
     assert validate_descriptor(r_new)
 
 
@@ -114,7 +114,7 @@ def test_refine_simplest_not_only_leaves():
     assert len(p._markers) == 1 and all(p._markers[1] == [0, 1])
     assert p._upward_queue.empty()
 
-    new_descriptor = p.create_new_descriptor(track_mapping=False)
+    new_descriptor = p.create_new_descriptor(track_mapping=None)
     assert new_descriptor._data == ba.bitarray("1001000000")
     assert validate_descriptor(new_descriptor)
 
@@ -157,7 +157,7 @@ def test_refine_simplest_grandchild_split():
     )
     assert p._upward_queue.empty()
 
-    new_descriptor, index_mapping = p.create_new_descriptor(track_mapping=True)
+    new_descriptor, index_mapping = p.create_new_descriptor(track_mapping="boxes")
     assert new_descriptor._data == ba.bitarray("10010000100000")
     assert validate_descriptor(new_descriptor)
     r_2 = Discretization(MortonOrderLinearization(), new_descriptor)
@@ -182,7 +182,7 @@ def test_refine_simplest_grandchild_split():
         and all(p._markers[1] == [0, -1])
     )
     assert p._upward_queue.empty()
-    new_descriptor_2, index_mapping_2 = p.create_new_descriptor(track_mapping=True)
+    new_descriptor_2, index_mapping_2 = p.create_new_descriptor(track_mapping="boxes")
     assert new_descriptor_2._data == ba.bitarray("110010000000100000")
     assert validate_descriptor(new_descriptor_2)
     helper_check_mapping(
@@ -214,7 +214,7 @@ def test_refine_grandchild_split():
 
     # the actual test
     p.plan_refinement(0, ba.bitarray("10"))
-    new_descriptor, box_mapping = p.apply_refinements(track_mapping=True)
+    new_descriptor, box_mapping = p.apply_refinements(track_mapping="boxes")
     assert validate_descriptor(new_descriptor)
     assert new_descriptor._data == ba.bitarray("111100000100000100000010000000")
 
@@ -239,7 +239,7 @@ def test_refine_multi_grandchild_split():
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(2, ba.bitarray("10"))
     p.plan_refinement(3, ba.bitarray("01"))
-    descriptor = p.apply_refinements(track_mapping=False)
+    descriptor = p.apply_refinements(track_mapping=None)
 
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
@@ -248,7 +248,7 @@ def test_refine_multi_grandchild_split():
     p.plan_refinement(3, ba.bitarray("10"))
     p.plan_refinement(3, ba.bitarray("10"))
 
-    new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
+    new_descriptor, index_mapping = p.apply_refinements(track_mapping="boxes")
     helper_check_mapping(
         index_mapping, r, Discretization(MortonOrderLinearization(), new_descriptor)
     )
@@ -345,7 +345,7 @@ def test_refine_2d_2():
         and all(p._markers[8] == [0, -1])
     )
     assert p._upward_queue.empty()
-    new_descriptor, index_mapping = p.create_new_descriptor(track_mapping=True)
+    new_descriptor, index_mapping = p.create_new_descriptor(track_mapping="boxes")
     validate_descriptor(new_descriptor)
 
     descriptor_expected = RefinementDescriptor.from_binary(
@@ -418,7 +418,7 @@ def test_refine_4d():
     last_box_index = descriptor.get_num_boxes() - 1
     p.plan_refinement(last_box_index, ba.bitarray("0001"))
 
-    new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
+    new_descriptor, index_mapping = p.apply_refinements(track_mapping="boxes")
 
     assert new_descriptor._data == ba.bitarray(
         "0011110000000000000000000000110000000000000000000000"
@@ -443,7 +443,7 @@ def test_refine_random():
                 p.plan_refinement(random_box, random_refinement)
                 round_refinements.append((random_box, random_refinement))
 
-            new_descriptor, index_mapping = p.apply_refinements(track_mapping=True)
+            new_descriptor, index_mapping = p.apply_refinements(track_mapping="boxes")
 
             # the "=" may happen if only zeros are chosen
             assert len(new_descriptor) >= len(descriptor)
