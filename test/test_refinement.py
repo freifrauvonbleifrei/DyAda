@@ -7,9 +7,11 @@ from os.path import abspath
 from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
+    hierarchical_to_box_index_mapping,
 )
 from dyada.discretization import (
     coordinates_from_box_index,
+    coordinates_from_index,
 )
 from dyada.refinement import (
     Discretization,
@@ -53,23 +55,34 @@ def test_refine_3d_only_leaves():
 
 
 def helper_check_mapping(
-    index_mapping, old_discretization, new_discretization, tested_refinement=None
+    index_mapping: dict,
+    old_discretization: Discretization,
+    new_discretization: Discretization,
+    mapping_indices_are_boxes=True,
+    tested_refinement=None,
 ):
     old_descriptor = old_discretization.descriptor
     new_descriptor = new_discretization.descriptor
-    assert index_mapping.keys() == set(range(old_descriptor.get_num_boxes()))
-    count_new_indices = Counter()
+    count_new_indices: Counter = Counter()
     for value in index_mapping.values():
         count_new_indices.update(value)
+    if mapping_indices_are_boxes:
+        assert index_mapping.keys() == set(range(old_descriptor.get_num_boxes()))
     assert sorted(count_new_indices.elements()) == list(
         range(new_descriptor.get_num_boxes())
     )
+    else:
+        pass
     for b in range(old_descriptor.get_num_boxes()):
         if len(index_mapping[b]) == 1:
             # make sure the coordinates are correct
             if not (
-                coordinates_from_box_index(new_discretization, index_mapping[b][0])
-                == coordinates_from_box_index(old_discretization, b)
+                coordinates_from_index(
+                    new_discretization, index_mapping[b][0], mapping_indices_are_boxes
+                )
+                == coordinates_from_index(
+                    old_discretization, b, mapping_indices_are_boxes
+                )
             ):
                 print(
                     f"mapping failed for box {b} with index {index_mapping[b][0]}"
@@ -80,13 +93,19 @@ def helper_check_mapping(
                 print(f"new descriptor: {new_descriptor}")
                 if tested_refinement is not None:
                     print(f"tested refinement: {tested_refinement}")
-            assert coordinates_from_box_index(
-                new_discretization, index_mapping[b][0]
-            ) == coordinates_from_box_index(old_discretization, b)
+            assert coordinates_from_index(
+                new_discretization, index_mapping[b][0], mapping_indices_are_boxes
+            ) == coordinates_from_index(
+                old_discretization, b, mapping_indices_are_boxes
+            )
         else:
-            old_interval = coordinates_from_box_index(old_discretization, b)
+            old_interval = coordinates_from_index(
+                old_discretization, b, mapping_indices_are_boxes
+            )
             for new_index in index_mapping[b]:
-                new_interval = coordinates_from_box_index(new_discretization, new_index)
+                new_interval = coordinates_from_index(
+                    new_discretization, new_index, mapping_indices_are_boxes
+                )
                 np.all(old_interval.lower_bound <= new_interval.lower_bound) and np.all(
                     new_interval.lower_bound <= old_interval.upper_bound
                 )  # type: ignore
@@ -443,7 +462,10 @@ def test_refine_random():
                 p.plan_refinement(random_box, random_refinement)
                 round_refinements.append((random_box, random_refinement))
 
-            new_descriptor, index_mapping = p.apply_refinements(track_mapping="boxes")
+            new_descriptor, index_mapping = p.apply_refinements(track_mapping="patches")
+            box_mapping = hierarchical_to_box_index_mapping(
+                index_mapping, descriptor, new_descriptor
+            )
 
             # the "=" may happen if only zeros are chosen
             assert len(new_descriptor) >= len(descriptor)
@@ -452,7 +474,15 @@ def test_refine_random():
                 index_mapping,
                 r,
                 Discretization(MortonOrderLinearization(), new_descriptor),
-                round_refinements,
+                mapping_indices_are_boxes=False,
+                tested_refinement=round_refinements,
+            )
+            helper_check_mapping(
+                box_mapping,
+                r,
+                Discretization(MortonOrderLinearization(), new_descriptor),
+                mapping_indices_are_boxes=True,
+                tested_refinement=round_refinements,
             )
             descriptor = new_descriptor
 
