@@ -303,15 +303,24 @@ class Discretization:
         return Discretization(MortonOrderLinearization(), new_descriptor), index_mapping
 
 
+def coordinates_from_index(
+    discretization: Discretization, index: int, is_box_index: bool = False
+) -> CoordinateInterval:
+    level_index = get_level_index_from_linear_index(
+        discretization._linearization,
+        discretization._descriptor,
+        linear_index=index,
+        is_box_index=is_box_index,
+    )
+    return get_coordinates_from_level_index(level_index)
+
+
 def coordinates_from_box_index(
     discretization: Discretization,
     index: int,
     full_domain: Optional[CoordinateInterval] = None,
 ) -> CoordinateInterval:
-    level_index = get_level_index_from_linear_index(
-        discretization._linearization, discretization._descriptor, index
-    )
-    coordinates = get_coordinates_from_level_index(level_index)
+    coordinates = coordinates_from_index(discretization, index, is_box_index=True)
     if full_domain is not None:
         scaling_factor = full_domain.upper_bound - full_domain.lower_bound
         offset = full_domain.lower_bound
