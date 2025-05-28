@@ -68,9 +68,9 @@ def helper_check_mapping(
         count_new_indices.update(value)
     if mapping_indices_are_boxes:
         assert index_mapping.keys() == set(range(old_descriptor.get_num_boxes()))
-    assert sorted(count_new_indices.elements()) == list(
-        range(new_descriptor.get_num_boxes())
-    )
+        assert sorted(count_new_indices.elements()) == list(
+            range(new_descriptor.get_num_boxes())
+        )
     else:
         pass
     for b in range(old_descriptor.get_num_boxes()):
