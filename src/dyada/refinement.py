@@ -9,6 +9,7 @@ from typing import Optional, Sequence, Union
 from dyada.descriptor import (
     RefinementDescriptor,
     get_regular_refined,
+    hierarchical_to_box_index_mapping,
 )
 from dyada.discretization import Discretization
 from dyada.linearization import (
@@ -489,16 +490,11 @@ class PlannedAdaptiveRefinement:
             assert self._index_mapping is not None
             if track_mapping == "boxes":
                 # transform the mapping to box indices
-                box_mapping = {
-                    self._discretization.descriptor.to_box_index(old_index): [
-                        new_descriptor.to_box_index(new_index)
-                        for new_index in new_indices
-                        if new_descriptor.is_box(new_index)
-                    ]
-                    for old_index, new_indices in self._index_mapping.items()
-                    if self._discretization.descriptor.is_box(old_index)
-                }
-                self._index_mapping = box_mapping
+                self._index_mapping = hierarchical_to_box_index_mapping(
+                    self._index_mapping,
+                    self._discretization.descriptor,
+                    new_descriptor,
+                )
             elif track_mapping == "patches":
                 pass
             else:
