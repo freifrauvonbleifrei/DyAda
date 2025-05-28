@@ -4,6 +4,7 @@ from queue import PriorityQueue
 
 
 import dyada.coordinates
+import dyada.descriptor
 import dyada.discretization
 import dyada.drawing
 import dyada.linearization
@@ -38,9 +39,9 @@ def test_partitioning_queued():
         return importances
 
     # represent whole tensor domain by discretization
-    discretization = dyada.refinement.Discretization(
+    discretization = dyada.discretization.Discretization(
         dyada.linearization.MortonOrderLinearization(),
-        dyada.refinement.RefinementDescriptor(num_dimensions, 0),
+        dyada.descriptor.RefinementDescriptor(num_dimensions, 0),
     )
     full_domain = dyada.coordinates.interval_from_sequences(
         [0] * num_dimensions, tensor.shape

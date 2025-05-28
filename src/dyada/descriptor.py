@@ -478,3 +478,20 @@ def get_level_from_branch(branch: Branch) -> np.ndarray:
             branch[level_count].level_increment, dtype=np.int8, count=num_dimensions
         )
     return found_level
+
+
+def hierarchical_to_box_index_mapping(
+    hierarchical_mapping: dict[int, list[int]],
+    key_descriptor: RefinementDescriptor,
+    value_desciptor: RefinementDescriptor,
+) -> dict[int, list[int]]:
+    box_mapping = {
+        key_descriptor.to_box_index(old_index): [
+            value_desciptor.to_box_index(new_index)
+            for new_index in new_indices
+            if value_desciptor.is_box(new_index)
+        ]
+        for old_index, new_indices in hierarchical_mapping.items()
+        if key_descriptor.is_box(old_index)
+    }
+    return box_mapping
