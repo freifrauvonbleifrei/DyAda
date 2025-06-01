@@ -385,7 +385,7 @@ class PlannedAdaptiveRefinement:
                     break
             ancestry.append(current_old_index)
 
-    def extend_descriptor_and_track_boxes(
+    def extend_descriptor_and_track_indices(
         self,
         new_descriptor: RefinementDescriptor,
         range_to_extend: Union[int, tuple[int, int]],
@@ -422,7 +422,7 @@ class PlannedAdaptiveRefinement:
                 break
 
             # linearly copy up to marked
-            self.extend_descriptor_and_track_boxes(
+            self.extend_descriptor_and_track_indices(
                 new_descriptor,
                 (one_after_last_extended_index, index_to_refine),
                 old_descriptor[one_after_last_extended_index:index_to_refine],
@@ -433,8 +433,7 @@ class PlannedAdaptiveRefinement:
             for old_index, new_refinement, *marker in modified_branches:
                 if marker != []:
                     assert self._discretization.descriptor[old_index].count() == 0
-                    assert np.min(marker) >= 0
-                    self.extend_descriptor_and_track_boxes(
+                    self.extend_descriptor_and_track_indices(
                         new_descriptor,
                         old_index,
                         get_regular_refined(self._markers[old_index]),  # type: ignore
@@ -444,7 +443,7 @@ class PlannedAdaptiveRefinement:
             one_after_last_extended_index = old_index + 1
 
         # copy rest and return
-        self.extend_descriptor_and_track_boxes(
+        self.extend_descriptor_and_track_indices(
             new_descriptor,
             (one_after_last_extended_index, len(old_descriptor)),
             old_descriptor[one_after_last_extended_index : len(old_descriptor)],
