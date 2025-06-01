@@ -72,7 +72,8 @@ def helper_check_mapping(
             range(new_descriptor.get_num_boxes())
         )
     else:
-        pass
+        assert index_mapping.keys() == set(range(len(old_descriptor)))
+        assert set(count_new_indices.elements()) == set(range(len(new_descriptor)))
     for b in range(old_descriptor.get_num_boxes()):
         if len(index_mapping[b]) == 1:
             # make sure the coordinates are correct
@@ -93,11 +94,13 @@ def helper_check_mapping(
                 print(f"new descriptor: {new_descriptor}")
                 if tested_refinement is not None:
                     print(f"tested refinement: {tested_refinement}")
-            assert coordinates_from_index(
-                new_discretization, index_mapping[b][0], mapping_indices_are_boxes
-            ) == coordinates_from_index(
-                old_discretization, b, mapping_indices_are_boxes
-            )
+            if mapping_indices_are_boxes:
+                # otherwise, there may be smaller, now-deleted patches as well
+                assert coordinates_from_index(
+                    new_discretization, index_mapping[b][0], mapping_indices_are_boxes
+                ) == coordinates_from_index(
+                    old_discretization, b, mapping_indices_are_boxes
+                )
         else:
             old_interval = coordinates_from_index(
                 old_discretization, b, mapping_indices_are_boxes
@@ -201,13 +204,14 @@ def test_refine_simplest_grandchild_split():
         and all(p._markers[1] == [0, -1])
     )
     assert p._upward_queue.empty()
-    new_descriptor_2, index_mapping_2 = p.create_new_descriptor(track_mapping="boxes")
+    new_descriptor_2, index_mapping_2 = p.create_new_descriptor(track_mapping="patches")
     assert new_descriptor_2._data == ba.bitarray("110010000000100000")
     assert validate_descriptor(new_descriptor_2)
     helper_check_mapping(
         index_mapping_2,
         r_2,
         Discretization(MortonOrderLinearization(), new_descriptor_2),
+        mapping_indices_are_boxes=False,
     )
 
 

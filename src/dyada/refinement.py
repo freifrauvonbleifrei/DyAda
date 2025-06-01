@@ -260,7 +260,7 @@ class PlannedAdaptiveRefinement:
                     history_of_indices[: i + 1], history_of_level_increments[: i + 1]
                 )
             )
-        # the ancestry, in new indices
+        # the ancestry, in old indices
         ancestry = descriptor.get_ancestry(current_modified_branch)
         assert len(ancestry) == current_modified_branch_depth - 1
         ancestry.append(starting_index)
@@ -274,7 +274,7 @@ class PlannedAdaptiveRefinement:
                 # only on leaves, we can advance the branch
                 assert descriptor[current_old_index].count() == 0
                 # on leaves, add end-refinement info
-                yield current_old_index, next_refinement, next_marker
+                yield current_old_index, -1, next_refinement, next_marker
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
                 except IndexError:
@@ -295,7 +295,7 @@ class PlannedAdaptiveRefinement:
                 ancestry = ancestry[: current_modified_branch_depth - 1]
             else:
                 # on non-leaves, we need to grow the branch
-                yield current_old_index, next_refinement
+                yield current_old_index, -1, next_refinement
                 current_modified_branch.grow_branch(next_refinement)
                 history_of_level_increments.append(next_refinement)
                 history_of_indices.append(0)
@@ -337,6 +337,13 @@ class PlannedAdaptiveRefinement:
                         children_to_consider.update(children_of_coarsened)
                         children_to_consider.remove(child)
                         updating_children = True
+                        parent_of_next_refinement_new = self._index_mapping[
+                            parent_of_next_refinement
+                        ][0]
+                        yield child, parent_of_next_refinement_new, ba.bitarray(
+                            None
+                        ), child_marker
+
                 children = children_to_consider.copy()
 
             # determine which child twig to go down next
@@ -385,6 +392,10 @@ class PlannedAdaptiveRefinement:
                     break
             ancestry.append(current_old_index)
 
+    def track_indices(self, old_index: int, new_index: int):
+        if new_index not in self._index_mapping[old_index]:
+            self._index_mapping[old_index] += [new_index]
+
     def extend_descriptor_and_track_indices(
         self,
         new_descriptor: RefinementDescriptor,
@@ -394,15 +405,14 @@ class PlannedAdaptiveRefinement:
         previous_length = len(new_descriptor)
         new_descriptor._data.extend(extension)
         if isinstance(range_to_extend, int):
-            self._index_mapping[range_to_extend] += list(
-                i for i in range(previous_length, len(new_descriptor))
-            )
+            for new_index in range(previous_length, len(new_descriptor)):
+                self.track_indices(range_to_extend, new_index)
         else:
             for old_index, new_index in zip(
                 range(range_to_extend[0], range_to_extend[1]),
                 range(previous_length, len(new_descriptor)),
             ):
-                self._index_mapping[old_index] += [new_index]
+                self.track_indices(old_index, new_index)
 
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor
@@ -430,16 +440,23 @@ class PlannedAdaptiveRefinement:
 
             # only refine where there are markers
             modified_branches = self.modified_branch_generator(index_to_refine)
-            for old_index, new_refinement, *marker in modified_branches:
+            for old_index, new_index, new_refinement, *marker in modified_branches:
                 if marker != []:
-                    assert self._discretization.descriptor[old_index].count() == 0
-                    self.extend_descriptor_and_track_indices(
-                        new_descriptor,
-                        old_index,
-                        get_regular_refined(self._markers[old_index]),  # type: ignore
-                    )
+                    if np.min(marker) < 0:
+                        # case that a node was removed
+                        self.track_indices(old_index, new_index)
+                    else:
+                        # case of expanding a leaf
+                        assert self._discretization.descriptor[old_index].count() == 0
+                        self.extend_descriptor_and_track_indices(
+                            new_descriptor,
+                            old_index,
+                            get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
+                        )
                 else:
-                    new_descriptor._data.extend(new_refinement)
+                    self.extend_descriptor_and_track_indices(
+                        new_descriptor, old_index, new_refinement
+                    )
             one_after_last_extended_index = old_index + 1
 
         # copy rest and return
