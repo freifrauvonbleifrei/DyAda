@@ -260,7 +260,7 @@ class PlannedAdaptiveRefinement:
                     history_of_indices[: i + 1], history_of_level_increments[: i + 1]
                 )
             )
-        # the ancestry, in old indices
+        # the ancestry, in old indices but new relatonships
         ancestry = descriptor.get_ancestry(current_modified_branch)
         assert len(ancestry) == current_modified_branch_depth - 1
         ancestry.append(starting_index)
@@ -271,10 +271,15 @@ class PlannedAdaptiveRefinement:
                 current_old_index
             )
             if next_refinement == descriptor.d_zeros:
+                if descriptor[current_old_index].count() == 0:
+                    yield current_old_index, -2, next_refinement, next_marker
+                else:
+                    yield current_old_index, -3, next_refinement, next_marker
+                    lost_children = descriptor.get_children(current_old_index)
+                    for lost_child in lost_children:
+                        yield lost_child, -1, ba.bitarray(None)
+
                 # only on leaves, we can advance the branch
-                assert descriptor[current_old_index].count() == 0
-                # on leaves, add end-refinement info
-                yield current_old_index, -1, next_refinement, next_marker
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
                 except IndexError:
@@ -295,7 +300,7 @@ class PlannedAdaptiveRefinement:
                 ancestry = ancestry[: current_modified_branch_depth - 1]
             else:
                 # on non-leaves, we need to grow the branch
-                yield current_old_index, -1, next_refinement
+                yield current_old_index, -4, next_refinement
                 current_modified_branch.grow_branch(next_refinement)
                 history_of_level_increments.append(next_refinement)
                 history_of_indices.append(0)
@@ -330,7 +335,8 @@ class PlannedAdaptiveRefinement:
                     # if a child has negative markers and will be coarsened away,
                     #  we'll need to look at its descendants instead
                     if (
-                        np.min(child_marker) < 0
+                        descriptor[current_old_index].count() == 0
+                        and np.min(child_marker) < 0
                         and child_future_refinement == descriptor.d_zeros
                     ):
                         children_of_coarsened = descriptor.get_children(child)
@@ -439,14 +445,25 @@ class PlannedAdaptiveRefinement:
             )
 
             # only refine where there are markers
-            modified_branches = self.modified_branch_generator(index_to_refine)
-            for old_index, new_index, new_refinement, *marker in modified_branches:
-                if marker != []:
-                    if np.min(marker) < 0:
+            for (
+                old_index,
+                new_index,
+                new_refinement,
+                *marker,
+            ) in self.modified_branch_generator(index_to_refine):
+                if len(marker) > 0:
+                    if new_refinement == ba.bitarray(None):
                         # case that a node was removed
                         self.track_indices(old_index, new_index)
+                    elif np.min(marker) < 0:
+                        # a node was coarsened, but is still there
+                        assert self._discretization.descriptor[old_index].count() > 0
+                        self.extend_descriptor_and_track_indices(
+                            new_descriptor, old_index, new_refinement
+                        )
                     else:
                         # case of expanding a leaf
+                        assert new_index == -2
                         assert self._discretization.descriptor[old_index].count() == 0
                         self.extend_descriptor_and_track_indices(
                             new_descriptor,
@@ -454,9 +471,14 @@ class PlannedAdaptiveRefinement:
                             get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
                         )
                 else:
-                    self.extend_descriptor_and_track_indices(
-                        new_descriptor, old_index, new_refinement
-                    )
+                    if new_refinement == ba.bitarray(None):
+                        assert new_index == -1
+                        new_index = len(new_descriptor) - 1
+                        self.track_indices(old_index, new_index)
+                    else:
+                        self.extend_descriptor_and_track_indices(
+                            new_descriptor, old_index, new_refinement
+                        )
             one_after_last_extended_index = old_index + 1
 
         # copy rest and return
