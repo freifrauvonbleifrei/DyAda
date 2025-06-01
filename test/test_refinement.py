@@ -38,7 +38,7 @@ def test_refine_2d_only_leaves():
     for box_index, refinement in refinements_to_apply:
         p.plan_refinement(box_index, refinement)
 
-    r_new = p.apply_refinements(track_mapping=None)
+    r_new, _ = p.apply_refinements()
     assert validate_descriptor(r_new)
 
 
@@ -49,7 +49,7 @@ def test_refine_3d_only_leaves():
     p.plan_refinement(0, "101")
     p.plan_refinement(1, "001")
     p.plan_refinement(2, "010")
-    new_descriptor = p.apply_refinements()
+    new_descriptor, _ = p.apply_refinements()
     assert new_descriptor.get_num_boxes() == 9
     assert validate_descriptor(new_descriptor)
 
@@ -133,7 +133,7 @@ def test_refine_simplest_not_only_leaves():
     assert len(p._markers) == 1 and all(p._markers[1] == [0, 1])
     assert p._upward_queue.empty()
 
-    new_descriptor = p.create_new_descriptor(track_mapping=None)
+    new_descriptor, _ = p.create_new_descriptor()
     assert new_descriptor._data == ba.bitarray("1001000000")
     assert validate_descriptor(new_descriptor)
 
@@ -141,7 +141,7 @@ def test_refine_simplest_not_only_leaves():
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(2, "01")
 
-    new_descriptor_2 = p.apply_refinements()
+    new_descriptor_2, _ = p.apply_refinements()
     assert new_descriptor_2 == RefinementDescriptor(2, [1, 1])
     assert validate_descriptor(new_descriptor_2)
 
@@ -218,12 +218,12 @@ def test_refine_grandchild_split():
     # prepare the "initial" state
     p.plan_refinement(0, ba.bitarray("01"))
     p.plan_refinement(2, ba.bitarray("10"))
-    new_descriptor = p.apply_refinements()
+    new_descriptor, _ = p.apply_refinements()
     p = PlannedAdaptiveRefinement(
         Discretization(MortonOrderLinearization(), new_descriptor)
     )
     p.plan_refinement(1, ba.bitarray("11"))
-    new_descriptor = p.apply_refinements()
+    new_descriptor, _ = p.apply_refinements()
     four_branch = new_descriptor.get_branch(4, False)[0]
     assert new_descriptor.get_ancestry(four_branch) == [0, 1, 3]
 
@@ -258,7 +258,7 @@ def test_refine_multi_grandchild_split():
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(2, ba.bitarray("10"))
     p.plan_refinement(3, ba.bitarray("01"))
-    descriptor = p.apply_refinements(track_mapping=None)
+    descriptor, _ = p.apply_refinements()
 
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
@@ -282,7 +282,7 @@ def test_refine_fully():
             for i in range(1, descriptor.get_num_boxes() - 1):
                 # do octree refinement
                 p.plan_refinement(i, ba.bitarray("1" * d))
-            new_descriptor = p.apply_refinements()
+            new_descriptor, _ = p.apply_refinements()
             assert validate_descriptor(new_descriptor)
             # now also refine the first and last box
             r = Discretization(MortonOrderLinearization(), new_descriptor)
@@ -290,7 +290,7 @@ def test_refine_fully():
             p.plan_refinement(0, ba.bitarray("1" * d))
             p.plan_refinement(new_descriptor.get_num_boxes() - 1, ba.bitarray("1" * d))
 
-            new_descriptor = p.apply_refinements()
+            new_descriptor, _ = p.apply_refinements()
             assert validate_descriptor(new_descriptor)
 
             regular_descriptor = RefinementDescriptor(d, l + 1)
@@ -427,11 +427,11 @@ def test_refine_4d():
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(0, ba.bitarray("0010"))
-    descriptor = p.apply_refinements()
+    descriptor, _ = p.apply_refinements()
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
     p.plan_refinement(0, ba.bitarray("1101"))
-    descriptor = p.apply_refinements()
+    descriptor, _ = p.apply_refinements()
     r = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(r)
     last_box_index = descriptor.get_num_boxes() - 1

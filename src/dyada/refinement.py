@@ -393,9 +393,6 @@ class PlannedAdaptiveRefinement:
     ) -> None:
         previous_length = len(new_descriptor)
         new_descriptor._data.extend(extension)
-        if self._index_mapping is None:
-            return
-
         if isinstance(range_to_extend, int):
             self._index_mapping[range_to_extend] += list(
                 i for i in range(previous_length, len(new_descriptor))
@@ -455,11 +452,9 @@ class PlannedAdaptiveRefinement:
         return new_descriptor
 
     def create_new_descriptor(
-        self, track_mapping: Optional[str] = None
+        self, track_mapping: str = "boxes"
     ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
-        self._index_mapping: Optional[dict[int, list[int]]] = None
-        if track_mapping is not None:
-            self._index_mapping = defaultdict(list)
+        self._index_mapping: dict[int, list[int]] = defaultdict(list)
 
         # start generating the new descriptor
         new_descriptor = RefinementDescriptor(
@@ -485,28 +480,24 @@ class PlannedAdaptiveRefinement:
 
         new_descriptor = self.add_refined_data(new_descriptor)
 
-        # assert len(new_descriptor._data) >= len(self._discretization.descriptor)
-        if track_mapping is not None:
-            assert self._index_mapping is not None
-            if track_mapping == "boxes":
-                # transform the mapping to box indices
-                self._index_mapping = hierarchical_to_box_index_mapping(
-                    self._index_mapping,
-                    self._discretization.descriptor,
-                    new_descriptor,
-                )
-            elif track_mapping == "patches":
-                pass
-            else:
-                raise ValueError(
-                    "track_mapping must be either 'boxes' or 'patches', got "
-                    + str(track_mapping)
-                )
-            return new_descriptor, self._index_mapping
-        return new_descriptor
+        if track_mapping == "boxes":
+            # transform the mapping to box indices
+            self._index_mapping = hierarchical_to_box_index_mapping(
+                self._index_mapping,
+                self._discretization.descriptor,
+                new_descriptor,
+            )
+        elif track_mapping == "patches":
+            pass
+        else:
+            raise ValueError(
+                "track_mapping must be either 'boxes' or 'patches', got "
+                + str(track_mapping)
+            )
+        return new_descriptor, self._index_mapping
 
     def apply_refinements(
-        self, track_mapping: Optional[str] = None
+        self, track_mapping: str = "boxes"
     ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
         assert self._upward_queue.empty()
         assert self._markers == {}
