@@ -335,8 +335,7 @@ class PlannedAdaptiveRefinement:
                     # if a child has negative markers and will be coarsened away,
                     #  we'll need to look at its descendants instead
                     if (
-                        descriptor[current_old_index].count() == 0
-                        and np.min(child_marker) < 0
+                        np.min(child_marker) < 0
                         and child_future_refinement == descriptor.d_zeros
                     ):
                         children_of_coarsened = descriptor.get_children(child)
