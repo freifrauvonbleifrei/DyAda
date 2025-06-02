@@ -6,6 +6,7 @@ import numpy.typing as npt
 from queue import PriorityQueue
 from typing import Optional, Sequence, Union
 
+from dyada.coordinates import bitarray_startswith
 from dyada.descriptor import (
     RefinementDescriptor,
     get_regular_refined,
@@ -243,6 +244,7 @@ class PlannedAdaptiveRefinement:
 
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
+        num_dimensions = descriptor.get_num_dimensions()
         # iterates a modified version of the descriptor, incorporating the markers knowledge
         # and keeping track of the ancestry
         current_modified_branch, _ = descriptor.get_branch(
@@ -382,14 +384,11 @@ class PlannedAdaptiveRefinement:
                 )
 
                 history_matches = True
-                for d in range(len(modified_dimensionwise_positions)):
-                    no_compare_at_end = child_accumulated_markers[d]
-                    child_compare_this_dim = child_old_dimensionwise_positions[d][:]
-                    modified_compare_this_dim = modified_dimensionwise_positions[d][
-                        : len(modified_dimensionwise_positions[d]) - no_compare_at_end
-                    ]
-
-                    if child_compare_this_dim != modified_compare_this_dim:
+                for d in range(num_dimensions):
+                    if not bitarray_startswith(
+                        modified_dimensionwise_positions[d],
+                        child_old_dimensionwise_positions[d],
+                    ):
                         history_matches = False
                         break
                 if history_matches:

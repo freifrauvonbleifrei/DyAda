@@ -142,3 +142,12 @@ def deciding_bitarray_from_float(value):
     # exponent represented as 2-complement
     assert bitarray.util.ba2int(exponent) == 2 ** (len(exponent) - 1) - 1
     return mantissa
+
+
+def bitarray_startswith(
+    long_bitarray: ba.bitarray, potentially_shorter_bitarray: ba.bitarray
+) -> bool:
+    return (
+        long_bitarray[: len(potentially_shorter_bitarray)]
+        == potentially_shorter_bitarray
+    )

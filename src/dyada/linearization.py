@@ -14,24 +14,24 @@ def single_bit_set_gen(num_dimensions: int):
 def get_dimensionwise_positions(
     history_of_binary_positions: Sequence[ba.bitarray],
     history_of_level_increments: Sequence[ba.bitarray],
-) -> tuple[ba.bitarray, ...]:
-    # will contain the same info as level_index, actually
-    assert len(history_of_binary_positions) == len(history_of_level_increments)
+) -> list[ba.bitarray]:
     num_dimensions = len(history_of_binary_positions[0])
-    positons = []
+    depth = len(history_of_binary_positions)
+    assert len(history_of_level_increments) == depth
+    transposed_positions = [
+        ba.bitarray([position[d] for position in history_of_binary_positions])
+        for d in range(num_dimensions)
+    ]
+    transposed_level_increments = [
+        ba.bitarray([increment[d] for increment in history_of_level_increments])
+        for d in range(num_dimensions)
+    ]
+    deciding_bitarrays = []
     for d in range(num_dimensions):
-        this_dimension_positions = ba.bitarray()
-        for i in range(len(history_of_binary_positions)):
-            # append only if this dimension is refined
-            if history_of_level_increments[i][d]:
-                this_dimension_positions.extend(
-                    history_of_binary_positions[i][d : d + 1]
-                )
-            else:
-                assert history_of_binary_positions[i][d] == 0
-
-        positons.append(this_dimension_positions)
-    return tuple(positons)
+        deciding_bitarrays.append(
+            transposed_positions[d][transposed_level_increments[d]]
+        )
+    return deciding_bitarrays
 
 
 class Linearization(ABC):
