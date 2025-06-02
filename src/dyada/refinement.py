@@ -368,15 +368,23 @@ class PlannedAdaptiveRefinement:
                         child_old_branch, self._discretization._linearization
                     )
                 )
+                child_ancestors = descriptor.get_ancestry(child_old_branch)
+                child_accumulated_markers = np.sum(
+                    [self._markers[ancestor] for ancestor in child_ancestors], axis=0
+                )
+                shortened_parent_positions = [
+                    modified_dimensionwise_positions[d][
+                        : len(modified_dimensionwise_positions[d])
+                        - child_accumulated_markers[d]
+                    ]
+                    for d in range(num_dimensions)
+                ]
 
-                history_matches = True
-                for d in range(num_dimensions):
-                    if not bitarray_startswith(
-                        modified_dimensionwise_positions[d],
-                        child_old_dimensionwise_positions[d],
-                    ):
-                        history_matches = False
-                        break
+                history_matches = all(
+                    shortened_parent_positions[d]
+                    == child_old_dimensionwise_positions[d]
+                    for d in range(num_dimensions)
+                )
                 if history_matches:
                     current_old_index = child
                     break
