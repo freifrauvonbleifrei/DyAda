@@ -105,3 +105,20 @@ class MortonOrderLinearization(Linearization):
                     index_in_box += 1
 
         return index_in_box
+
+
+def get_dimensionwise_positions_from_branch(branch, linearization):
+    history_of_indices, history_of_level_increments = branch.to_history()
+    depth = len(history_of_indices)
+    assert len(history_of_level_increments) == depth
+    history_of_binary_positions = []
+    for i in range(depth):
+        history_of_binary_positions.append(
+            linearization.get_binary_position_from_index(
+                history_of_indices[: i + 1],
+                history_of_level_increments[: i + 1],
+            )
+        )
+    return get_dimensionwise_positions(
+        history_of_binary_positions, history_of_level_increments
+    )

@@ -15,6 +15,7 @@ from dyada.descriptor import (
 from dyada.discretization import Discretization
 from dyada.linearization import (
     get_dimensionwise_positions,
+    get_dimensionwise_positions_from_branch,
 )
 
 
@@ -362,25 +363,10 @@ class PlannedAdaptiveRefinement:
                     is_box_index=False,
                     hint_previous_branch=(parent_of_next_refinement, parent_branch),
                 )
-                child_history_of_indices, child_history_of_level_increments = (
-                    child_old_branch.to_history()
-                )
-                child_history_of_binary_positions = []
-                for i in range(len(child_history_of_indices)):
-                    child_history_of_binary_positions.append(
-                        self._discretization._linearization.get_binary_position_from_index(
-                            child_history_of_indices[: i + 1],
-                            child_history_of_level_increments[: i + 1],
-                        )
+                child_old_dimensionwise_positions = (
+                    get_dimensionwise_positions_from_branch(
+                        child_old_branch, self._discretization._linearization
                     )
-                child_ancestors = descriptor.get_ancestry(child_old_branch)
-                child_accumulated_markers = np.sum(
-                    [self._markers[ancestor] for ancestor in child_ancestors], axis=0
-                )
-                assert len(child_accumulated_markers) == len(next_marker)
-                assert np.all(child_accumulated_markers >= 0)
-                child_old_dimensionwise_positions = get_dimensionwise_positions(
-                    child_history_of_binary_positions, child_history_of_level_increments
                 )
 
                 history_matches = True
