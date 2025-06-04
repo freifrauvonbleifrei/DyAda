@@ -36,6 +36,10 @@ def test_get_coordinates_from_level_index():
     # make sure that if too large, we get a DyadaTooFineError
     with pytest.raises(DyadaTooFineError):
         level_index_from_sequence([0, 63, 2, 3], [0, 0, 0, 0])
+    barely_ok_level_index = level_index_from_sequence([0, 62, 2, 3], [0, 0, 0, 0])
+    barely_ok_level_index.d_level[1] = 63  # this should be too fine
+    with pytest.raises(DyadaTooFineError):
+        get_coordinates_from_level_index(barely_ok_level_index)
 
     # some randomization
     for _ in range(100):

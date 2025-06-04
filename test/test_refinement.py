@@ -223,11 +223,11 @@ def test_refine_grandchild_split():
     p.plan_refinement(0, ba.bitarray("01"))
     p.plan_refinement(2, ba.bitarray("10"))
     new_descriptor, _ = p.apply_refinements()
-    p = PlannedAdaptiveRefinement(
-        Discretization(MortonOrderLinearization(), new_descriptor)
+
+    new_discretization, _ = apply_single_refinement(
+        Discretization(MortonOrderLinearization(), new_descriptor), 1
     )
-    p.plan_refinement(1, ba.bitarray("11"))
-    new_descriptor, _ = p.apply_refinements()
+    new_descriptor = new_discretization.descriptor
     four_branch = new_descriptor.get_branch(4, False)[0]
     assert new_descriptor.get_ancestry(four_branch) == [0, 1, 3]
 

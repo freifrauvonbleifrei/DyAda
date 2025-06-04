@@ -30,7 +30,7 @@ from dyada.coordinates import (
     get_coordinates_from_level_index,
 )
 from dyada.descriptor import branch_generator, RefinementDescriptor
-from dyada.refinement import Discretization
+from dyada.discretization import Discretization
 from dyada.structure import depends_on_optional
 
 
@@ -546,29 +546,37 @@ def plot_tree_tikz(
     tab = "    "
     num_box = 0
     num_patch = 0
-    for current_branch, refinement in branch_generator(refinement_descriptor):
-        current_indent = len(current_branch)
-        while current_indent < last_indent:
-            tikz_string += tab * current_indent + "]\n"
-            last_indent -= 1
-        if labels is not None:
-            label_string = labels[num_patch]
-        else:
-            label_string = str(num_patch)
-        if refinement.count() == 0:
-            tikz_string += tab * current_indent + leaf_string % (num_box, label_string)
-            num_box += 1
-        else:
-            tikz_string += (
-                tab * current_indent
-                + "["
-                + refinement.to01()
-                + ",label={"
-                + label_string
-                + "}\n"
-            )
-        last_indent = current_indent
-        num_patch += 1
+    try:
+        for current_branch, refinement in branch_generator(refinement_descriptor):
+            current_indent = len(current_branch)
+            while current_indent < last_indent:
+                tikz_string += tab * current_indent + "]\n"
+                last_indent -= 1
+            if labels is not None:
+                label_string = labels[num_patch]
+            else:
+                label_string = str(num_patch)
+            if refinement.count() == 0:
+                tikz_string += tab * current_indent + leaf_string % (
+                    num_box,
+                    label_string,
+                )
+                num_box += 1
+            else:
+                tikz_string += (
+                    tab * current_indent
+                    + "["
+                    + refinement.to01()
+                    + ",label={"
+                    + label_string
+                    + "}\n"
+                )
+            last_indent = current_indent
+            num_patch += 1
+    except IndexError:
+        # if this happens, the descriptor is not valid but we can plot part of it
+        warnings.warn("Descriptor is not valid, plotting as much as possible.")
+        pass
 
     tikz_string += "]" * (last_indent)
     tikz_string += "\n\\end{forest}\n\\end{document}"
