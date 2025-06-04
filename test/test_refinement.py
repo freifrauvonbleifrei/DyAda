@@ -322,22 +322,40 @@ def test_refine_2d():
     discretization = Discretization(MortonOrderLinearization(), descriptor)
 
     new_discretization, index_mapping = apply_single_refinement(
+        discretization, len(discretization) - 1, ba.bitarray("01"), "patches"
+    )
+    new_discretization_, box_mapping = apply_single_refinement(
         discretization, len(discretization) - 1, ba.bitarray("01")
     )
+    assert new_discretization == new_discretization_
 
     new_descriptor = new_discretization.descriptor
     validate_descriptor(new_descriptor)
     assert new_descriptor.get_num_boxes() == num_boxes_before + 1
     assert new_descriptor == correct_descriptor
-    helper_check_mapping(index_mapping, discretization, new_discretization)
+    assert index_mapping == {
+        0: [0],
+        1: [1, 7],
+        2: [1],
+        3: [7],
+        4: [2, 8],
+        5: [3, 9],
+        6: [4],
+        7: [5],
+        8: [10],
+        9: [11],
+        10: [6, 12],
+    }
+    helper_check_mapping(index_mapping, discretization, new_discretization, False)
+    helper_check_mapping(box_mapping, discretization, new_discretization, True)
     for b in range(descriptor.get_num_boxes()):
-        assert len(index_mapping[b]) == 1 or (
-            b == (len(discretization) - 1) and len(index_mapping[b]) == 2
+        assert len(box_mapping[b]) == 1 or (
+            b == (len(discretization) - 1) and len(box_mapping[b]) == 2
         )
-        if len(index_mapping[b]) == 1:
+        if len(box_mapping[b]) == 1:
             # make sure the coordinates are correct
             assert coordinates_from_box_index(
-                new_discretization, index_mapping[b][0]
+                new_discretization, box_mapping[b][0]
             ) == coordinates_from_box_index(discretization, b)
 
 
