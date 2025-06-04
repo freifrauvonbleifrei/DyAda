@@ -539,8 +539,9 @@ def apply_single_refinement(
     discretization: Discretization,
     box_index: int,
     dimensions_to_refine: Optional[ba.bitarray] = None,
+    track_mapping: str = "boxes",
 ) -> tuple[Discretization, dict]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
-    new_descriptor, mapping = p.apply_refinements(track_mapping="boxes")
+    new_descriptor, mapping = p.apply_refinements(track_mapping=track_mapping)
     return Discretization(discretization._linearization, new_descriptor), mapping
