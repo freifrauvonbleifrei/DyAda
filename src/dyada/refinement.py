@@ -269,19 +269,16 @@ class PlannedAdaptiveRefinement:
         ancestry.append(starting_index)
         current_old_index = starting_index
 
+        intermediate_generation: list[int] = []
         while True:
             next_refinement, next_marker = self.refinement_with_marker_applied(
                 current_old_index
             )
             if next_refinement == descriptor.d_zeros:
-                if descriptor[current_old_index].count() == 0:
-                    yield current_old_index, -2, next_refinement, next_marker
-                else:
-                    yield current_old_index, -3, next_refinement, next_marker
-                    lost_children = descriptor.get_children(current_old_index)
-                    for lost_child in lost_children:
-                        yield lost_child, -1, ba.bitarray(None)
-
+                yield current_old_index, -2, next_refinement, next_marker
+                for p in intermediate_generation:
+                    yield p, -1, ba.bitarray(None)
+                intermediate_generation = []
                 # only on leaves, we can advance the branch
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
@@ -327,66 +324,63 @@ class PlannedAdaptiveRefinement:
             children = set(
                 descriptor.get_children(parent_of_next_refinement, parent_branch)
             )
-            children_to_consider = children.copy()
-            updating_children = True
-            while updating_children:
-                updating_children = False
+
+            # determine which child twig to go down next
+            twig_found = False
+            children_changed = True
+            while not twig_found:
+                assert children_changed, "No child twig found, something is wrong"
+                children_changed = False
                 for child in children:
+                    # find the child whose branch puts it at the same level/index as
+                    # the modified branch we're looking at
+                    child_old_branch, _ = descriptor.get_branch(
+                        child,
+                        is_box_index=False,
+                        hint_previous_branch=(parent_of_next_refinement, parent_branch),
+                    )
+                    child_old_dimensionwise_positions = (
+                        get_dimensionwise_positions_from_branch(
+                            child_old_branch, self._discretization._linearization
+                        )
+                    )
+
+                    child_ancestors = descriptor.get_ancestry(child_old_branch)
+                    child_accumulated_markers = np.sum(
+                        [self._markers[ancestor] for ancestor in child_ancestors],
+                        axis=0,
+                    )
+                    shortened_parent_positions = [
+                        modified_dimensionwise_positions[d][
+                            : len(modified_dimensionwise_positions[d])
+                            - child_accumulated_markers[d]
+                        ]
+                        for d in range(num_dimensions)
+                    ]
+                    part_of_history = all(
+                        bitarray_startswith(
+                            child_old_dimensionwise_positions[d],
+                            shortened_parent_positions[d],
+                        )
+                        for d in range(num_dimensions)
+                    )
+                    if not part_of_history:
+                        continue
+
                     child_future_refinement, child_marker = (
                         self.refinement_with_marker_applied(child)
                     )
-                    # if a child has negative markers and will be coarsened away,
-                    #  we'll need to look at its descendants instead
                     if (
                         np.min(child_marker) < 0
                         and child_future_refinement == descriptor.d_zeros
                     ):
+                        intermediate_generation.append(child)
                         children_of_coarsened = descriptor.get_children(child)
-                        children_to_consider.update(children_of_coarsened)
-                        children_to_consider.remove(child)
-                        updating_children = True
-                        parent_of_next_refinement_new = self._index_mapping[
-                            parent_of_next_refinement
-                        ][0]
-                        yield child, parent_of_next_refinement_new, ba.bitarray(
-                            None
-                        ), child_marker
-
-                children = children_to_consider.copy()
-
-            # determine which child twig to go down next
-            for child in children:
-                # find the child whose branch puts it at the same level/index as
-                # the modified branch we're looking at
-                child_old_branch, _ = descriptor.get_branch(
-                    child,
-                    is_box_index=False,
-                    hint_previous_branch=(parent_of_next_refinement, parent_branch),
-                )
-                child_old_dimensionwise_positions = (
-                    get_dimensionwise_positions_from_branch(
-                        child_old_branch, self._discretization._linearization
-                    )
-                )
-                child_ancestors = descriptor.get_ancestry(child_old_branch)
-                child_accumulated_markers = np.sum(
-                    [self._markers[ancestor] for ancestor in child_ancestors], axis=0
-                )
-                shortened_parent_positions = [
-                    modified_dimensionwise_positions[d][
-                        : len(modified_dimensionwise_positions[d])
-                        - child_accumulated_markers[d]
-                    ]
-                    for d in range(num_dimensions)
-                ]
-
-                history_matches = all(
-                    shortened_parent_positions[d]
-                    == child_old_dimensionwise_positions[d]
-                    for d in range(num_dimensions)
-                )
-                if history_matches:
-                    current_old_index = child
+                        children = children_of_coarsened
+                        children_changed = True
+                    else:
+                        current_old_index = child
+                        twig_found = True
                     break
             ancestry.append(current_old_index)
 
@@ -437,6 +431,7 @@ class PlannedAdaptiveRefinement:
             )
 
             # only refine where there are markers
+            last_extended_index = -1
             for (
                 old_index,
                 new_index,
@@ -471,7 +466,8 @@ class PlannedAdaptiveRefinement:
                         self.extend_descriptor_and_track_indices(
                             new_descriptor, old_index, new_refinement
                         )
-            one_after_last_extended_index = old_index + 1
+                last_extended_index = max(last_extended_index, old_index)
+            one_after_last_extended_index = last_extended_index + 1
 
         # copy rest and return
         self.extend_descriptor_and_track_indices(

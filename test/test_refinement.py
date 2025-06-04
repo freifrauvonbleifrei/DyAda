@@ -272,6 +272,11 @@ def test_refine_multi_grandchild_split():
     p.plan_refinement(3, ba.bitarray("10"))
 
     new_descriptor, index_mapping = p.apply_refinements(track_mapping="boxes")
+    assert new_descriptor._data == ba.bitarray(
+        "10 10 00 00 11 10 00 10 10 10 00 00"
+        "10 00 00 10 10 00 00 10 00 00 00 10"
+        "00 10 10 10 00 00 10 00 00 10 10 00 00 10 00 00 00"
+    )
     helper_check_mapping(
         index_mapping, r, Discretization(MortonOrderLinearization(), new_descriptor)
     )
