@@ -258,3 +258,11 @@ def test_slice_dict_3d():
     assert slice_dict_z[1.0] is slice_dict_z[0.875]
     with pytest.raises(KeyError):
         slice_dict_z[1.00001]
+    # try to store other data types as values
+    for key in slice_dict_z.keys():
+        slice_dict_z[key] = len(slice_dict_z[key][0])
+    assert slice_dict_z[0.0] == 2
+    assert slice_dict_z[0.25] == 2
+    assert slice_dict_z[0.5] == 5
+    assert slice_dict_z[0.75] == 7
+    assert slice_dict_z[0.875] == 7
