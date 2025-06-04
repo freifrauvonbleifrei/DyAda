@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
-from itertools import product, tee
 from typing import Sequence
 
 
@@ -15,6 +14,8 @@ def get_dimensionwise_positions(
     history_of_binary_positions: Sequence[ba.bitarray],
     history_of_level_increments: Sequence[ba.bitarray],
 ) -> list[ba.bitarray]:
+    if len(history_of_binary_positions) == 0:
+        return []
     num_dimensions = len(history_of_binary_positions[0])
     depth = len(history_of_binary_positions)
     assert len(history_of_level_increments) == depth

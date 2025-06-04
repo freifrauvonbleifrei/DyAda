@@ -266,11 +266,19 @@ class PlannedAdaptiveRefinement:
         # the ancestry, in old indices but new relatonships
         ancestry = descriptor.get_ancestry(current_modified_branch)
         assert len(ancestry) == current_modified_branch_depth - 1
-        ancestry.append(starting_index)
-        current_old_index = starting_index
 
         intermediate_generation: list[int] = []
         while True:
+            # get the currently desired location info
+            modified_dimensionwise_positions = get_dimensionwise_positions(
+                history_of_binary_positions, history_of_level_increments
+            )
+            current_old_index, intermediate_generation = self.find_next_twig(
+                descriptor,
+                modified_dimensionwise_positions,
+                ancestry[-1] if len(ancestry) > 0 else 0,
+            )
+            ancestry.append(current_old_index)
             next_refinement, next_marker = self.refinement_with_marker_applied(
                 current_old_index
             )
@@ -305,25 +313,13 @@ class PlannedAdaptiveRefinement:
                 history_of_level_increments.append(next_refinement)
                 history_of_indices.append(0)
 
-            # with which binary position do we get the current history_of_indices?
+            # update history of binary positions
             latest_binary_position = (
                 self._discretization._linearization.get_binary_position_from_index(
                     history_of_indices, history_of_level_increments
                 )
             )
             history_of_binary_positions.append(latest_binary_position)
-            # the associated location info
-            modified_dimensionwise_positions = get_dimensionwise_positions(
-                history_of_binary_positions, history_of_level_increments
-            )
-
-            parent_of_next_refinement = ancestry[-1]
-            current_old_index, intermediate_generation = self.find_next_twig(
-                descriptor,
-                modified_dimensionwise_positions,
-                parent_of_next_refinement,
-            )
-            ancestry.append(current_old_index)
 
     def find_next_twig(
         self,
@@ -331,6 +327,9 @@ class PlannedAdaptiveRefinement:
         modified_dimensionwise_positions: list[ba.bitarray],
         parent_of_next_refinement: int,
     ) -> tuple[int, list[int]]:
+        # with which binary position do we get the currently desired position?
+        if len(modified_dimensionwise_positions) == 0:
+            return 0, []
         num_dimensions = descriptor.get_num_dimensions()
         parent_branch, _ = descriptor.get_branch(
             parent_of_next_refinement, is_box_index=False
