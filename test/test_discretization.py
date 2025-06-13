@@ -237,6 +237,29 @@ def test_all_slices_3d():
     assert len(x_used) == 3
 
 
+def test_hash_discretization():
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "101 000 001 000 000 010 100 000 000 000"
+            "101 000 000 010 000 101 000 000 000 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    other_discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert hash(discretization) == hash(other_discretization)
+    different_descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "101 000 001 000 000 010 100 000 000 000 101 000 000 010 000 000 000"
+        ),
+    )
+    different_discretization = Discretization(
+        MortonOrderLinearization(), different_descriptor
+    )
+    assert hash(discretization) != hash(different_discretization)
+
+
 def test_slice_dict_3d():
     descriptor = RefinementDescriptor.from_binary(
         3,

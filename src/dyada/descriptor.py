@@ -155,6 +155,9 @@ class RefinementDescriptor:
             and (self._data == other._data)
         )
 
+    def __hash__(self):
+        return hash((self._num_dimensions, self._data.tobytes()))
+
     def __len__(self):
         """
         return the number of refinement descriptions, will be somewhere between get_num_boxes() and 2*get_num_boxes()
