@@ -82,11 +82,13 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
                 level_index.d_index, 2 ** np.array(level_index.d_level, dtype=int)
             )
         raise ValueError(error_string)
-    get_d_array = lambda x: np.fromiter(
-        x,
-        dtype=np.float64,
-        count=num_dimensions,
-    )
+
+    def get_d_array(x):
+        return np.fromiter(
+            x,
+            dtype=np.float64,
+            count=num_dimensions,
+        )
 
     @lru_cache(maxsize=None)  # cache the function to avoid recomputing
     def get_neg_power_of_two(level):
@@ -95,14 +97,14 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
     return CoordinateInterval(
         get_d_array(
             (
-                get_neg_power_of_two(l) * i
-                for l, i in zip(level_index.d_level, level_index.d_index)
+                get_neg_power_of_two(level) * i
+                for level, i in zip(level_index.d_level, level_index.d_index)
             )
         ),
         get_d_array(
             (
-                get_neg_power_of_two(l) * (i + 1)
-                for l, i in zip(level_index.d_level, level_index.d_index)
+                get_neg_power_of_two(level) * (i + 1)
+                for level, i in zip(level_index.d_level, level_index.d_index)
             )
         ),
     )
