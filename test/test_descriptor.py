@@ -38,7 +38,7 @@ def test_zero_level():
     for i in range(1, 10):
         r = RefinementDescriptor(i, 0)
         assert len(r) == 1
-        assert r.get_data().any() == False
+        assert not r.get_data().any()
         assert r.get_num_boxes() == 1
         validate_descriptor(r)
 
@@ -52,19 +52,19 @@ def test_one_level():
         assert r.get_num_boxes() == 2**i
         assert r.get_data().count() == i
         assert r.get_data()[0] == 1
-        assert r.is_pow2tree() == True
+        assert r.is_pow2tree()
         validate_descriptor(r)
 
 
 def test_six_d():
-    for l in range(1, 4):
-        r = RefinementDescriptor(6, l)
+    for level in range(1, 4):
+        r = RefinementDescriptor(6, level)
         assert r.get_num_dimensions() == 6
         acc = 1
-        for i in range(l):
+        for i in range(level):
             acc = acc * 2**6 + 1
         assert len(r) == acc
-        assert r.get_num_boxes() == 2 ** (l * 6)
+        assert r.get_num_boxes() == 2 ** (level * 6)
         # count length of one-blocks
         lengths = []
         current_length = 0
@@ -77,8 +77,8 @@ def test_six_d():
             elif current_length != 0:
                 lengths.append(current_length)
                 current_length = 0
-        assert lengths == generalized_ruler(6, l - 1).tolist()
-        assert r.is_pow2tree() == True
+        assert lengths == generalized_ruler(6, level - 1).tolist()
+        assert r.is_pow2tree()
         validate_descriptor(r)
 
 
@@ -92,7 +92,7 @@ def test_construct_anisotropic():
     assert r[:5] == r.get_data()[: 4 * 5]
     assert r[5] == r.get_data()[4 * 5 : 4 * 6]
     assert r[-6:] == r.get_data()[4 * -6 :]
-    assert r.is_pow2tree() == False
+    assert not r.is_pow2tree()
     validate_descriptor(r)
 
 

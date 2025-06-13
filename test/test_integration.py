@@ -1,4 +1,3 @@
-import bitarray as ba
 import numpy as np
 from queue import PriorityQueue
 
@@ -107,7 +106,7 @@ def test_partitioning_queued():
             x_new = np.linspace(0, sub_tensor_averaged.shape[0], 16)
             y_new = np.linspace(0, sub_tensor_averaged.shape[1], 16)
             sub_tensor_resampled = sub_tensor_spline(x_new, y_new)
-        except ImportError as e:
+        except ImportError:
             # fallback: subsampling
             sub_tensor_resampled = np.zeros((16, 16))
             for x_new in range(16):
