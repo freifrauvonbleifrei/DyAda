@@ -1,10 +1,9 @@
 import bitarray as ba
 from collections import defaultdict
-from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Optional, Sequence, Union
+from typing import Optional, Union
 
 from dyada.coordinates import bitarray_startswith
 from dyada.descriptor import (
@@ -17,14 +16,6 @@ from dyada.linearization import (
     get_dimensionwise_positions,
     get_dimensionwise_positions_from_branch,
 )
-
-
-def is_lru_cached(func):
-    while hasattr(func, "__wrapped__"):
-        if hasattr(func, "cache_info"):
-            return True
-        func = func.__wrapped__
-    return hasattr(func, "cache_info")
 
 
 class PlannedAdaptiveRefinement:
