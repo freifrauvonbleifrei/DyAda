@@ -307,7 +307,7 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
 
