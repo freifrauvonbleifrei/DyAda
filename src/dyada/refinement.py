@@ -512,6 +512,22 @@ class PlannedAdaptiveRefinement:
         )
         new_descriptor._data = ba.bitarray()
 
+        # we are not changing the old descriptor, and greedily build the new one
+        # so we can cache the box indices of both
+        if not is_lru_cached(self._discretization.descriptor.to_box_index):
+            self._discretization.descriptor.to_box_index = lru_cache(maxsize=None)(
+                self._discretization.descriptor._to_box_index_recursive
+            )
+            self._discretization.descriptor._to_box_index_recursive = lru_cache(
+                maxsize=None
+            )(self._discretization.descriptor._to_box_index_recursive)
+        new_descriptor.to_box_index = lru_cache(maxsize=None)(  # type: ignore
+            new_descriptor._to_box_index_recursive
+        )
+        new_descriptor._to_box_index_recursive = lru_cache(maxsize=None)(  # type: ignore
+            new_descriptor._to_box_index_recursive
+        )
+
         new_descriptor = self.add_refined_data(new_descriptor)
 
         if track_mapping == "boxes":
