@@ -55,7 +55,10 @@ class Linearization(ABC):
         if not isinstance(other, Linearization):
             return False
         # for now, equality is just type equality
-        return type(self) == type(other)
+        return type(self) is type(other)
+
+    def __hash__(self):
+        return hash(type(self))
 
 
 class MortonOrderLinearization(Linearization):

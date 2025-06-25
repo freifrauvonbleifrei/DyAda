@@ -2,6 +2,7 @@ import bitarray as ba
 from collections import deque, Counter
 from dataclasses import dataclass
 from functools import cached_property
+from itertools import islice
 from re import findall
 import numpy as np
 import numpy.typing as npt
@@ -26,8 +27,8 @@ def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
     data = ba.bitarray(num_dimensions)
 
     # iterate in reverse from max(level) to 0...
-    for l in reversed(range(max(added_level))):
-        at_least_l = ba.bitarray([1 if i > l else 0 for i in added_level])
+    for level in reversed(range(max(added_level))):
+        at_least_l = ba.bitarray([1 if i > level else 0 for i in added_level])
         # power of two by bitshift
         factor = 1 << at_least_l.count()
         # ...while duplicating the current data as new children
@@ -155,6 +156,9 @@ class RefinementDescriptor:
             and (self._data == other._data)
         )
 
+    def __hash__(self):
+        return hash((self._num_dimensions, self._data.tobytes()))
+
     def __len__(self):
         """
         return the number of refinement descriptions, will be somewhere between get_num_boxes() and 2*get_num_boxes()
@@ -198,6 +202,8 @@ class RefinementDescriptor:
                     i * self._num_dimensions : (i + 1) * self._num_dimensions
                 ]
             )
+            # for performance, unwrap the ba.frozenbitarray constructor
+            # (-> less iteration functionality available)
 
     def __getitem__(self, index_or_slice):
         nd = self._num_dimensions
@@ -221,13 +227,9 @@ class RefinementDescriptor:
         }
 
     def num_boxes_up_to(self, index: int) -> int:
-        count = -1
-        for i in self:
-            if i == self.d_zeros:
-                count += 1
-            if index == 0:
-                break
-            index -= 1
+        # count zeros up to index, zero-indexed
+        # (Counter is also possible, but keeps us from performance opt. in __iter__)
+        count = sum((x == self.d_zeros) for x in islice(self, index))
         return count
 
     def to_box_index(self, index: int) -> int:
@@ -237,12 +239,15 @@ class RefinementDescriptor:
 
     def _to_box_index_recursive(self, index: int) -> int:
         assert self.is_box(index)
-        # iterate down until we find the prior box
-        for i in range(index - 1, 0, -1):
-            if self[i] == self.d_zeros:
-                return self._to_box_index_recursive(i) + 1
-        # if we are at the first box, return 0
-        return 0
+        try:
+            # iterate down until we find the prior box
+            for i in range(index - 1, 0, -1):
+                if self[i] == self.d_zeros:
+                    return self._to_box_index_recursive(i) + 1
+            # if we are at the first box, return 0
+            return 0
+        except RecursionError:
+            return self.num_boxes_up_to(index)
 
     def get_maximum_level(self) -> npt.NDArray[np.int8]:
         max_level = np.max(list(self.level_iterator()), axis=0)

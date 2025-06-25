@@ -45,7 +45,7 @@ def test_get_coordinates_from_level_index():
     for _ in range(100):
         num_dimensions = randint(1, 10)
         level = [randint(0, 12) for _ in range(num_dimensions)]
-        index = [randint(0, 2**l - 1) for l in level]
+        index = [randint(0, 2**l_d - 1) for l_d in level]
         level_index = LevelIndex(
             np.asarray(level, dtype=np.uint8), np.asarray(index, dtype=np.uint16)
         )  # use of uint is intentional!

@@ -99,6 +99,9 @@ class Discretization:
             and self._descriptor == other._descriptor
         )
 
+    def __hash__(self):
+        return hash((self._linearization, self._descriptor))
+
     def __len__(self):
         return self._descriptor.get_num_boxes()
 
