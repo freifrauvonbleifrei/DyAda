@@ -739,4 +739,4 @@ def plot_boxes_3d_pyopengl(
         )
 
     if filename is not None:
-        gl_save_file(filename)
+        gl_save_file(filename, width, height)
