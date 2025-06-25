@@ -201,6 +201,8 @@ class RefinementDescriptor:
                     i * self._num_dimensions : (i + 1) * self._num_dimensions
                 ]
             )
+            # for performance, unwrap the ba.frozenbitarray constructor
+            # (-> less iteration functionality available)
 
     def __getitem__(self, index_or_slice):
         nd = self._num_dimensions
@@ -240,12 +242,15 @@ class RefinementDescriptor:
 
     def _to_box_index_recursive(self, index: int) -> int:
         assert self.is_box(index)
-        # iterate down until we find the prior box
-        for i in range(index - 1, 0, -1):
-            if self[i] == self.d_zeros:
-                return self._to_box_index_recursive(i) + 1
-        # if we are at the first box, return 0
-        return 0
+        try:
+            # iterate down until we find the prior box
+            for i in range(index - 1, 0, -1):
+                if self[i] == self.d_zeros:
+                    return self._to_box_index_recursive(i) + 1
+            # if we are at the first box, return 0
+            return 0
+        except RecursionError:
+            return self.num_boxes_up_to(index)
 
     def get_maximum_level(self) -> npt.NDArray[np.int8]:
         max_level = np.max(list(self.level_iterator()), axis=0)
