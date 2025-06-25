@@ -4,7 +4,7 @@ from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Optional, Sequence, Union
+from typing import Optional, Union
 
 from dyada.coordinates import bitarray_startswith
 from dyada.descriptor import (
