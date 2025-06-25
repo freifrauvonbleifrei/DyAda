@@ -2,6 +2,7 @@ import bitarray as ba
 from collections import deque, Counter
 from dataclasses import dataclass
 from functools import cached_property
+from itertools import islice
 from re import findall
 import numpy as np
 import numpy.typing as npt
@@ -226,13 +227,9 @@ class RefinementDescriptor:
         }
 
     def num_boxes_up_to(self, index: int) -> int:
-        count = -1
-        for i in self:
-            if i == self.d_zeros:
-                count += 1
-            if index == 0:
-                break
-            index -= 1
+        # count zeros up to index, zero-indexed
+        # (Counter is also possible, but keeps us from performance opt. in __iter__)
+        count = sum((x == self.d_zeros) for x in islice(iter(self), index))
         return count
 
     def to_box_index(self, index: int) -> int:
