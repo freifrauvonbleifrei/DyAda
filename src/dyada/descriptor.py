@@ -229,7 +229,7 @@ class RefinementDescriptor:
     def num_boxes_up_to(self, index: int) -> int:
         # count zeros up to index, zero-indexed
         # (Counter is also possible, but keeps us from performance opt. in __iter__)
-        count = sum((x == self.d_zeros) for x in islice(iter(self), index))
+        count = sum((x == self.d_zeros) for x in islice(self, index))
         return count
 
     def to_box_index(self, index: int) -> int:
