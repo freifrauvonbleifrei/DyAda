@@ -752,14 +752,14 @@ def plot_boxes_3d_pyopengl(
 
 @depends_on_optional("plotly.graph_objects")
 def add_cuboid_plotly(
-    fig: go.Figure,
+    fig,
     interval: CoordinateInterval,
     projection: Sequence[int] = [0, 1, 2],
     wireframe: bool = False,
     alpha: float = 0.1,
     color=(0.5, 0.5, 0.5),
     label: Optional[str] = None,
-):
+) -> None:
     color = to_rgb(color)
     # transform color to rgb string
     if isinstance(color, tuple):
@@ -854,7 +854,7 @@ def plot_boxes_3d_plotly(
     )
     if filename is not None:
         # if no file extension, use html
-        if not "." in filename:
+        if "." not in filename:
             filename += ".html"
         if filename.endswith(".html"):
             plotly.offline.plot(fig, filename=filename, auto_open=False)
