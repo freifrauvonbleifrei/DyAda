@@ -19,8 +19,8 @@ except ImportError:
     warnings.warn("pyopengl not found, some plotting functions will not work")
 
 try:
-    import plotly
-    import plotly.graph_objects as go
+    import plotly  # type: ignore
+    import plotly.graph_objects as go  # type: ignore
 except ImportError:
     warnings.warn("plotly not found, some plotting functions will not work")
 
