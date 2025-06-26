@@ -110,21 +110,25 @@ def plot_all_boxes_3d(
 def cuboid_from_interval(
     interval: CoordinateInterval, projection: Sequence[int] = [0, 1, 2]
 ) -> tuple:
-    vertices = list(
-        product(
-            *zip(interval.lower_bound[projection], interval.upper_bound[projection])
-        )
-    )
+    lower = interval[0][projection]
+    upper = interval[1][projection]
+    # create vertices from lower and upper bounds
+    vertices = list(product(*zip(lower, upper)))
     # define rectangular faces
-    faces = [
+    faces = (
         (0, 1, 3, 2),
         (4, 6, 7, 5),
         (0, 2, 6, 4),
         (1, 5, 7, 3),
         (0, 4, 5, 1),
         (2, 3, 7, 6),
-    ]
-    return vertices, faces
+    )
+    edges = (
+        *((0, 1), (2, 3), (4, 5), (6, 7)),
+        *((0, 2), (1, 3), (4, 6), (5, 7)),
+        *((0, 4), (1, 5), (2, 6), (3, 7)),
+    )
+    return vertices, faces, edges
 
 
 def side_corners_generator(
