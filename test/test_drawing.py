@@ -171,11 +171,12 @@ def test_plot_boxes_3d_from_descriptor():
     backends = ["tikz"]
     backends.append("matplotlib") if module_is_available("matplotlib") else None
     backends.append("opengl") if module_is_available("OpenGL") else None
+    backends.append("plotly") if module_is_available("plotly") else None
     (
         backends.append("aaaaargh") if module_is_available("aaaaargh") else None
     )  # should not raise
     for backend in backends:
-        if backend == "matplotlib" or backend == "opengl":
+        if backend == "matplotlib" or backend == "opengl" or backend == "plotly":
             with plt.ion():  # turns off blocking figures for test
                 plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
         else:

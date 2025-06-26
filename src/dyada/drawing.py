@@ -18,6 +18,12 @@ try:
 except ImportError:
     warnings.warn("pyopengl not found, some plotting functions will not work")
 
+try:
+    import plotly
+    import plotly.graph_objects as go
+except ImportError:
+    warnings.warn("plotly not found, some plotting functions will not work")
+
 from itertools import pairwise, product
 from pathlib import Path
 from string import ascii_uppercase
@@ -91,6 +97,8 @@ def plot_boxes_3d(
         return plot_boxes_3d_tikz(intervals, labels, projection, **kwargs)
     elif backend == "opengl":
         return plot_boxes_3d_pyopengl(intervals, labels, projection, **kwargs)
+    elif backend == "plotly":
+        return plot_boxes_3d_plotly(intervals, labels, projection, **kwargs)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
@@ -104,7 +112,7 @@ def plot_all_boxes_3d(
     level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
     labels = labels_from_discretization(discretization, labels)
-    plot_boxes_3d(coordinates, projection=projection, labels=labels, **kwargs)
+    return plot_boxes_3d(coordinates, projection=projection, labels=labels, **kwargs)
 
 
 def side_corners_generator(
@@ -740,3 +748,117 @@ def plot_boxes_3d_pyopengl(
 
     if filename is not None:
         gl_save_file(filename, width, height)
+
+
+@depends_on_optional("plotly.graph_objects")
+def add_cuboid_plotly(
+    fig: go.Figure,
+    interval: CoordinateInterval,
+    projection: Sequence[int] = [0, 1, 2],
+    wireframe: bool = False,
+    alpha: float = 0.1,
+    color=(0.5, 0.5, 0.5),
+    label: Optional[str] = None,
+):
+    color = to_rgb(color)
+    # transform color to rgb string
+    if isinstance(color, tuple):
+        color = (
+            f"rgb({int(color[0] * 255)}, {int(color[1] * 255)}, {int(color[2] * 255)})"
+        )
+    lower = interval[0][projection]
+    upper = interval[1][projection]
+
+    if wireframe:
+        contour = go.mesh3d.Contour(color=color, width=16, show=True)
+        facecolor = "rgba(0, 0, 0, 0)"
+    else:
+        contour = go.mesh3d.Contour(color="black", width=2, show=True)
+        facecolor = color
+
+    fig.add_mesh3d(
+        # z order-like
+        x=[
+            lower[0],
+            lower[0],
+            lower[0],
+            lower[0],
+            upper[0],
+            upper[0],
+            upper[0],
+            upper[0],
+        ],
+        y=[
+            lower[1],
+            lower[1],
+            upper[1],
+            upper[1],
+            lower[1],
+            lower[1],
+            upper[1],
+            upper[1],
+        ],
+        z=[
+            lower[2],
+            upper[2],
+            lower[2],
+            upper[2],
+            lower[2],
+            upper[2],
+            lower[2],
+            upper[2],
+        ],
+        alphahull=0,
+        color=facecolor,
+        opacity=alpha,
+        contour=contour,
+        text=label,
+    )
+
+
+# cf. https://plotly.com/python/3d-mesh/
+@depends_on_optional("plotly")
+def plot_boxes_3d_plotly(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    labels: Optional[Sequence[str]] = None,
+    projection: Sequence[int] = [0, 1, 2],
+    filename: str = "omnitree",
+    wireframe: bool = False,
+    alpha: float = 0.1,
+    **kwargs,
+) -> None:
+    colors = kwargs.pop("colors", get_colors(len(intervals)))
+    if isinstance(colors, str):
+        colors = [colors] * len(intervals)
+
+    if labels is None:
+        labels = [None] * len(intervals)  # type: ignore
+
+    fig = go.Figure()
+    for interval, color, label in zip(intervals, colors, labels):
+        add_cuboid_plotly(
+            fig,
+            interval,
+            projection=projection,
+            wireframe=wireframe,
+            alpha=alpha,
+            color=color,
+            label=str(label) if label is not None else None,
+        )
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(title=f"Dimension {projection[0]}"),
+            yaxis=dict(title=f"Dimension {projection[1]}"),
+            zaxis=dict(title=f"Dimension {projection[2]}"),
+        )
+    )
+    if filename is not None:
+        # if no file extension, use html
+        if not "." in filename:
+            filename += ".html"
+        if filename.endswith(".html"):
+            plotly.offline.plot(fig, filename=filename, auto_open=False)
+        else:
+            fig.write_image(filename)
+    else:
+        return fig
