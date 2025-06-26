@@ -168,25 +168,28 @@ def test_plot_boxes_3d_from_descriptor():
     new_descriptor, _ = p.apply_refinements()
     validate_descriptor(new_descriptor)
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    backends = ["tikz"]
+    backends = ["tikz", "obj"]
     backends.append("matplotlib") if module_is_available("matplotlib") else None
     backends.append("opengl") if module_is_available("OpenGL") else None
     (
         backends.append("aaaaargh") if module_is_available("aaaaargh") else None
     )  # should not raise
     for backend in backends:
-        if backend == "matplotlib" or backend == "opengl":
-            with plt.ion():  # turns off blocking figures for test
-                plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
-        else:
+        if backend == "tikz":
             plot_all_boxes_3d(
                 r, labels="boxes", draw_options="fill opacity=0.1", backend=backend
             )
-        plot_all_boxes_3d(r, wireframe=True, filename="test_filename", backend=backend)
-    plot_tree_tikz(
-        new_descriptor, labels=["ö" + str(a) for a in np.arange(len(new_descriptor))]
-    )
-    plot_descriptor_tikz(new_descriptor)
+            plot_tree_tikz(
+                new_descriptor,
+                labels=["ö" + str(a) for a in np.arange(len(new_descriptor))],
+            )
+            plot_descriptor_tikz(new_descriptor)
+        else:
+            with plt.ion():  # turns off blocking figures for test
+                plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
+        plot_all_boxes_3d(
+            r, wireframe=True, filename="test_filename_wireframe", backend=backend
+        )
 
 
 def test_plot_octree_3d_from_descriptor():
@@ -202,7 +205,7 @@ def test_plot_octree_3d_from_descriptor():
     p.plan_refinement(new_descriptor.get_num_boxes() - 2, ba.bitarray("111"))
     new_descriptor, _ = p.apply_refinements()
     r = Discretization(MortonOrderLinearization(), new_descriptor)
-    backends = ["tikz"]
+    backends = ["tikz", "obj"]
     backends.append("matplotlib") if module_is_available("matplotlib") else None
     backends.append("opengl") if module_is_available("OpenGL") else None
     for backend in backends:

@@ -18,6 +18,7 @@ try:
 except ImportError:
     warnings.warn("pyopengl not found, some plotting functions will not work")
 
+from io import StringIO
 from itertools import pairwise, product
 from pathlib import Path
 from string import ascii_uppercase
@@ -87,6 +88,8 @@ def plot_boxes_3d(
     assert len(projection) == 3
     if backend == "matplotlib":
         return plot_boxes_3d_matplotlib(intervals, labels, projection, **kwargs)
+    elif backend == "obj":
+        return export_boxes_3d_to_obj(intervals, projection, **kwargs)
     elif backend == "tikz":
         return plot_boxes_3d_tikz(intervals, labels, projection, **kwargs)
     elif backend == "opengl":
@@ -105,6 +108,30 @@ def plot_all_boxes_3d(
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
     labels = labels_from_discretization(discretization, labels)
     plot_boxes_3d(coordinates, projection=projection, labels=labels, **kwargs)
+
+
+def cuboid_from_interval(
+    interval: CoordinateInterval, projection: Sequence[int] = [0, 1, 2]
+) -> tuple:
+    lower = interval[0][projection]
+    upper = interval[1][projection]
+    # create vertices from lower and upper bounds
+    vertices = list(product(*zip(lower, upper)))
+    # define rectangular faces
+    faces = (
+        (0, 1, 3, 2),
+        (4, 6, 7, 5),
+        (0, 2, 6, 4),
+        (1, 5, 7, 3),
+        (0, 4, 5, 1),
+        (2, 3, 7, 6),
+    )
+    edges = (
+        *((0, 1), (2, 3), (4, 5), (6, 7)),
+        *((0, 2), (1, 3), (4, 6), (5, 7)),
+        *((0, 4), (1, 5), (2, 6), (3, 7)),
+    )
+    return vertices, faces, edges
 
 
 def side_corners_generator(
@@ -740,3 +767,57 @@ def plot_boxes_3d_pyopengl(
 
     if filename is not None:
         gl_save_file(filename, width, height)
+
+
+def add_cuboid_to_buffer(
+    buffer: StringIO,
+    vertex_offset: int,
+    interval: CoordinateInterval,
+    projection: Sequence[int] = [0, 1, 2],
+    wireframe: bool = False,
+):
+    verts, faces, edges = cuboid_from_interval(interval, projection)
+    # Write vertices
+    for v in verts:
+        buffer.write(f"v {v[0]} {v[1]} {v[2]}\n")
+
+    if wireframe:
+        # Write edges
+        for edge in edges:
+            a, b = (vertex_offset + i for i in edge)
+            buffer.write(f"l {a} {b}\n")
+    else:
+        # Write faces
+        for quad in faces:
+            a, b, c, d = (vertex_offset + i for i in quad)
+            buffer.write(f"f {a} {b} {c} {d}\n")
+
+    vertex_offset += len(verts)  # Move offset for next cuboid
+    return buffer, vertex_offset
+
+
+def write_obj_file(buffer: StringIO, filename: str):
+    if not filename.endswith(".obj"):
+        filename += ".obj"
+    with open(filename, "w") as f:
+        return f.write(buffer.getvalue())
+
+
+def export_boxes_3d_to_obj(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    projection: Sequence[int] = [0, 1, 2],
+    wireframe: bool = False,
+    filename: str = "omnitree",
+    **kwargs,
+):
+    buffer = StringIO()
+    # .obj is 1-indexed
+    vertex_offset = 1
+    for interval in intervals:
+        buffer, vertex_offset = add_cuboid_to_buffer(
+            buffer, vertex_offset, interval, projection, wireframe
+        )
+
+    if filename is None:
+        return buffer, vertex_offset
+    return write_obj_file(buffer, filename)
