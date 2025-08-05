@@ -6,8 +6,6 @@ from itertools import combinations
 import numpy as np
 from typing import Generator, Optional, Sequence, Union
 
-from icecream import ic
-
 
 from dyada.coordinates import (
     get_coordinates_from_level_index,
