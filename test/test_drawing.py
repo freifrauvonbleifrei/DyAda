@@ -1,4 +1,5 @@
 import bitarray as ba
+from collections import defaultdict
 from itertools import permutations
 import matplotlib.pyplot as plt
 import numpy as np
@@ -118,7 +119,24 @@ def test_plot_complex_2d_with_stack():
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(2, "01")
     p.plan_refinement(4, "02")
-    new_descriptor, _ = p.apply_refinements()
+    non_normalized_descriptor, _ = p.apply_refinements()
+    assert non_normalized_descriptor._data == ba.bitarray(
+        "11 00 10 01 00 00 01 00 00 00 10 00 01 00 00"
+    )
+    p = PlannedAdaptiveRefinement(
+        Discretization(MortonOrderLinearization, non_normalized_descriptor)
+    )
+
+    def get_d_zeros_as_array():
+        return np.zeros(descriptor.get_num_dimensions(), dtype=np.int8)
+
+    p._markers = defaultdict(get_d_zeros_as_array)
+    p._markers[2] = np.array([0, 1], dtype=np.int8)
+    p._markers[3] = np.array([0, -1], dtype=np.int8)
+    p._markers[6] = np.array([0, -1], dtype=np.int8)
+
+    new_descriptor, _ = p.create_new_descriptor()
+    assert new_descriptor._data == ba.bitarray("11 00 11 00 00 00 00 00 10 00 01 00 00")
     new_discretization = Discretization(MortonOrderLinearization(), new_descriptor)
     plot_all_boxes_2d(
         new_discretization,
@@ -127,7 +145,9 @@ def test_plot_complex_2d_with_stack():
     )
     plot_descriptor_tikz(new_descriptor, filename="complex_2d_desc_after")
     plot_tree_tikz(new_descriptor, filename="complex_2d_tree_after")
-    plot_location_stack_tikz(new_discretization, filename="complex_location_stack_after")
+    plot_location_stack_tikz(
+        new_discretization, filename="complex_location_stack_after"
+    )
 
 
 def test_draw_simplest_grandchild_split_tikz():
