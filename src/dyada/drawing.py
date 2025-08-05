@@ -669,8 +669,14 @@ def plot_location_stack_tikz(discretization: Discretization, filename="location_
         for dimension in [0, 1]:
             location_code_string = location_code_tuple[dimension]
             if dimension == 0:
-                location_code_string = location_code_string[::-1] + "&"  # reverse
-            location_code_string = location_code_string.replace("∩", "$\\cap$")
+                location_code_string = (
+                    "\\texttt{" + location_code_string[::-1] + "}&"
+                )  # reverse
+            else:
+                location_code_string = "\\texttt{" + location_code_string + "}"
+            location_code_string = location_code_string.replace(
+                "∩", "\\scalebox{0.79}{$\\cap$}"
+            )
 
             if refinement.count() == 0:
                 tikz_string += f"|[fill=color_{box_counter}]| "
