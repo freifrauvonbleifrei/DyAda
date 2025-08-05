@@ -381,7 +381,7 @@ def branch_to_location_code(branch: Branch, linearization) -> list[ba.bitarray]:
     """
     Convert a branch to a location code.
     :param branch: The branch to convert.
-    :return: A list of bitarrays representing the location code.
+    :return: A list of bitarrays representing the dimension-separated location code.
     """
     num_dimensions = len(branch[0].level_increment)
     location_code = [ba.bitarray() for _ in range(num_dimensions)]
@@ -390,21 +390,24 @@ def branch_to_location_code(branch: Branch, linearization) -> list[ba.bitarray]:
         refined_dimensions = [
             d_i for d_i in range(num_dimensions) if twig.level_increment[d_i] == 1
         ]
+        if len(refined_dimensions) == 0:
+            continue
+        index_from_count = bitarray.util.int2ba(
+            (2 ** len(refined_dimensions) - twig.count_to_go_up),
+            length=len(refined_dimensions),
+        )
+        index_from_count.reverse()  # to match our first-dimension-continuous convention
         for i, d_i in enumerate(refined_dimensions):
-            index_from_count = bitarray.util.int2ba(
-                (2 ** len(refined_dimensions) - twig.count_to_go_up),
-                length=len(refined_dimensions),
-            )
             location_code[d_i].append(index_from_count[i])
     return location_code
 
 
-def discretization_to_location_stack(
+def discretization_to_location_stack_strings(
     discretization: Discretization, plane_symbol="∩"
 ) -> list[tuple[str, str]]:
     """
-    Create a location stack from a refinement descriptor.
-    :param descriptor: The refinement descriptor to convert.
+    Create a location stack from a discretization.
+    :param discretization: The discretization to convert.
     :return: A list of 2-tuples of strings
     """
     assert (
