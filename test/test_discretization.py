@@ -9,7 +9,7 @@ from dyada.descriptor import (
 from dyada.discretization import (
     Discretization,
     SliceDictInDimension,
-    discretization_to_location_stack,
+    discretization_to_location_stack_strings,
 )
 from dyada.linearization import MortonOrderLinearization
 
