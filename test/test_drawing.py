@@ -98,6 +98,34 @@ def test_plot_boxes_2d_from_descriptor():
                 )
 
 
+def test_plot_complex_2d_with_stack():
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("10 01 00 00 10 01 00 00 00")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+
+    plot_all_boxes_2d(
+        discretization,
+        backend="tikz",
+        filename="complex_2d_square",
+    )
+    plot_descriptor_tikz(descriptor, filename="complex_2d_desc")
+    plot_tree_tikz(descriptor, filename="complex_2d_tree")
+
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(2, "01")
+    p.plan_refinement(4, "02")
+    new_descriptor, _ = p.apply_refinements()
+    new_discretization = Discretization(MortonOrderLinearization(), new_descriptor)
+    plot_all_boxes_2d(
+        new_discretization,
+        backend="tikz",
+        filename="complex_2d_square_after",
+    )
+    plot_descriptor_tikz(new_descriptor, filename="complex_2d_desc_after")
+    plot_tree_tikz(new_descriptor, filename="complex_2d_tree_after")
+
+
 def test_draw_simplest_grandchild_split_tikz():
     # cf. test_refine_simplest_grandchild_split
     descriptor_1 = RefinementDescriptor.from_binary(
