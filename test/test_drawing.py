@@ -10,6 +10,9 @@ from dyada.coordinates import (
     level_index_from_sequence,
 )
 from dyada.descriptor import RefinementDescriptor, validate_descriptor
+from dyada.discretization import (
+    Discretization,
+)
 from dyada.drawing import (
     latex_write_and_compile,
     plot_boxes_2d,
@@ -17,10 +20,10 @@ from dyada.drawing import (
     plot_all_boxes_3d,
     plot_tree_tikz,
     plot_descriptor_tikz,
+    plot_location_stack_tikz,
 )
 from dyada.linearization import MortonOrderLinearization
 from dyada.refinement import (
-    Discretization,
     PlannedAdaptiveRefinement,
 )
 from dyada.structure import depends_on_optional, module_is_available
@@ -111,7 +114,7 @@ def test_plot_complex_2d_with_stack():
     )
     plot_descriptor_tikz(descriptor, filename="complex_2d_desc")
     plot_tree_tikz(descriptor, filename="complex_2d_tree")
-
+    plot_location_stack_tikz(discretization, filename="complex_location_stack")
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(2, "01")
     p.plan_refinement(4, "02")
@@ -124,6 +127,7 @@ def test_plot_complex_2d_with_stack():
     )
     plot_descriptor_tikz(new_descriptor, filename="complex_2d_desc_after")
     plot_tree_tikz(new_descriptor, filename="complex_2d_tree_after")
+    plot_location_stack_tikz(new_discretization, filename="complex_location_stack_after")
 
 
 def test_draw_simplest_grandchild_split_tikz():
