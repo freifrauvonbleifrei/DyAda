@@ -661,15 +661,15 @@ def plot_location_stack_tikz(discretization: Discretization, filename="location_
     tikz_string = latex_add_color_defs(tikz_string, num_colors)
     tikz_string += R"""\begin{tikzpicture}[every node/.style={draw,align=center,text height=2ex,minimum width=2ex, inner sep=0.2ex, fill opacity=0.4, text opacity=1}]
     \matrix [draw=none, matrix of nodes,nodes in empty cells, column 1/.style={nodes={anchor=east}}, column 2/.style={nodes={anchor=west}}]
-    {""" #TODO left right alignment, monospace
+    {"""  # TODO monospace
     tab = "    "
     box_counter = 0
     for location_code_tuple, refinement in zip(location_stack, descriptor):
         tikz_string += tab
-        for dimension in [0,1]:
+        for dimension in [0, 1]:
             location_code_string = location_code_tuple[dimension]
             if dimension == 0:
-                location_code_string = location_code_string[::-1] + "&" # reverse
+                location_code_string = location_code_string[::-1] + "&"  # reverse
             location_code_string = location_code_string.replace("∩", "$\\cap$")
 
             if refinement.count() == 0:

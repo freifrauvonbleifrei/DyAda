@@ -377,7 +377,7 @@ class SliceDictInDimension(UserDict):
         raise KeyError
 
 
-def branch_to_location_code( branch: Branch, linearization) -> list[ba.bitarray]:
+def branch_to_location_code(branch: Branch, linearization) -> list[ba.bitarray]:
     """
     Convert a branch to a location code.
     :param branch: The branch to convert.
@@ -387,33 +387,43 @@ def branch_to_location_code( branch: Branch, linearization) -> list[ba.bitarray]
     location_code = [ba.bitarray() for _ in range(num_dimensions)]
     assert isinstance(linearization, MortonOrderLinearization)
     for twig in branch:
-        refined_dimensions = [d_i for d_i in range(num_dimensions) if twig.level_increment[d_i] == 1]
+        refined_dimensions = [
+            d_i for d_i in range(num_dimensions) if twig.level_increment[d_i] == 1
+        ]
         for i, d_i in enumerate(refined_dimensions):
-            index_from_count = bitarray.util.int2ba((2**len(refined_dimensions) - twig.count_to_go_up), length=len(refined_dimensions))
+            index_from_count = bitarray.util.int2ba(
+                (2 ** len(refined_dimensions) - twig.count_to_go_up),
+                length=len(refined_dimensions),
+            )
             location_code[d_i].append(index_from_count[i])
     return location_code
 
-def discretization_to_location_stack(discretization: Discretization, plane_symbol = "∩") -> list[tuple[str, str]]:
+
+def discretization_to_location_stack(
+    discretization: Discretization, plane_symbol="∩"
+) -> list[tuple[str, str]]:
     """
     Create a location stack from a refinement descriptor.
     :param descriptor: The refinement descriptor to convert.
     :return: A list of 2-tuples of strings
     """
-    assert discretization.descriptor.get_num_dimensions() == 2 # currently only 2D descriptors are supported    
+    assert (
+        discretization.descriptor.get_num_dimensions() == 2
+    )  # currently only 2D descriptors are supported
 
     location_stack = []
     for current_branch, refinement in branch_generator(discretization.descriptor):
         # update location codes
-        first_dimension_location_code, second_dimension_location_code = branch_to_location_code(
-            current_branch, discretization._linearization
+        first_dimension_location_code, second_dimension_location_code = (
+            branch_to_location_code(current_branch, discretization._linearization)
         )
         # write current location codes to strings and put to stack, append plane_symbol if refinement in this dimension
         location_stack.append(
             (
-                first_dimension_location_code.to01() + (plane_symbol if refinement[0] == 1 else ""),
-                second_dimension_location_code.to01() + (plane_symbol if refinement[1] == 1 else ""),
+                first_dimension_location_code.to01()
+                + (plane_symbol if refinement[0] == 1 else ""),
+                second_dimension_location_code.to01()
+                + (plane_symbol if refinement[1] == 1 else ""),
             )
         )
     return location_stack
-
-
