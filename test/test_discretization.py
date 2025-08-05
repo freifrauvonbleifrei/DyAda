@@ -6,7 +6,11 @@ from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
 )
-from dyada.discretization import Discretization, SliceDictInDimension
+from dyada.discretization import (
+    Discretization,
+    SliceDictInDimension,
+    discretization_to_location_stack_strings,
+)
 from dyada.linearization import MortonOrderLinearization
 
 
@@ -289,3 +293,64 @@ def test_slice_dict_3d():
     assert slice_dict_z[0.5] == 5
     assert slice_dict_z[0.75] == 7
     assert slice_dict_z[0.875] == 7
+
+
+def test_stack():
+    first_descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("10 01 00 00 10 01 00 00 00")
+    )
+    assert discretization_to_location_stack_strings(
+        Discretization(MortonOrderLinearization(), first_descriptor)
+    ) == [
+        ("∩", ""),
+        ("0", "∩"),
+        ("0", "0"),
+        ("0", "1"),
+        ("1∩", ""),
+        ("10", "∩"),
+        ("10", "0"),
+        ("10", "1"),
+        ("11", ""),
+    ]
+    second_descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 10 01 00 00 01 00 00 00 10 00 01 00 00")
+    )
+    assert discretization_to_location_stack_strings(
+        Discretization(MortonOrderLinearization(), second_descriptor)
+    ) == [
+        ("∩", "∩"),
+        ("0", "0"),
+        ("1∩", "0"),
+        ("10", "0∩"),
+        ("10", "00"),
+        ("10", "01"),
+        ("11", "0∩"),
+        ("11", "00"),
+        ("11", "01"),
+        ("0", "1"),
+        ("1∩", "1"),
+        ("10", "1"),
+        ("11", "1∩"),
+        ("11", "10"),
+        ("11", "11"),
+    ]
+    third_descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 11 00 00 00 00 00 10 00 01 00 00")
+    )
+    assert discretization_to_location_stack_strings(
+        Discretization(MortonOrderLinearization(), third_descriptor)
+    ) == [
+        ("∩", "∩"),
+        ("0", "0"),
+        ("1∩", "0∩"),
+        ("10", "00"),
+        ("11", "00"),
+        ("10", "01"),
+        ("11", "01"),
+        ("0", "1"),
+        ("1∩", "1"),
+        ("10", "1"),
+        ("11", "1∩"),
+        ("11", "10"),
+        ("11", "11"),
+    ]

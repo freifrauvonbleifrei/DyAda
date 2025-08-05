@@ -39,7 +39,7 @@ Coordinate: TypeAlias = npt.NDArray[np.float64]
 
 
 def coordinate_from_sequence(c: Sequence[float]) -> Coordinate:
-    return np.asarray(c, dtype=np.float32)
+    return np.asarray(c, dtype=np.float64)
 
 
 class CoordinateInterval(NamedTuple):
