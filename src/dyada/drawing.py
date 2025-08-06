@@ -692,7 +692,7 @@ def plot_location_stack_tikz(discretization: Discretization, filename="location_
             box_counter += 1
     tikz_string = tikz_string[:-2]
     tikz_string += "\n};\n"
-    tikz_string += f"\\draw "
+    tikz_string += "\\draw "
     for column in range(descriptor.get_num_dimensions()):
         tikz_string += f"(n-1-{column+1}.north west) -- (n-{len(location_stack)}-{column+1}.south west)"
     tikz_string += ";"
