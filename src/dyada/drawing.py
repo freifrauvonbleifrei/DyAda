@@ -662,15 +662,12 @@ def plot_location_stack_tikz(discretization: Discretization, filename="location_
     num_colors = descriptor.get_num_boxes()
     tikz_string = latex_add_color_defs(tikz_string, num_colors)
     tikz_string += R"""\begin{tikzpicture}[
-       every node/.style={align=left,
+       every node/.style={align=left,anchor=west,
        text height=2ex,minimum width=2ex,
        inner sep=0.2ex,
-       fill opacity=0.4, text opacity=1}
-]
+       fill opacity=0.4, text opacity=1}]
     \matrix [
-       draw=none, matrix of nodes, nodes in empty cells,
-       column 1/.style={nodes={anchor=west}}, 
-       column 2/.style={nodes={anchor=west}}] (n)
+       draw=none, matrix of nodes] (n)
     {"""
     tab = "    "
     box_counter = 0
@@ -687,7 +684,7 @@ def plot_location_stack_tikz(discretization: Discretization, filename="location_
                 "λ", "\\scalebox{0.85}{$\\lambda$}"
             )
 
-            if refinement.count() == 0:
+            if refinement.count() == 0 and len(location_code_tuple[dimension]) > 0:
                 tikz_string += f"|[fill=color_{box_counter}]| "
             tikz_string += location_code_string
         tikz_string += "\\\\ \n"

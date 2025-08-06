@@ -1,6 +1,9 @@
 import pytest
 import bitarray as ba
 import numpy as np
+from icecream import ic
+
+from dyada.drawing import plot_all_boxes_3d, plot_all_boxes_2d
 
 from dyada.descriptor import (
     RefinementDescriptor,
@@ -163,6 +166,15 @@ def test_slice_discretization_3d():
     )
     discretization = Discretization(MortonOrderLinearization(), descriptor)
 
+    # # plot
+    # plot_all_boxes_3d(
+    #     discretization,
+    #     filename="test_slice_discretization_3d",
+    #     labels="patches",
+    #     title="test_slice_discretization_3d",
+    #     backend="tikz",
+    # )
+
     for z_i in range(0, 20):
         z = z_i / 19
         discretization_xy, mapping_xy = discretization.slice([None, None, z])
@@ -170,6 +182,13 @@ def test_slice_discretization_3d():
         helper_mapping_as_box_mapping(
             descriptor, discretization_xy.descriptor, mapping_xy
         )
+        # plot_all_boxes_2d(
+        #     discretization_xy,
+        #     filename="test_slice_discretization_3d_z" + str(z_i),
+        #     labels="patches",
+        #     title="test_slice_discretization_3d_z" + str(z_i),
+        #     backend="tikz",
+        # )
 
         for x_i in range(0, 20):
             x = x_i / 19
@@ -353,4 +372,18 @@ def test_stack():
         ("11", "1λ"),
         ("11", "10"),
         ("11", "11"),
+    ]
+    fourth_descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("10 01 00 00 10 00 00")
+    )
+    assert discretization_to_location_stack_strings(
+        Discretization(MortonOrderLinearization(), fourth_descriptor)
+    ) == [
+        ("λ", ""),
+        ("0", "λ"),
+        ("0", "0"),
+        ("0", "1"),
+        ("1λ", ""),
+        ("10", ""),
+        ("11", ""),
     ]
