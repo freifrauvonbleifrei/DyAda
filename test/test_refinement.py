@@ -463,6 +463,28 @@ def test_refine_2d_3():
     }
 
 
+def test_refine_2d_4():
+    "Masado's more complex example"
+    non_normalized_descriptor = RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray(
+            "10 10 01 01 11 00 00 00 00 00 00 \
+            10 01 01 01 00 00 00 00 01 01 01 00 00 00 00 01 00 00"
+        ),
+    )
+    assert find_uniqueness_violations(non_normalized_descriptor) == [{11, 12, 19}]
+
+    new_descriptor, _ = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor)
+    )
+    assert new_descriptor == RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray(
+            "11 11 11 00 00 00 00 11 00 00 00 00 00 10 00 00 00 10 00 10 00 00 00"
+        ),
+    )
+
+
 def test_refine_3d():
     prependable_string = "110001000000001000000001000000"
     for round in range(4):

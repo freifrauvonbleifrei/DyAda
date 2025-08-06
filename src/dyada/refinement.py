@@ -328,7 +328,7 @@ class PlannedAdaptiveRefinement:
     ) -> tuple[int, list[int]]:
         # with which binary position do we get the currently desired position?
         if len(desired_dimensionwise_positions) == 0:
-            return 0, []
+            return 0, []  # root node
         num_dimensions = descriptor.get_num_dimensions()
         parent_branch, _ = descriptor.get_branch(
             parent_of_next_refinement, is_box_index=False
@@ -615,9 +615,9 @@ def normalize_discretization(
             merged_mapping: dict[int, list[int]] = {}
             for k, v in mapping.items():
                 if k in merged_mapping:
-                    merged_mapping[k].append(*new_mapping[v])
+                    merged_mapping[k].append(new_mapping[*v])
                 else:
-                    merged_mapping[k] = new_mapping[v]
+                    merged_mapping[k] = list(new_mapping[*v])
 
         descriptor = new_descriptor
         violations = find_uniqueness_violations(descriptor)
