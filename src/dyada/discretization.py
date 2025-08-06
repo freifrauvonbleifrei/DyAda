@@ -404,29 +404,24 @@ def branch_to_location_code(branch: Branch, linearization) -> list[ba.bitarray]:
 
 def discretization_to_location_stack_strings(
     discretization: Discretization, plane_symbol="∩"
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, ...]]:
     """
     Create a location stack from a discretization.
     :param discretization: The discretization to convert.
-    :return: A list of 2-tuples of strings
+    :return: A list of d-tuples of strings
     """
-    assert (
-        discretization.descriptor.get_num_dimensions() == 2
-    )  # currently only 2D descriptors are supported
 
     location_stack = []
     for current_branch, refinement in branch_generator(discretization.descriptor):
         # update location codes
-        first_dimension_location_code, second_dimension_location_code = (
-            branch_to_location_code(current_branch, discretization._linearization)
+        location_codes = branch_to_location_code(
+            current_branch, discretization._linearization
         )
         # write current location codes to strings and put to stack, append plane_symbol if refinement in this dimension
         location_stack.append(
-            (
-                first_dimension_location_code.to01()
-                + (plane_symbol if refinement[0] == 1 else ""),
-                second_dimension_location_code.to01()
-                + (plane_symbol if refinement[1] == 1 else ""),
+            tuple(
+                location_codes[d].to01() + (plane_symbol if refinement[d] == 1 else "")
+                for d in range(len(location_codes))
             )
         )
     return location_stack
