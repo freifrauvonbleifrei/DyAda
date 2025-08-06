@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 import pytest
 import bitarray as ba
 import numpy as np
@@ -8,6 +8,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
     hierarchical_to_box_index_mapping,
+    find_uniqueness_violations,
 )
 from dyada.discretization import (
     coordinates_from_box_index,
@@ -306,7 +307,7 @@ def test_refine_fully():
             assert new_descriptor == regular_descriptor
 
 
-def test_refine_2d():
+def test_refine_2d_1():
     prependable_string = "10010000"
     descriptor = RefinementDescriptor.from_binary(
         2,
@@ -405,6 +406,39 @@ def test_refine_2d_2():
         discretization,
         Discretization(MortonOrderLinearization(), new_descriptor),
     )
+
+
+def test_refine_2d_3():
+    """Masado's example"""
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("10 01 00 00 10 01 00 00 00")
+    )
+    assert find_uniqueness_violations(descriptor) == []
+
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(2, "01")
+    p.plan_refinement(4, "02")
+    non_normalized_descriptor, _ = p.apply_refinements()
+    assert non_normalized_descriptor._data == ba.bitarray(
+        "11 00 10 01 00 00 01 00 00 00 10 00 01 00 00"
+    )
+    assert find_uniqueness_violations(non_normalized_descriptor) == [{2, 3, 6}]
+    p = PlannedAdaptiveRefinement(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor)
+    )
+
+    def get_d_zeros_as_array():
+        return np.zeros(descriptor.get_num_dimensions(), dtype=np.int8)
+
+    p._markers = defaultdict(get_d_zeros_as_array)
+    p._markers[2] = np.array([0, 1], dtype=np.int8)
+    p._markers[3] = np.array([0, -1], dtype=np.int8)
+    p._markers[6] = np.array([0, -1], dtype=np.int8)
+
+    new_descriptor, _ = p.create_new_descriptor()
+    assert new_descriptor._data == ba.bitarray("11 00 11 00 00 00 00 00 10 00 01 00 00")
+    assert find_uniqueness_violations(new_descriptor) == []
 
 
 def test_refine_3d():
