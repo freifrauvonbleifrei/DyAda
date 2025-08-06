@@ -1,9 +1,6 @@
 import pytest
 import bitarray as ba
 import numpy as np
-from icecream import ic
-
-from dyada.drawing import plot_all_boxes_3d, plot_all_boxes_2d
 
 from dyada.descriptor import (
     RefinementDescriptor,
