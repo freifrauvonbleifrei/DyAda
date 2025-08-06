@@ -11,6 +11,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     get_regular_refined,
     hierarchical_to_box_index_mapping,
+    find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
 from dyada.linearization import (
