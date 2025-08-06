@@ -18,6 +18,7 @@ from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
     apply_single_refinement,
+    normalize_discretization,
 )
 from dyada.linearization import MortonOrderLinearization, single_bit_set_gen
 
@@ -436,9 +437,30 @@ def test_refine_2d_3():
     p._markers[3] = np.array([0, -1], dtype=np.int8)
     p._markers[6] = np.array([0, -1], dtype=np.int8)
 
-    new_descriptor, _ = p.create_new_descriptor()
+    new_descriptor, _ = p.create_new_descriptor(track_mapping="patches")
     assert new_descriptor._data == ba.bitarray("11 00 11 00 00 00 00 00 10 00 01 00 00")
     assert find_uniqueness_violations(new_descriptor) == []
+    normalized_descriptor, mapping = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor)
+    )
+    assert normalized_descriptor == new_descriptor
+    assert mapping == {
+        0: [0],
+        1: [1],
+        2: [2],
+        3: [3, 5],
+        4: [3],
+        5: [5],
+        6: [4, 6],
+        7: [4],
+        8: [6],
+        9: [7],
+        10: [8],
+        11: [9],
+        12: [10],
+        13: [11],
+        14: [12],
+    }
 
 
 def test_refine_3d():

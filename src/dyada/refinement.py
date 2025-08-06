@@ -569,3 +569,56 @@ def apply_single_refinement(
     p.plan_refinement(box_index, dimensions_to_refine)
     new_descriptor, mapping = p.apply_refinements(track_mapping=track_mapping)
     return Discretization(discretization._linearization, new_descriptor), mapping
+
+
+def normalize_discretization(
+    discretization: Discretization,
+    track_mapping: str = "patches",
+) -> tuple[RefinementDescriptor, dict[int, list[int]]]:
+    """
+    Normalize the discretization so that it fulfills the uniqueness condition
+    and we get a normalized omnitree.
+    """
+    descriptor = discretization.descriptor
+    # find the tuples of indices where the uniqueness condition is violated
+    violations = find_uniqueness_violations(descriptor)
+    mapping: dict[int, list[int]] = {}
+    while len(violations) > 0:
+        p = PlannedAdaptiveRefinement(
+            Discretization(discretization._linearization, descriptor)
+        )
+        # remove these violations, by putting markers and executing create_new_descriptor
+        for violation in violations:
+            # find the dimension(s) of the violation
+            sorted_violation = sorted(violation)
+            dimensions_to_shift = ~ba.bitarray(descriptor[sorted_violation[0]])
+            for i in sorted_violation[1:]:
+                dimensions_to_shift &= descriptor[i]
+            assert dimensions_to_shift.count() > 0
+            dimensions_to_shift_array = np.fromiter(
+                dimensions_to_shift,
+                dtype=np.int8,
+                count=descriptor.get_num_dimensions(),
+            )
+            p._markers[sorted_violation[0]] += dimensions_to_shift_array
+            for i in sorted_violation[1:]:
+                p._markers[i] -= dimensions_to_shift_array
+        # apply the refinements
+        new_descriptor, new_mapping = p.create_new_descriptor(
+            track_mapping=track_mapping
+        )
+        if mapping == {}:
+            mapping = new_mapping
+        else:
+            # merge the mappings
+            merged_mapping: dict[int, list[int]] = {}
+            for k, v in mapping.items():
+                if k in merged_mapping:
+                    merged_mapping[k].append(*new_mapping[v])
+                else:
+                    merged_mapping[k] = new_mapping[v]
+
+        descriptor = new_descriptor
+        violations = find_uniqueness_violations(descriptor)
+
+    return descriptor, mapping
