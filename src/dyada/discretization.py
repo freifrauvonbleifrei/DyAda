@@ -403,7 +403,7 @@ def branch_to_location_code(branch: Branch, linearization) -> list[ba.bitarray]:
 
 
 def discretization_to_location_stack_strings(
-    discretization: Discretization, plane_symbol="∩"
+    discretization: Discretization, plane_symbol="λ"
 ) -> list[tuple[str, ...]]:
     """
     Create a location stack from a discretization.

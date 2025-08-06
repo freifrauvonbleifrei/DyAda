@@ -683,6 +683,9 @@ def plot_location_stack_tikz(discretization: Discretization, filename="location_
             location_code_string = location_code_string.replace(
                 "∩", "\\scalebox{0.79}{$\\cap$}"
             )
+            location_code_string = location_code_string.replace(
+                "λ", "\\scalebox{0.85}{$\\lambda$}"
+            )
 
             if refinement.count() == 0:
                 tikz_string += f"|[fill=color_{box_counter}]| "

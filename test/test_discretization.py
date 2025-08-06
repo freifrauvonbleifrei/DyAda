@@ -302,12 +302,12 @@ def test_stack():
     assert discretization_to_location_stack_strings(
         Discretization(MortonOrderLinearization(), first_descriptor)
     ) == [
-        ("∩", ""),
-        ("0", "∩"),
+        ("λ", ""),
+        ("0", "λ"),
         ("0", "0"),
         ("0", "1"),
-        ("1∩", ""),
-        ("10", "∩"),
+        ("1λ", ""),
+        ("10", "λ"),
         ("10", "0"),
         ("10", "1"),
         ("11", ""),
@@ -318,19 +318,19 @@ def test_stack():
     assert discretization_to_location_stack_strings(
         Discretization(MortonOrderLinearization(), second_descriptor)
     ) == [
-        ("∩", "∩"),
+        ("λ", "λ"),
         ("0", "0"),
-        ("1∩", "0"),
-        ("10", "0∩"),
+        ("1λ", "0"),
+        ("10", "0λ"),
         ("10", "00"),
         ("10", "01"),
-        ("11", "0∩"),
+        ("11", "0λ"),
         ("11", "00"),
         ("11", "01"),
         ("0", "1"),
-        ("1∩", "1"),
+        ("1λ", "1"),
         ("10", "1"),
-        ("11", "1∩"),
+        ("11", "1λ"),
         ("11", "10"),
         ("11", "11"),
     ]
@@ -340,17 +340,17 @@ def test_stack():
     assert discretization_to_location_stack_strings(
         Discretization(MortonOrderLinearization(), third_descriptor)
     ) == [
-        ("∩", "∩"),
+        ("λ", "λ"),
         ("0", "0"),
-        ("1∩", "0∩"),
+        ("1λ", "0λ"),
         ("10", "00"),
         ("11", "00"),
         ("10", "01"),
         ("11", "01"),
         ("0", "1"),
-        ("1∩", "1"),
+        ("1λ", "1"),
         ("10", "1"),
-        ("11", "1∩"),
+        ("11", "1λ"),
         ("11", "10"),
         ("11", "11"),
     ]
