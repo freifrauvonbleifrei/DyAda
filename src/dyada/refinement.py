@@ -572,6 +572,25 @@ def apply_single_refinement(
     return Discretization(discretization._linearization, new_descriptor), mapping
 
 
+def merge_mappings(
+    first_mapping: dict[int, list[int]],
+    second_mapping: dict[int, list[int]],
+) -> dict[int, list[int]]:
+    # if either mapping is empty, return the other one
+    if not first_mapping:
+        return second_mapping
+    if not second_mapping:
+        return first_mapping
+    # merge the mappings
+    merged_mapping: dict[int, list[int]] = {}
+    for k, v in first_mapping.items():
+        if k in merged_mapping:
+            merged_mapping[k].append(second_mapping[tuple(v) if len(v) > 1 else v[0]])
+        else:
+            merged_mapping[k] = list(second_mapping[tuple(v) if len(v) > 1 else v[0]])
+    return merged_mapping
+
+
 def normalize_discretization(
     discretization: Discretization,
     track_mapping: str = "patches",
@@ -608,21 +627,7 @@ def normalize_discretization(
         new_descriptor, new_mapping = p.create_new_descriptor(
             track_mapping=track_mapping
         )
-        if mapping == {}:
-            mapping = new_mapping
-        else:
-            # merge the mappings
-            merged_mapping: dict[int, list[int]] = {}
-            for k, v in mapping.items():
-                if k in merged_mapping:
-                    merged_mapping[k].append(
-                        new_mapping[tuple(v) if len(v) > 1 else v[0]]
-                    )
-                else:
-                    merged_mapping[k] = list(
-                        new_mapping[tuple(v) if len(v) > 1 else v[0]]
-                    )
-            mapping = merged_mapping
+        mapping = merge_mappings(mapping, new_mapping)
 
         descriptor = new_descriptor
         violations = find_uniqueness_violations(descriptor)
