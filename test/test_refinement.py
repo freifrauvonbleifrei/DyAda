@@ -503,6 +503,30 @@ def test_refine_2d_4():
         14: [11],
         15: [15],
     }
+    _, patch_mapping = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor),
+        track_mapping="patches",
+    )
+    patch_mapping_boxes_only = {
+        4: [2],
+        5: [3],
+        6: [4],
+        7: [5],
+        8: [6],
+        9: [12],
+        10: [18],
+        15: [8],
+        16: [10],
+        17: [14],
+        18: [20],
+        22: [9],
+        23: [11],
+        24: [15],
+        27: [16],
+        28: [22],
+    }
+    for key, value in patch_mapping_boxes_only.items():
+        assert value == patch_mapping[key]
 
 
 def test_refine_3d():

@@ -584,10 +584,14 @@ def merge_mappings(
     # merge the mappings
     merged_mapping: dict[int, list[int]] = {}
     for k, v in first_mapping.items():
-        if k in merged_mapping:
-            merged_mapping[k].append(second_mapping[tuple(v) if len(v) > 1 else v[0]])
-        else:
-            merged_mapping[k] = list(second_mapping[tuple(v) if len(v) > 1 else v[0]])
+        assert isinstance(k, int) and isinstance(v, list)
+        for v_i in v:
+            assert isinstance(v_i, int)
+    # merge the mappings
+    merged_mapping: dict[int, list[int]] = defaultdict(list)
+    for k, v in first_mapping.items():
+        for v_i in v:
+            merged_mapping[k] += second_mapping[v_i]
     return merged_mapping
 
 
