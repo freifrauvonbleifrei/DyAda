@@ -581,8 +581,6 @@ def merge_mappings(
         return second_mapping
     if not second_mapping:
         return first_mapping
-    # merge the mappings
-    merged_mapping: dict[int, list[int]] = {}
     for k, v in first_mapping.items():
         assert isinstance(k, int) and isinstance(v, list)
         for v_i in v:
