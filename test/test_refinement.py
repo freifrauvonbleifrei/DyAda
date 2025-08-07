@@ -474,8 +474,9 @@ def test_refine_2d_4():
     )
     assert find_uniqueness_violations(non_normalized_descriptor) == [{11, 12, 19}]
 
-    new_descriptor, _ = normalize_discretization(
-        Discretization(MortonOrderLinearization(), non_normalized_descriptor)
+    new_descriptor, mapping = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor),
+        track_mapping="boxes",
     )
     assert new_descriptor == RefinementDescriptor.from_binary(
         2,
@@ -483,6 +484,25 @@ def test_refine_2d_4():
             "11 11 11 00 00 00 00 11 00 00 00 00 00 10 00 00 00 10 00 10 00 00 00"
         ),
     )
+    assert find_uniqueness_violations(new_descriptor) == []
+    assert mapping == {
+        0: [0],
+        1: [1],
+        2: [2],
+        3: [3],
+        4: [8],
+        5: [12],
+        6: [4],
+        7: [6],
+        8: [9],
+        9: [13],
+        10: [5],
+        11: [7],
+        12: [10],
+        13: [14],
+        14: [11],
+        15: [15],
+    }
 
 
 def test_refine_3d():

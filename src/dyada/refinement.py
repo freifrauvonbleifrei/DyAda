@@ -615,9 +615,14 @@ def normalize_discretization(
             merged_mapping: dict[int, list[int]] = {}
             for k, v in mapping.items():
                 if k in merged_mapping:
-                    merged_mapping[k].append(new_mapping[tuple(v)])
+                    merged_mapping[k].append(
+                        new_mapping[tuple(v) if len(v) > 1 else v[0]]
+                    )
                 else:
-                    merged_mapping[k] = list(new_mapping[tuple(v)])
+                    merged_mapping[k] = list(
+                        new_mapping[tuple(v) if len(v) > 1 else v[0]]
+                    )
+            mapping = merged_mapping
 
         descriptor = new_descriptor
         violations = find_uniqueness_violations(descriptor)
