@@ -284,7 +284,7 @@ class PlannedAdaptiveRefinement:
             if next_refinement == descriptor.d_zeros:
                 yield current_old_index, next_refinement, next_marker
                 for p in intermediate_generation:
-                    yield p, ba.bitarray(None)
+                    yield p, ba.bitarray(None), ancestry[-2]
                 # only on leaves, we can advance the branch
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
@@ -462,35 +462,41 @@ class PlannedAdaptiveRefinement:
             for (
                 old_index,
                 new_refinement,
-                *marker,
+                *marker_or_ancestor,
             ) in self.modified_branch_generator(index_to_refine):
-                if len(marker) > 0:
-                    assert new_refinement == old_descriptor.d_zeros
-                    if np.min(marker) < 0:
+                if len(marker_or_ancestor) > 0:
+                    assert (
+                        new_refinement == old_descriptor.d_zeros
+                        or new_refinement == ba.bitarray(None)
+                    )
+                    if np.min(marker_or_ancestor) < 0:
                         # a node was coarsened, but is still there
                         assert self._discretization.descriptor[old_index].count() > 0
                         self.extend_descriptor_and_track_indices(
                             new_descriptor, old_index, new_refinement
                         )
                     else:
-                        # case of expanding a leaf
-                        assert self._discretization.descriptor[old_index].count() == 0
-                        self.extend_descriptor_and_track_indices(
-                            new_descriptor,
-                            old_index,
-                            get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
-                        )
+                        if new_refinement == ba.bitarray(None):
+                            assert len(marker_or_ancestor) == 1
+                            # track only the index,
+                            # namely the one of the previous (grand...)parent
+                            new_index = marker_or_ancestor[0]
+                            self.track_indices(old_index, new_index)
+                        else:
+                            # case of expanding a leaf
+                            assert (
+                                self._discretization.descriptor[old_index].count() == 0
+                            )
+                            self.extend_descriptor_and_track_indices(
+                                new_descriptor,
+                                old_index,
+                                get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
+                            )
                 else:
-                    if new_refinement == ba.bitarray(None):
-                        # track only the index,
-                        # namely the one of the last appended to descriptor
-                        new_index = len(new_descriptor) - 1
-                        self.track_indices(old_index, new_index)
-                    else:
-                        # a parent node
-                        self.extend_descriptor_and_track_indices(
-                            new_descriptor, old_index, new_refinement
-                        )
+                    # a stable parent node
+                    self.extend_descriptor_and_track_indices(
+                        new_descriptor, old_index, new_refinement
+                    )
                 last_extended_index = max(last_extended_index, old_index)
             one_after_last_extended_index = last_extended_index + 1
 

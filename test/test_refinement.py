@@ -337,7 +337,7 @@ def test_refine_2d_1():
     assert new_descriptor == correct_descriptor
     assert index_mapping == {
         0: [0],
-        1: [1, 7],
+        1: [0],
         2: [1],
         3: [7],
         4: [2, 8],
@@ -449,10 +449,10 @@ def test_refine_2d_3():
         0: [0],
         1: [1],
         2: [2],
-        3: [3, 5],
+        3: [2],
         4: [3],
         5: [5],
-        6: [4, 6],
+        6: [2],
         7: [4],
         8: [6],
         9: [7],
@@ -475,6 +475,19 @@ def test_refine_2d_4():
     )
     assert find_uniqueness_violations(non_normalized_descriptor) == [{11, 12, 19}]
 
+    new_descriptor, mapping, num_rounds = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor),
+        track_mapping="patches",
+        max_normalization_rounds=1,
+    )
+    assert num_rounds == 1
+    assert new_descriptor == RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray(
+            "10 10 01 01 11 00 00 00 00 00 00 11 01 01 00 00 00 01 01 00 00 00 00 00 01 00 00"
+        ),
+    )
+    assert find_uniqueness_violations(new_descriptor) == [{1, 2, 11}]
     new_descriptor, mapping, num_rounds = normalize_discretization(
         Discretization(MortonOrderLinearization(), non_normalized_descriptor),
         track_mapping="boxes",
@@ -510,7 +523,11 @@ def test_refine_2d_4():
         track_mapping="patches",
     )
     assert num_rounds == 5
-    patch_mapping_boxes_only = {
+    assert patch_mapping == {
+        0: [0],
+        1: [1, 17],
+        2: [1, 17],
+        3: [1],
         4: [2],
         5: [3],
         6: [4],
@@ -518,18 +535,25 @@ def test_refine_2d_4():
         8: [6],
         9: [12],
         10: [18],
+        11: [7, 13, 19],
+        12: [7, 13, 19],
+        13: [7, 13],
+        14: [7],
         15: [8],
         16: [10],
         17: [14],
         18: [20],
+        19: [7, 13, 19],
+        20: [7, 13],
+        21: [7],
         22: [9],
         23: [11],
         24: [15],
+        25: [21],
+        26: [0],
         27: [16],
         28: [22],
     }
-    for key, value in patch_mapping_boxes_only.items():
-        assert value == patch_mapping[key]
 
 
 def test_refine_3d():
