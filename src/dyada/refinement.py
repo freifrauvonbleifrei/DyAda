@@ -596,16 +596,19 @@ def merge_mappings(
 def normalize_discretization(
     discretization: Discretization,
     track_mapping: str = "patches",
-) -> tuple[RefinementDescriptor, dict[int, list[int]]]:
+    max_normalization_rounds: int = 2**31 - 1,
+) -> tuple[RefinementDescriptor, dict[int, list[int]], int]:
     """
     Normalize the discretization so that it fulfills the uniqueness condition
     and we get a normalized omnitree.
     """
     descriptor = discretization.descriptor
+    normalization_rounds = 0
     # find the tuples of indices where the uniqueness condition is violated
     violations = find_uniqueness_violations(descriptor)
     mapping: dict[int, list[int]] = {}
-    while len(violations) > 0:
+    while len(violations) > 0 and normalization_rounds < max_normalization_rounds:
+        normalization_rounds += 1
         p = PlannedAdaptiveRefinement(
             Discretization(discretization._linearization, descriptor)
         )
@@ -634,4 +637,4 @@ def normalize_discretization(
         descriptor = new_descriptor
         violations = find_uniqueness_violations(descriptor)
 
-    return descriptor, mapping
+    return descriptor, mapping, normalization_rounds
