@@ -500,3 +500,34 @@ def hierarchical_to_box_index_mapping(
         if key_descriptor.is_box(old_index)
     }
     return box_mapping
+
+
+def find_uniqueness_violations(
+    descriptor: RefinementDescriptor,
+) -> list[set[int]]:
+    """
+    Find the tuples of indices where the uniqueness condition is violated.
+    This is the case when all children of a box have a refinement (==1) where
+    the parent box has no refinement (==0).
+    """
+    violations: list[set[int]] = []
+    children_refinement_stack: list[tuple[int, ba.bitarray]] = []
+    # iterate the descriptor from the end to the beginning
+    for i in range(len(descriptor) - 1, -1, -1):
+        if descriptor[i].count() > 0:
+            num_children = 2 ** descriptor[i].count()
+            # pop the children from the stack
+            children = []
+            for _ in range(num_children):
+                children.append(children_refinement_stack.pop())
+
+            all_children_have_refinement = children[0][1]
+            for child in children[1:]:
+                all_children_have_refinement &= child[1]
+            if (all_children_have_refinement & ~descriptor[i]).count() > 0:
+                # uniqueness condition violated, add to violations
+                violations.append({i, *[child[0] for child in children]})
+
+        # put on the stack
+        children_refinement_stack.append((i, descriptor[i]))
+    return violations

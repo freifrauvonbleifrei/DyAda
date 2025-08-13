@@ -11,6 +11,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     get_regular_refined,
     hierarchical_to_box_index_mapping,
+    find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
 from dyada.linearization import (
@@ -283,7 +284,7 @@ class PlannedAdaptiveRefinement:
             if next_refinement == descriptor.d_zeros:
                 yield current_old_index, next_refinement, next_marker
                 for p in intermediate_generation:
-                    yield p, ba.bitarray(None)
+                    yield p, ba.bitarray(None), ancestry[-2]
                 # only on leaves, we can advance the branch
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
@@ -327,7 +328,7 @@ class PlannedAdaptiveRefinement:
     ) -> tuple[int, list[int]]:
         # with which binary position do we get the currently desired position?
         if len(desired_dimensionwise_positions) == 0:
-            return 0, []
+            return 0, []  # root node
         num_dimensions = descriptor.get_num_dimensions()
         parent_branch, _ = descriptor.get_branch(
             parent_of_next_refinement, is_box_index=False
@@ -461,35 +462,41 @@ class PlannedAdaptiveRefinement:
             for (
                 old_index,
                 new_refinement,
-                *marker,
+                *marker_or_ancestor,
             ) in self.modified_branch_generator(index_to_refine):
-                if len(marker) > 0:
-                    assert new_refinement == old_descriptor.d_zeros
-                    if np.min(marker) < 0:
+                if len(marker_or_ancestor) > 0:
+                    assert (
+                        new_refinement == old_descriptor.d_zeros
+                        or new_refinement == ba.bitarray(None)
+                    )
+                    if np.min(marker_or_ancestor) < 0:
                         # a node was coarsened, but is still there
                         assert self._discretization.descriptor[old_index].count() > 0
                         self.extend_descriptor_and_track_indices(
                             new_descriptor, old_index, new_refinement
                         )
                     else:
-                        # case of expanding a leaf
-                        assert self._discretization.descriptor[old_index].count() == 0
-                        self.extend_descriptor_and_track_indices(
-                            new_descriptor,
-                            old_index,
-                            get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
-                        )
+                        if new_refinement == ba.bitarray(None):
+                            assert len(marker_or_ancestor) == 1
+                            # track only the index,
+                            # namely the one of the previous (grand...)parent
+                            new_index = marker_or_ancestor[0]
+                            self.track_indices(old_index, new_index)
+                        else:
+                            # case of expanding a leaf
+                            assert (
+                                self._discretization.descriptor[old_index].count() == 0
+                            )
+                            self.extend_descriptor_and_track_indices(
+                                new_descriptor,
+                                old_index,
+                                get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
+                            )
                 else:
-                    if new_refinement == ba.bitarray(None):
-                        # track only the index,
-                        # namely the one of the last appended to descriptor
-                        new_index = len(new_descriptor) - 1
-                        self.track_indices(old_index, new_index)
-                    else:
-                        # a parent node
-                        self.extend_descriptor_and_track_indices(
-                            new_descriptor, old_index, new_refinement
-                        )
+                    # a stable parent node
+                    self.extend_descriptor_and_track_indices(
+                        new_descriptor, old_index, new_refinement
+                    )
                 last_extended_index = max(last_extended_index, old_index)
             one_after_last_extended_index = last_extended_index + 1
 
@@ -569,3 +576,71 @@ def apply_single_refinement(
     p.plan_refinement(box_index, dimensions_to_refine)
     new_descriptor, mapping = p.apply_refinements(track_mapping=track_mapping)
     return Discretization(discretization._linearization, new_descriptor), mapping
+
+
+def merge_mappings(
+    first_mapping: dict[int, list[int]],
+    second_mapping: dict[int, list[int]],
+) -> dict[int, list[int]]:
+    # if either mapping is empty, return the other one
+    if not first_mapping:
+        return second_mapping
+    if not second_mapping:
+        return first_mapping
+    for k, v in first_mapping.items():
+        assert isinstance(k, int) and isinstance(v, list)
+        for v_i in v:
+            assert isinstance(v_i, int)
+    # merge the mappings
+    merged_mapping: dict[int, list[int]] = defaultdict(list)
+    for k, v in first_mapping.items():
+        for v_i in v:
+            merged_mapping[k] += second_mapping[v_i]
+    return merged_mapping
+
+
+def normalize_discretization(
+    discretization: Discretization,
+    track_mapping: str = "patches",
+    max_normalization_rounds: int = 2**31 - 1,
+) -> tuple[RefinementDescriptor, dict[int, list[int]], int]:
+    """
+    Normalize the discretization so that it fulfills the uniqueness condition
+    and we get a normalized omnitree.
+    """
+    descriptor = discretization.descriptor
+    normalization_rounds = 0
+    # find the tuples of indices where the uniqueness condition is violated
+    violations = find_uniqueness_violations(descriptor)
+    mapping: dict[int, list[int]] = {}
+    while len(violations) > 0 and normalization_rounds < max_normalization_rounds:
+        normalization_rounds += 1
+        p = PlannedAdaptiveRefinement(
+            Discretization(discretization._linearization, descriptor)
+        )
+        # remove these violations, by putting markers and executing create_new_descriptor
+        for violation in violations:
+            # find the dimension(s) of the violation
+            sorted_violation = sorted(violation)
+            dimensions_to_shift = ~ba.bitarray(descriptor[sorted_violation[0]])
+            for i in sorted_violation[1:]:
+                dimensions_to_shift &= descriptor[i]
+            assert dimensions_to_shift.count() > 0
+            dimensions_to_shift_array = np.fromiter(
+                dimensions_to_shift,
+                dtype=np.int8,
+                count=descriptor.get_num_dimensions(),
+            )
+            p._markers[sorted_violation[0]] += dimensions_to_shift_array
+            for i in sorted_violation[1:]:
+                p._markers[i] -= dimensions_to_shift_array
+        # apply the refinements
+        new_descriptor, new_mapping = p.create_new_descriptor(
+            track_mapping=track_mapping
+        )
+        mapping = merge_mappings(mapping, new_mapping)
+
+        descriptor = new_descriptor
+        violations = find_uniqueness_violations(descriptor)
+
+    return descriptor, mapping, normalization_rounds

@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 import pytest
 import bitarray as ba
 import numpy as np
@@ -8,6 +8,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
     hierarchical_to_box_index_mapping,
+    find_uniqueness_violations,
 )
 from dyada.discretization import (
     coordinates_from_box_index,
@@ -17,6 +18,7 @@ from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
     apply_single_refinement,
+    normalize_discretization,
 )
 from dyada.linearization import MortonOrderLinearization, single_bit_set_gen
 
@@ -306,7 +308,7 @@ def test_refine_fully():
             assert new_descriptor == regular_descriptor
 
 
-def test_refine_2d():
+def test_refine_2d_1():
     prependable_string = "10010000"
     descriptor = RefinementDescriptor.from_binary(
         2,
@@ -335,7 +337,7 @@ def test_refine_2d():
     assert new_descriptor == correct_descriptor
     assert index_mapping == {
         0: [0],
-        1: [1, 7],
+        1: [0],
         2: [1],
         3: [7],
         4: [2, 8],
@@ -405,6 +407,153 @@ def test_refine_2d_2():
         discretization,
         Discretization(MortonOrderLinearization(), new_descriptor),
     )
+
+
+def test_refine_2d_3():
+    """Masado's example"""
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("10 01 00 00 10 01 00 00 00")
+    )
+    assert find_uniqueness_violations(descriptor) == []
+
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(2, "01")
+    p.plan_refinement(4, "02")
+    non_normalized_descriptor, _ = p.apply_refinements()
+    assert non_normalized_descriptor._data == ba.bitarray(
+        "11 00 10 01 00 00 01 00 00 00 10 00 01 00 00"
+    )
+    assert find_uniqueness_violations(non_normalized_descriptor) == [{2, 3, 6}]
+    p = PlannedAdaptiveRefinement(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor)
+    )
+
+    def get_d_zeros_as_array():
+        return np.zeros(descriptor.get_num_dimensions(), dtype=np.int8)
+
+    p._markers = defaultdict(get_d_zeros_as_array)
+    p._markers[2] = np.array([0, 1], dtype=np.int8)
+    p._markers[3] = np.array([0, -1], dtype=np.int8)
+    p._markers[6] = np.array([0, -1], dtype=np.int8)
+
+    new_descriptor, _ = p.create_new_descriptor(track_mapping="patches")
+    assert new_descriptor._data == ba.bitarray("11 00 11 00 00 00 00 00 10 00 01 00 00")
+    assert find_uniqueness_violations(new_descriptor) == []
+    normalized_descriptor, mapping, num_rounds = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor)
+    )
+    assert num_rounds == 1
+    assert normalized_descriptor == new_descriptor
+    assert mapping == {
+        0: [0],
+        1: [1],
+        2: [2],
+        3: [2],
+        4: [3],
+        5: [5],
+        6: [2],
+        7: [4],
+        8: [6],
+        9: [7],
+        10: [8],
+        11: [9],
+        12: [10],
+        13: [11],
+        14: [12],
+    }
+
+
+def test_refine_2d_4():
+    "Masado's more complex example"
+    non_normalized_descriptor = RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray(
+            "10 10 01 01 11 00 00 00 00 00 00 \
+            10 01 01 01 00 00 00 00 01 01 01 00 00 00 00 01 00 00"
+        ),
+    )
+    assert find_uniqueness_violations(non_normalized_descriptor) == [{11, 12, 19}]
+
+    new_descriptor, mapping, num_rounds = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor),
+        track_mapping="patches",
+        max_normalization_rounds=1,
+    )
+    assert num_rounds == 1
+    assert new_descriptor == RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray(
+            "10 10 01 01 11 00 00 00 00 00 00 11 01 01 00 00 00 01 01 00 00 00 00 00 01 00 00"
+        ),
+    )
+    assert find_uniqueness_violations(new_descriptor) == [{1, 2, 11}]
+    new_descriptor, mapping, num_rounds = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor),
+        track_mapping="boxes",
+    )
+    assert num_rounds == 5
+    assert new_descriptor == RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray(
+            "11 11 11 00 00 00 00 11 00 00 00 00 00 10 00 00 00 10 00 10 00 00 00"
+        ),
+    )
+    assert find_uniqueness_violations(new_descriptor) == []
+    assert mapping == {
+        0: [0],
+        1: [1],
+        2: [2],
+        3: [3],
+        4: [8],
+        5: [12],
+        6: [4],
+        7: [6],
+        8: [9],
+        9: [13],
+        10: [5],
+        11: [7],
+        12: [10],
+        13: [14],
+        14: [11],
+        15: [15],
+    }
+    _, patch_mapping, num_rounds = normalize_discretization(
+        Discretization(MortonOrderLinearization(), non_normalized_descriptor),
+        track_mapping="patches",
+    )
+    assert num_rounds == 5
+    assert patch_mapping == {
+        0: [0],
+        1: [1, 17],
+        2: [1, 17],
+        3: [1],
+        4: [2],
+        5: [3],
+        6: [4],
+        7: [5],
+        8: [6],
+        9: [12],
+        10: [18],
+        11: [7, 13, 19],
+        12: [7, 13, 19],
+        13: [7, 13],
+        14: [7],
+        15: [8],
+        16: [10],
+        17: [14],
+        18: [20],
+        19: [7, 13, 19],
+        20: [7, 13],
+        21: [7],
+        22: [9],
+        23: [11],
+        24: [15],
+        25: [21],
+        26: [0],
+        27: [16],
+        28: [22],
+    }
 
 
 def test_refine_3d():
