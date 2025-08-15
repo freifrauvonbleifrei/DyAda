@@ -4,6 +4,22 @@
 ![Coverage](coverage.svg)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
+## Installation
+
+It's as simple as
+
+```bash
+pip install dyada
+```
+
+Or, if you would like to change the source code, do
+
+```bash
+git clone https://github.com/freifrauvonbleifrei/DyAda.git
+# ... git checkout the required version ...
+pip install -e DyAda
+```
+
 ## Dyadic Adaptivity
 
 Dyadic adaptivity means: A given hypercube of 2 or more dimensions may or may not
