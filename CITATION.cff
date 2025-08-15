@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Pollinger"
+  given-names: "Theresa"
+  orcid: "https://orcid.org/0000-0002-0186-4340"
+title: "DyAda"
+url: "https://github.com/freifrauvonbleifrei/DyAda"
+license: GPL-3.0
+references:
+  - authors:
+    - family-names: "Pollinger"
+      given-names: "Theresa"
+    - family-names: "Ishii"
+      given-names: "Masado"
+    - family-names: "Domke"
+      given-names: "Jens"
+    doi: 10.48550/arXiv.2508.06316
+    url: "https://arxiv.org/abs/2508.06316"
+    journal: "arXiv preprint"
+    scope: "Cite this paper if you want to reference omnitrees in general."
+    title: "The Beauty of Anisotropic Mesh Refinement: Omnitrees for Efficient Dyadic Discretizations"
+    type: article
+    year: 2025
