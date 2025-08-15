@@ -5,22 +5,20 @@ authors:
   given-names: "Theresa"
   orcid: "https://orcid.org/0000-0002-0186-4340"
 title: "DyAda"
-version: 0.0.5
 url: "https://github.com/freifrauvonbleifrei/DyAda"
-preferred-citation:
-  type: article
-  title: "The Beauty of Anisotropic Mesh Refinement: Omnitrees for Efficient Dyadic Discretizations"
-  authors:
+license: GPL-3.0
+references:
+  - authors:
     - family-names: "Pollinger"
       given-names: "Theresa"
     - family-names: "Ishii"
       given-names: "Masado"
     - family-names: "Domke"
       given-names: "Jens"
-  journal: "arXiv preprint"
-  identifiers:
-    - type: url
-      value: "https://arxiv.org/abs/2508.06316"
-    - type: other
-      value: "arXiv:2508.06316"
-  year: 2025
+    doi: 10.48550/arXiv.2508.06316
+    url: "https://arxiv.org/abs/2508.06316"
+    journal: "arXiv preprint"
+    scope: "Cite this paper if you want to reference omnitrees in general."
+    title: "The Beauty of Anisotropic Mesh Refinement: Omnitrees for Efficient Dyadic Discretizations"
+    type: article
+    year: 2025
