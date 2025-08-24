@@ -323,7 +323,6 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
         subprocess.check_output(
             ["latexmk", "-interaction=nonstopmode", "-pdf", filename],
             cwd=dirname,
-            shell=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         warnings.warn(f"Error while running latexmk on {filename}: {e}")
