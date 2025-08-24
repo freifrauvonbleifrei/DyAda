@@ -320,12 +320,10 @@ def latex_write_and_compile(latex_string: str, filename: str) -> None:
     # this needs `latexmk`, `pdflatex`, and `tikz` to be installed, e.g.
     # through `apt install texlive-latex-extra latexmk`
     try:
-        subprocess.run(
+        subprocess.check_output(
             ["latexmk", "-interaction=nonstopmode", "-pdf", filename],
-            check=True,
             cwd=dirname,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT,
+            shell=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         warnings.warn(f"Error while running latexmk on {filename}: {e}")
