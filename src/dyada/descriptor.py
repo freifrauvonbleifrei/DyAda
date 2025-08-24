@@ -7,7 +7,7 @@ from re import findall
 import numpy as np
 import numpy.typing as npt
 import operator
-from reprlib import repr
+import reprlib
 from typing import Iterator, Optional, Sequence, Union
 
 
@@ -200,7 +200,9 @@ class RefinementDescriptor:
         return self[index] == self.d_zeros
 
     def __repr__(self) -> str:
-        return f"RefinementDescriptor({repr(' '.join([b.to01() for b in self]))})"
+        return (
+            f"RefinementDescriptor({reprlib.repr(' '.join([b.to01() for b in self]))})"
+        )
 
     def __iter__(self):
         for i in range(len(self)):
@@ -284,9 +286,9 @@ class RefinementDescriptor:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
+        box_counter = 0
         if hint_previous_branch is None:
             current_branch = Branch(self._num_dimensions)
-            box_counter = 0
             i = 0
             current_iterator = iter(self)
         else:
@@ -480,14 +482,16 @@ def validate_descriptor(descriptor: RefinementDescriptor):
     try:
         assert len(descriptor._data) % descriptor._num_dimensions == 0
     except AssertionError as e:
-        raise DyadaInvalidDescriptorError("Uneven number of bits in descriptor")
+        raise DyadaInvalidDescriptorError("Uneven number of bits in descriptor") from e
     try:
         branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
         assert len(branch) > 0
         for twig in branch:
             assert twig.count_to_go_up == 1
     except (AssertionError, IndexError) as e:
-        raise DyadaInvalidDescriptorError("Descriptor does not form a valid omnitree")
+        raise DyadaInvalidDescriptorError(
+            "Descriptor does not form a valid omnitree"
+        ) from e
     return True
 
 
