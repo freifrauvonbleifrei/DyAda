@@ -107,7 +107,13 @@ class Branch(deque[LevelCounter]):
 
 
 class RefinementDescriptor:
-    """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
+    """
+    A RefinementDescriptor holds a bitarray that describes a refinement tree.
+    The bitarray is a depth-first linearized 2^n tree, with the parents having
+    the refined dimensions set to 1 and the leaves containing all 0s.
+    It is the (preorder depth-first) linearized binary representation of omnitrees
+    described in https://arxiv.org/abs/2508.06316 .
+    """
 
     def __init__(self, num_dimensions: int, base_resolution_level=0):
         self._num_dimensions = num_dimensions
