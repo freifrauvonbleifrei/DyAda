@@ -159,8 +159,8 @@ class RefinementDescriptor:
         descriptor._data = binary
         try:
             validate_descriptor(descriptor)
-        except DyadaInvalidDescriptorError:
-            raise ValueError("Invalid binary input")
+        except DyadaInvalidDescriptorError as e:
+            raise ValueError("Invalid binary input") from e
         return descriptor
 
     def __eq__(self, other):
