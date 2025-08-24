@@ -7,6 +7,7 @@ from os.path import abspath
 from dyada.descriptor import (
     generalized_ruler,
     LevelCounter,
+    DyadaInvalidDescriptorError,
     RefinementDescriptor,
     validate_descriptor,
 )
@@ -32,6 +33,24 @@ def test_construct():
         assert r
         validate_descriptor(r)
         assert repr(r).startswith("RefinementDescriptor")
+
+
+def test_invalid_refinement():
+    with pytest.raises(ValueError):
+        RefinementDescriptor.from_binary(3, ba.bitarray("01010"))
+    with pytest.raises(ValueError):
+        RefinementDescriptor.from_binary(3, ba.bitarray("010101"))
+    r = RefinementDescriptor(3)
+    r._data = ba.bitarray("010101")  # manually corrupt
+    with pytest.raises(DyadaInvalidDescriptorError):
+        validate_descriptor(r)
+    r._data = ba.bitarray("01010")  # manually corrupt
+    with pytest.raises(DyadaInvalidDescriptorError):
+        validate_descriptor(r)
+    r = RefinementDescriptor(2)
+    r._data = ba.bitarray("01 00 01 00 00 01 00 00")  # manually corrupt
+    with pytest.raises(DyadaInvalidDescriptorError):
+        validate_descriptor(r)
 
 
 def test_zero_level():

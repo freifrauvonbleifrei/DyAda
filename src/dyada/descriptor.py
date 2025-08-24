@@ -153,10 +153,14 @@ class RefinementDescriptor:
 
     @staticmethod
     def from_binary(num_dimensions: int, binary: ba.bitarray) -> "RefinementDescriptor":
-        assert len(binary) % num_dimensions == 0
+        if len(binary) % num_dimensions != 0:
+            raise ValueError("Invalid binary input length")
         descriptor = RefinementDescriptor(num_dimensions)
         descriptor._data = binary
-        validate_descriptor(descriptor)
+        try:
+            validate_descriptor(descriptor)
+        except DyadaInvalidDescriptorError:
+            raise ValueError("Invalid binary input")
         return descriptor
 
     def __eq__(self, other):
@@ -479,19 +483,17 @@ def branch_generator(descriptor: RefinementDescriptor):
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
-    try:
-        assert len(descriptor._data) % descriptor._num_dimensions == 0
-    except AssertionError as e:
-        raise DyadaInvalidDescriptorError("Uneven number of bits in descriptor") from e
+    if len(descriptor._data) % descriptor._num_dimensions != 0:
+        raise DyadaInvalidDescriptorError("Uneven number of bits in descriptor")
     try:
         branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
-        assert len(branch) > 0
-        for twig in branch:
-            assert twig.count_to_go_up == 1
-    except (AssertionError, IndexError) as e:
+    except IndexError as e:
         raise DyadaInvalidDescriptorError(
             "Descriptor does not form a valid omnitree"
         ) from e
+    if not (len(branch) > 0) or any(twig.count_to_go_up != 1 for twig in branch):
+        raise DyadaInvalidDescriptorError("Descriptor not fully traversed")
+
     return True
 
 
