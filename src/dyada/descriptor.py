@@ -106,6 +106,10 @@ class Branch(deque[LevelCounter]):
         return history_of_indices, history_of_level_increments
 
 
+class DyadaInvalidDescriptorError(Exception):
+    pass
+
+
 class RefinementDescriptor:
     """
     A RefinementDescriptor holds a bitarray that describes a refinement tree.
@@ -473,11 +477,17 @@ def branch_generator(descriptor: RefinementDescriptor):
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
-    assert len(descriptor._data) % descriptor._num_dimensions == 0
-    branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
-    assert len(branch) > 0
-    for twig in branch:
-        assert twig.count_to_go_up == 1
+    try:
+        assert len(descriptor._data) % descriptor._num_dimensions == 0
+    except AssertionError as e:
+        raise DyadaInvalidDescriptorError("Uneven number of bits in descriptor")
+    try:
+        branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
+        assert len(branch) > 0
+        for twig in branch:
+            assert twig.count_to_go_up == 1
+    except (AssertionError, IndexError) as e:
+        raise DyadaInvalidDescriptorError("Descriptor does not form a valid omnitree")
     return True
 
 
