@@ -16,9 +16,9 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
       - name: Set up Python "3.10"
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.10"
       - name: Install dependencies
@@ -28,7 +28,7 @@ jobs:
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -e .[drawing,matplotlib]
       - name: Run linters
-        uses: wearerequired/lint-action@v2
+        uses: wearerequired/lint-action@548d8a7c4b04d3553d32ed5b6e91eb171e10e7bb
         with:
           black: true
       - name: Lint with flake8
@@ -38,7 +38,7 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Run mypy
-        uses: sasanquaneuf/mypy-github-action@releases/v1
+        uses: sasanquaneuf/mypy-github-action@a3f3a66f97792cac0cfd11d3e5c87088e5c8f6a9
         with:
           checkName: "lint" # NOTE: this needs to be the same as the job name
         env:
@@ -48,8 +48,8 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/ruff-action@v3
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: astral-sh/ruff-action@57714a7c8a2e59f32539362ba31877a1957dded1
       - run: ruff check --fix
   build:
     runs-on: ubuntu-latest
@@ -58,9 +58,9 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -79,9 +79,9 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
       - name: Set up Python "3.10"
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.10"
       - name: Install dependencies
@@ -100,10 +100,10 @@ jobs:
         run: |
           coverage report --precision=1 --fail-under=90 --show-missing --skip-empty
       - name: Coverage Badge
-        uses: tj-actions/coverage-badge-py@v2
+        uses: tj-actions/coverage-badge-py@1788babcb24544eb5bbb6e0d374df5d1e54e670f
 
       - name: Verify changed files (badge)
-        uses: tj-actions/verify-changed-files@v17
+        uses: tj-actions/verify-changed-files@a1c6acee9df209257a246f2cc6ae8cb6581c1edf
         id: verify-changed-files
         with:
           files: coverage.svg
@@ -120,7 +120,7 @@ jobs:
         if: |
           steps.verify-changed-files.outputs.files_changed == 'true' &&
           github.event_name != 'pull_request'
-        uses: ad-m/github-push-action@master
+        uses: ad-m/github-push-action@d91a481090679876dfc4178fef17f286781251df
         with:
           github_token: ${{ secrets.github_token }}
           branch: ${{ github.ref }}
