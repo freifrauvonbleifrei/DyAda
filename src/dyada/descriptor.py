@@ -7,7 +7,7 @@ from re import findall
 import numpy as np
 import numpy.typing as npt
 import operator
-from reprlib import repr
+import reprlib
 from typing import Iterator, Optional, Sequence, Union
 
 
@@ -106,8 +106,18 @@ class Branch(deque[LevelCounter]):
         return history_of_indices, history_of_level_increments
 
 
+class DyadaInvalidDescriptorError(Exception):
+    pass
+
+
 class RefinementDescriptor:
-    """A RefinementDescriptor holds a bitarray that describes a refinement tree. The bitarray is a depth-first linearized 2^n tree, with the parents having the refined dimensions set to 1 and the leaves containing all 0s."""
+    """
+    A RefinementDescriptor holds a bitarray that describes a refinement tree.
+    The bitarray is a depth-first linearized 2^n tree, with the parents having
+    the refined dimensions set to 1 and the leaves containing all 0s.
+    It is the (preorder depth-first) linearized binary representation of omnitrees
+    described in https://arxiv.org/abs/2508.06316 .
+    """
 
     def __init__(self, num_dimensions: int, base_resolution_level=0):
         self._num_dimensions = num_dimensions
@@ -143,10 +153,14 @@ class RefinementDescriptor:
 
     @staticmethod
     def from_binary(num_dimensions: int, binary: ba.bitarray) -> "RefinementDescriptor":
-        assert len(binary) % num_dimensions == 0
+        if len(binary) % num_dimensions != 0:
+            raise ValueError("Invalid binary input length")
         descriptor = RefinementDescriptor(num_dimensions)
         descriptor._data = binary
-        validate_descriptor(descriptor)
+        try:
+            validate_descriptor(descriptor)
+        except DyadaInvalidDescriptorError as e:
+            raise ValueError("Invalid binary input") from e
         return descriptor
 
     def __eq__(self, other):
@@ -190,7 +204,9 @@ class RefinementDescriptor:
         return self[index] == self.d_zeros
 
     def __repr__(self) -> str:
-        return f"RefinementDescriptor({repr(' '.join([b.to01() for b in self]))})"
+        return (
+            f"RefinementDescriptor({reprlib.repr(' '.join([b.to01() for b in self]))})"
+        )
 
     def __iter__(self):
         for i in range(len(self)):
@@ -274,9 +290,9 @@ class RefinementDescriptor:
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
+        box_counter = 0
         if hint_previous_branch is None:
             current_branch = Branch(self._num_dimensions)
-            box_counter = 0
             i = 0
             current_iterator = iter(self)
         else:
@@ -467,11 +483,17 @@ def branch_generator(descriptor: RefinementDescriptor):
 
 
 def validate_descriptor(descriptor: RefinementDescriptor):
-    assert len(descriptor._data) % descriptor._num_dimensions == 0
-    branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
-    assert len(branch) > 0
-    for twig in branch:
-        assert twig.count_to_go_up == 1
+    if len(descriptor._data) % descriptor._num_dimensions != 0:
+        raise DyadaInvalidDescriptorError("Uneven number of bits in descriptor")
+    try:
+        branch, _ = descriptor.get_branch(len(descriptor) - 1, False)
+    except IndexError as e:
+        raise DyadaInvalidDescriptorError(
+            "Descriptor does not form a valid omnitree"
+        ) from e
+    if not (len(branch) > 0) or any(twig.count_to_go_up != 1 for twig in branch):
+        raise DyadaInvalidDescriptorError("Descriptor not fully traversed")
+
     return True
 
 
