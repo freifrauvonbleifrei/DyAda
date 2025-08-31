@@ -359,10 +359,8 @@ class PlannedAdaptiveRefinement:
         intermediate_generation: list[tuple[int, list[ba.bitarray]]] = (
             []
         )  # with each second entry the location codes
-        children_changed = True
+
         while not twig_found:
-            assert children_changed, "No child twig found, something is wrong"
-            children_changed = False
             for child in children:
                 # find the child whose branch puts it at the same level/index as
                 # the modified branch we're looking at
@@ -416,7 +414,6 @@ class PlannedAdaptiveRefinement:
                     )
                     # if it's a perfect match, it's a coarsened node
                     if history_matches:
-                        current_old_index = child
                         twig_found = True
                         # this means that its former children are now gone
                         # and need to be mapped to this child's index
@@ -447,12 +444,9 @@ class PlannedAdaptiveRefinement:
                             (child, child_dimensionwise_positions.copy())
                         )
                         children = children_of_coarsened
-                        children_changed = True
                 else:
-                    current_old_index = child
-                    twig_found = True
-                break
-        return current_old_index, intermediate_generation
+                    return child, intermediate_generation
+        assert False
 
     def track_indices(self, old_index: int, new_index: int) -> None:
         assert new_index > -1
