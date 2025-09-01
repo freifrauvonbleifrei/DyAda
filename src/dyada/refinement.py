@@ -83,7 +83,7 @@ class PlannedAdaptiveRefinement:
         num_dimensions = self._discretization.descriptor.get_num_dimensions()
         assert len(dimensions_to_coarsen) == num_dimensions
         dimensions_not_to_coarsen = ~dimensions_to_coarsen
-        children = self._discretization.descriptor.get_siblings(index + 1)
+        # children = self._discretization.descriptor.get_siblings(index + 1)
         parent = index
 
         # assert that the parent refinement has a 1 where coarsening is requested
