@@ -258,13 +258,12 @@ class PlannedAdaptiveRefinement:
         history_of_indices, history_of_level_increments = (
             current_modified_branch.to_history()
         )
-        history_of_binary_positions = []
-        for i in range(initial_branch_depth - 1):
-            history_of_binary_positions.append(
-                self._discretization._linearization.get_binary_position_from_index(
-                    history_of_indices[: i + 1], history_of_level_increments[: i + 1]
-                )
+        history_of_binary_positions = [
+            self._discretization._linearization.get_binary_position_from_index(
+                history_of_indices[: i + 1], history_of_level_increments[: i + 1]
             )
+            for i in range(initial_branch_depth - 1)
+        ]
         # the ancestry, in old indices but new relatonships
         ancestry = descriptor.get_ancestry(current_modified_branch)
         assert len(ancestry) == initial_branch_depth - 1
