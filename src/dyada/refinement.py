@@ -285,7 +285,32 @@ class PlannedAdaptiveRefinement:
             if next_refinement == descriptor.d_zeros:
                 yield current_old_index, next_refinement, next_marker
                 for p in intermediate_generation:
-                    yield p[0], ba.bitarray(None), ancestry[-2]
+                    # find out which is the new ancestor with the tightest match
+                    # for the old location code
+                    p_len_location_code = np.fromiter(
+                        (len(location_code) for location_code in p[1]), dtype=np.int8
+                    )
+                    sum_level_increments = np.fromiter(
+                        descriptor.d_zeros,
+                        dtype=np.int8,
+                        count=descriptor.get_num_dimensions(),
+                    )
+                    not_this_parent = False
+                    for level_increment_i, level_increment in enumerate(
+                        history_of_level_increments
+                    ):
+                        sum_level_increments += np.fromiter(
+                            level_increment,
+                            dtype=np.int8,
+                            count=descriptor.get_num_dimensions(),
+                        )
+                        if any(sum_level_increments > p_len_location_code):
+                            not_this_parent = True
+                            break
+                    if not_this_parent:
+                        yield p[0], ba.bitarray(None), ancestry[level_increment_i]
+                    else:
+                        yield p[0], ba.bitarray(None), current_old_index
                 # only on leaves, we can advance the branch
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
