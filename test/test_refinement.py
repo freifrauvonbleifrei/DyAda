@@ -56,6 +56,32 @@ def test_refine_3d_only_leaves():
     assert validate_descriptor(new_descriptor)
 
 
+def test_coarsen_octree():
+    for dimensionality in range(1, 5):
+        desc_initial = RefinementDescriptor(dimensionality, [2] * dimensionality)
+        discretization_initial = Discretization(
+            MortonOrderLinearization(), desc_initial
+        )
+        # coarsen first parent
+        all_coarsening = ba.bitarray("1" * dimensionality)
+        coarsen_first_oct_plan = PlannedAdaptiveRefinement(discretization_initial)
+        coarsen_first_oct_plan.plan_coarsening(1, all_coarsening)
+        first_coarsened_descriptor, coarsen_first_oct_mapping = (
+            coarsen_first_oct_plan.apply_refinements(track_mapping="patches")
+        )
+        assert first_coarsened_descriptor[1].count() == 0
+        remaining_length = len(first_coarsened_descriptor) - 2
+        assert (
+            first_coarsened_descriptor[-remaining_length:]
+            == desc_initial[-remaining_length:]
+        )
+        assert coarsen_first_oct_mapping[0] == [0]
+        for i in range(1, 2**dimensionality + 2):
+            assert coarsen_first_oct_mapping[i] == [1]
+        for i in range(2**dimensionality + 2, len(desc_initial)):
+            assert coarsen_first_oct_mapping[i] == [i - 2**dimensionality]
+
+
 def helper_check_mapping(
     index_mapping: dict,
     old_discretization: Discretization,

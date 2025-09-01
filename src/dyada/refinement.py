@@ -469,7 +469,7 @@ class PlannedAdaptiveRefinement:
                         # this needs linearization (if not morton order)
                         assert (
                             self._discretization._linearization
-                            == MortonOrderLinearization
+                            == MortonOrderLinearization()
                         )
                         grandchild_location_code = child_dimensionwise_positions.copy()
                         binarized_index = bitarray.util.int2ba(
@@ -480,6 +480,7 @@ class PlannedAdaptiveRefinement:
                         intermediate_generation.append(
                             (child_of_coarsened, grandchild_location_code)
                         )
+                    return child, intermediate_generation
                 else:
                     # else, it's a node that's going to disappear
                     # -> restart loop with new children and remember this one
