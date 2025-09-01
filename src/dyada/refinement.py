@@ -10,6 +10,7 @@ from typing import Optional, Union
 from dyada.coordinates import bitarray_startswith
 from dyada.descriptor import (
     RefinementDescriptor,
+    Branch,
     get_regular_refined,
     hierarchical_to_box_index_mapping,
     find_uniqueness_violations,
