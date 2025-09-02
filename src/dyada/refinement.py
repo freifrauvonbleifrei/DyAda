@@ -94,7 +94,7 @@ class PlannedAdaptiveRefinement:
             not (parent_refinement | dimensions_not_to_coarsen).count()
             == num_dimensions
         ):
-            raise ValueError(f"Current refinement does not match coarsening dimensions")
+            raise ValueError("Current refinement does not match coarsening dimensions")
 
         children = self._discretization.descriptor.get_siblings(index + 1)
         for child in children:
