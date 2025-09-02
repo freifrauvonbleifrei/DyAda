@@ -62,8 +62,18 @@ def test_coarsen_octree():
         discretization_initial = Discretization(
             MortonOrderLinearization(), desc_initial
         )
-        # coarsen first parent
         all_coarsening = ba.bitarray("1" * dimensionality)
+        # coarsening the root node is not allowed
+        with pytest.raises(ValueError):
+            coarsen_root_plan = PlannedAdaptiveRefinement(discretization_initial)
+            coarsen_root_plan.plan_coarsening(0, all_coarsening)
+        # coarsening a leaf is not allowed
+        with pytest.raises(ValueError):
+            coarsen_leaf_plan = PlannedAdaptiveRefinement(discretization_initial)
+            coarsen_leaf_plan.plan_coarsening(
+                len(desc_initial) - 1, all_coarsening
+            )
+        # coarsen first parent
         coarsen_first_oct_plan = PlannedAdaptiveRefinement(discretization_initial)
         coarsen_first_oct_plan.plan_coarsening(1, all_coarsening)
         first_coarsened_descriptor, coarsen_first_oct_mapping = (
