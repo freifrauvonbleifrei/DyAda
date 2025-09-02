@@ -70,9 +70,7 @@ def test_coarsen_octree():
         # coarsening a leaf is not allowed
         with pytest.raises(ValueError):
             coarsen_leaf_plan = PlannedAdaptiveRefinement(discretization_initial)
-            coarsen_leaf_plan.plan_coarsening(
-                len(desc_initial) - 1, all_coarsening
-            )
+            coarsen_leaf_plan.plan_coarsening(len(desc_initial) - 1, all_coarsening)
         # coarsen first parent
         coarsen_first_oct_plan = PlannedAdaptiveRefinement(discretization_initial)
         coarsen_first_oct_plan.plan_coarsening(1, all_coarsening)
