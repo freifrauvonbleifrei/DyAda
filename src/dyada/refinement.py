@@ -81,14 +81,29 @@ class PlannedAdaptiveRefinement:
             dimensions_to_coarsen (ba.bitarray): 1 denotes if the node should be coarsened
         """
         num_dimensions = self._discretization.descriptor.get_num_dimensions()
-        assert len(dimensions_to_coarsen) == num_dimensions
+        if not len(dimensions_to_coarsen) == num_dimensions:
+            raise ValueError(
+                f"Expected {num_dimensions} dimensions, got {len(dimensions_to_coarsen)}"
+            )
         dimensions_not_to_coarsen = ~dimensions_to_coarsen
-        # children = self._discretization.descriptor.get_siblings(index + 1)
         parent = index
 
         # assert that the parent refinement has a 1 where coarsening is requested
         parent_refinement = self._discretization.descriptor[parent]
-        assert (parent_refinement | dimensions_not_to_coarsen).count() == num_dimensions
+        if (
+            not (parent_refinement | dimensions_not_to_coarsen).count()
+            == num_dimensions
+        ):
+            raise ValueError(f"Current refinement does not match coarsening dimensions")
+
+        children = self._discretization.descriptor.get_siblings(index + 1)
+        for child in children:
+            # make sure that the children are not refined in the dimensions to be coarsened
+            child_refinement = self._discretization.descriptor[child]
+            if (child_refinement & dimensions_to_coarsen).count() > 0:
+                raise ValueError(
+                    f"Child {child} is refined in a dimension to be coarsened"
+                )
 
         np_dimensions_to_coarsen = np.fromiter(
             dimensions_to_coarsen,
@@ -326,6 +341,7 @@ class PlannedAdaptiveRefinement:
                         count=descriptor.get_num_dimensions(),
                     )
                     not_this_parent = False
+                    level_increment_i = 0
                     for level_increment_i, level_increment in enumerate(
                         history_of_level_increments
                     ):
@@ -497,10 +513,13 @@ class PlannedAdaptiveRefinement:
                     ):
                         # need to append the binarized index of the child, broadcast to split dimensions
                         # this needs linearization (if not morton order)
-                        assert (
+                        if not (
                             self._discretization._linearization
                             == MortonOrderLinearization()
-                        )
+                        ):
+                            raise NotImplementedError(
+                                "Refinement tracking not implemented for non-Morton order linearizations"
+                            )
                         grandchild_location_code = child_dimensionwise_positions.copy()
                         binarized_index = bitarray.util.int2ba(
                             grandchild_index, length=child_refinement.count()
