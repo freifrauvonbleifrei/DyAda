@@ -326,20 +326,22 @@ class PlannedAdaptiveRefinement:
                 modified_dimensionwise_positions,
                 ancestry[-1] if len(ancestry) > 0 else 0,
             )
-            self._sub_location_code_map.add(
-                modified_dimensionwise_positions,
-                current_old_index,
-            )
+            if len(modified_dimensionwise_positions) == 0:
+                modified_dimensionwise_positions = [
+                    ba.bitarray() for _ in range(descriptor.get_num_dimensions())
+                ]
             ancestry.append(current_old_index)
             next_refinement, next_marker = self.refinement_with_marker_applied(
                 current_old_index
             )
             if next_refinement == descriptor.d_zeros:
-                yield current_old_index, next_refinement, next_marker
+                yield current_old_index, next_refinement, modified_dimensionwise_positions, next_marker
                 for p in intermediate_generation:
                     # find out which is the new ancestor with the tightest match
                     # for the old location code
-                    yield p[0], ba.bitarray(None), self._sub_location_code_map[p[1]]
+                    yield p[0], ba.bitarray(None), None, self._sub_location_code_map[
+                        p[1]
+                    ]
                 # only on leaves, we can advance the branch
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
@@ -363,7 +365,7 @@ class PlannedAdaptiveRefinement:
                 ancestry = ancestry[: current_modified_branch_depth - 1]
             else:
                 # on non-leaves, we need to grow the branch
-                yield current_old_index, next_refinement
+                yield current_old_index, next_refinement, modified_dimensionwise_positions
                 current_modified_branch.grow_branch(next_refinement)
                 history_of_level_increments.append(next_refinement)
                 history_of_indices.append(0)
@@ -533,12 +535,51 @@ class PlannedAdaptiveRefinement:
         new_descriptor: RefinementDescriptor,
         range_to_extend: Union[int, tuple[int, int]],
         extension: ba.bitarray,
+        list_of_new_dimensionwise_positions: Sequence[ba.bitarray] | None = None,
     ) -> None:
         previous_length = len(new_descriptor)
         new_descriptor._data.extend(extension)
         if isinstance(range_to_extend, int):
             for new_index in range(previous_length, len(new_descriptor)):
                 self.track_indices(range_to_extend, new_index)
+
+            if list_of_new_dimensionwise_positions is not None:
+                assert (
+                    len(list_of_new_dimensionwise_positions)
+                    == self._discretization.descriptor.get_num_dimensions()
+                )
+                if len(new_descriptor) - previous_length > 1:
+                    mini_descriptor = RefinementDescriptor.from_binary(
+                        self._discretization.descriptor.get_num_dimensions(), extension
+                    )
+                    for branch, _ in branch_generator(mini_descriptor):
+                        mini_dimensionwise_position = (
+                            get_dimensionwise_positions_from_branch(
+                                branch, self._discretization._linearization
+                            )
+                        )
+                        if len(mini_dimensionwise_position) == 0:
+                            new_dimensionwise_position = (
+                                list_of_new_dimensionwise_positions
+                            )
+                        else:
+                            assert len(mini_dimensionwise_position) == len(
+                                list_of_new_dimensionwise_positions
+                            )
+                            new_dimensionwise_position = [
+                                list_of_new_dimensionwise_positions[d]
+                                + mini_dimensionwise_position[d]
+                                for d in range(len(mini_dimensionwise_position))
+                            ]
+                        self._sub_location_code_map.add(
+                            new_dimensionwise_position,
+                            new_index,
+                        )
+                else:
+                    self._sub_location_code_map.add(
+                        list_of_new_dimensionwise_positions,
+                        previous_length,
+                    )
         else:
             for old_index, new_index in zip(
                 range(range_to_extend[0], range_to_extend[1]),
@@ -575,6 +616,7 @@ class PlannedAdaptiveRefinement:
             for (
                 old_index,
                 new_refinement,
+                list_of_new_dimensionwise_positions,
                 *marker_or_ancestor,
             ) in self.modified_branch_generator(index_to_refine):
                 if len(marker_or_ancestor) > 0:
@@ -586,10 +628,14 @@ class PlannedAdaptiveRefinement:
                         # a node was coarsened, but is still there
                         assert self._discretization.descriptor[old_index].count() > 0
                         self.extend_descriptor_and_track_indices(
-                            new_descriptor, old_index, new_refinement
+                            new_descriptor,
+                            old_index,
+                            new_refinement,
+                            list_of_new_dimensionwise_positions,
                         )
                     else:
                         if new_refinement == ba.bitarray(None):
+                            # node is vanishing
                             assert len(marker_or_ancestor) == 1
                             # track only the index,
                             # namely the one of the previous (grand...)parent
@@ -604,11 +650,15 @@ class PlannedAdaptiveRefinement:
                                 new_descriptor,
                                 old_index,
                                 get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
+                                list_of_new_dimensionwise_positions,
                             )
                 else:
                     # a stable parent node
                     self.extend_descriptor_and_track_indices(
-                        new_descriptor, old_index, new_refinement
+                        new_descriptor,
+                        old_index,
+                        new_refinement,
+                        list_of_new_dimensionwise_positions,
                     )
                 last_extended_index = max(last_extended_index, old_index)
             one_after_last_extended_index = last_extended_index + 1
