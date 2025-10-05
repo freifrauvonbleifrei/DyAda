@@ -21,6 +21,7 @@ from dyada.linearization import (
     get_dimensionwise_positions_from_branch,
     MortonOrderLinearization,
 )
+from dyada.locationcodemap import LocationCodeMap
 
 
 def is_lru_cached(func):
@@ -313,6 +314,7 @@ class PlannedAdaptiveRefinement:
         ancestry = descriptor.get_ancestry(current_modified_branch)
         assert len(ancestry) == initial_branch_depth - 1
 
+        sub_location_code_map = LocationCodeMap()
         intermediate_generation: list[tuple[int, list[ba.bitarray]]] = []
         while True:
             # get the currently desired location info
@@ -323,6 +325,10 @@ class PlannedAdaptiveRefinement:
                 modified_dimensionwise_positions,
                 ancestry[-1] if len(ancestry) > 0 else 0,
             )
+            sub_location_code_map.add(
+                modified_dimensionwise_positions,
+                current_old_index,
+            )
             ancestry.append(current_old_index)
             next_refinement, next_marker = self.refinement_with_marker_applied(
                 current_old_index
@@ -332,31 +338,7 @@ class PlannedAdaptiveRefinement:
                 for p in intermediate_generation:
                     # find out which is the new ancestor with the tightest match
                     # for the old location code
-                    p_len_location_code = np.fromiter(
-                        (len(location_code) for location_code in p[1]), dtype=np.int8
-                    )
-                    sum_level_increments = np.fromiter(
-                        descriptor.d_zeros,
-                        dtype=np.int8,
-                        count=descriptor.get_num_dimensions(),
-                    )
-                    not_this_parent = False
-                    level_increment_i = 0
-                    for level_increment_i, level_increment in enumerate(
-                        history_of_level_increments
-                    ):
-                        sum_level_increments += np.fromiter(
-                            level_increment,
-                            dtype=np.int8,
-                            count=descriptor.get_num_dimensions(),
-                        )
-                        if any(sum_level_increments > p_len_location_code):
-                            not_this_parent = True
-                            break
-                    if not_this_parent:
-                        yield p[0], ba.bitarray(None), ancestry[level_increment_i]
-                    else:
-                        yield p[0], ba.bitarray(None), current_old_index
+                    yield p[0], ba.bitarray(None), sub_location_code_map[p[1]]
                 # only on leaves, we can advance the branch
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
