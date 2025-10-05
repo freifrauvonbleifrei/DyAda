@@ -10,7 +10,9 @@ class LocationCodeMap:
         # TODO or marisa trie? or use IEEE floats?
 
     def add(self, location_code: Iterable[ba.bitarray], index: int):
-        self._map[tuple(ba.frozenbitarray(l) for l in location_code)] = index
+        self._map[
+            tuple(ba.frozenbitarray(one_d_code) for one_d_code in location_code)
+        ] = index
 
     def get_tightest_match(self, location_code: Iterable[ba.bitarray]) -> int:
         def get_matching_levels(
@@ -25,7 +27,7 @@ class LocationCodeMap:
             for level in range(len(candidate)):
                 if looking_for[level] != candidate[level]:
                     return -1
-            return level + 1
+            return level
 
         def get_total_matching_levels(
             looking_for: Iterable[ba.bitarray], candidate: Iterable[ba.bitarray]
