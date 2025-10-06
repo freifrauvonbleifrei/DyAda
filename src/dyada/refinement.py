@@ -312,11 +312,10 @@ class PlannedAdaptiveRefinement:
             )
             for i in range(initial_branch_depth - 1)
         ]
-        # the ancestry, in old indices but new relatonships
+        # the ancestry, in old indices but new relationships
         ancestry = descriptor.get_ancestry(current_modified_branch)
         assert len(ancestry) == initial_branch_depth - 1
 
-        self._sub_location_code_map = LocationCodeMap()
         intermediate_generation: list[tuple[int, list[ba.bitarray]]] = []
         while True:
             # get the currently desired location info
@@ -347,8 +346,39 @@ class PlannedAdaptiveRefinement:
                 try:
                     current_modified_branch.advance_branch(initial_branch_depth)
                 except IndexError:
-                    # done!
+                    # if we're done with coarsening now, need to make sure that all indices in between have found their new place
+                    # TODO only if necessary
+                    original_branch_generator = branch_generator(descriptor)
+                    # figure out range in original descriptor
+                    for _ in range(starting_index + 1):
+                        original_branch, _u = next(original_branch_generator)
+                    assert len(original_branch) == initial_branch_depth
+                    # count until this part has finished
+                    try:
+                        original_branch, _u = next(original_branch_generator)
+                    except StopIteration:
+                        break
+                    within_branch_index = starting_index + 1
+                    while len(original_branch) > initial_branch_depth:
+                        # check if it's in the index mapping, if not yield late now
+                        if within_branch_index not in self._index_mapping.keys():
+                            within_location_code = (
+                                get_dimensionwise_positions_from_branch(
+                                    original_branch,
+                                    self._discretization._linearization,
+                                )
+                            )
+                            yield within_branch_index, ba.bitarray(
+                                None
+                            ), None, self._sub_location_code_map[within_location_code]
+                        try:
+                            original_branch, _u = next(original_branch_generator)
+                        except StopIteration:
+                            break
+                        within_branch_index += 1
+
                     self._sub_location_code_map = LocationCodeMap()
+                    # done!
                     return
                 # prune all other data to current length,
                 # so we don't have to recompute from new branch
