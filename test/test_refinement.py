@@ -343,14 +343,14 @@ def test_refine_fully():
 
 
 def test_refine_2d_1():
-    prependable_string = "10010000"
+    prependable_string = "10 01 00 00"
     descriptor = RefinementDescriptor.from_binary(
         2,
-        ba.bitarray(prependable_string + "10110000000000"),
+        ba.bitarray(prependable_string + "10 11 00 00 00 00 00"),
     )
     validate_descriptor(descriptor)
     correct_descriptor = RefinementDescriptor.from_binary(
-        2, ba.bitarray("11001010000000001010000000")
+        2, ba.bitarray("11 00 10 10 00 00 00 00 10 10 00 00 00")
     )
     validate_descriptor(correct_descriptor)
 
@@ -559,8 +559,8 @@ def test_refine_2d_4():
     assert num_rounds == 5
     assert patch_mapping == {
         0: [0],
-        1: [1, 17],
-        2: [1, 17],
+        1: [1, 17], #[0],
+        2: [1, 17], #[0],
         3: [1],
         4: [2],
         5: [3],
@@ -569,16 +569,16 @@ def test_refine_2d_4():
         8: [6],
         9: [12],
         10: [18],
-        11: [7, 13, 19],
-        12: [7, 13, 19],
-        13: [7, 13],
+        11: [7, 13, 19], #[0],
+        12: [7, 13, 19], #[0],
+        13: [7, 13], #[1],
         14: [7],
         15: [8],
         16: [10],
         17: [14],
         18: [20],
-        19: [7, 13, 19],
-        20: [7, 13],
+        19: [7, 13, 19], #[0],
+        20: [7, 13], #[1],
         21: [7],
         22: [9],
         23: [11],
