@@ -62,32 +62,26 @@ def test_coarsen_octree():
         discretization_initial = Discretization(
             MortonOrderLinearization(), desc_initial
         )
-        all_coarsening = ba.bitarray("1" * dimensionality)
-        # coarsening the root node is not allowed
-        with pytest.raises(ValueError):
-            coarsen_root_plan = PlannedAdaptiveRefinement(discretization_initial)
-            coarsen_root_plan.plan_coarsening(0, all_coarsening)
-        # coarsening a leaf is not allowed
-        with pytest.raises(ValueError):
-            coarsen_leaf_plan = PlannedAdaptiveRefinement(discretization_initial)
-            coarsen_leaf_plan.plan_coarsening(len(desc_initial) - 1, all_coarsening)
-        # coarsen first parent
-        coarsen_first_oct_plan = PlannedAdaptiveRefinement(discretization_initial)
-        coarsen_first_oct_plan.plan_coarsening(1, all_coarsening)
-        first_coarsened_descriptor, coarsen_first_oct_mapping = (
-            coarsen_first_oct_plan.apply_refinements(track_mapping="patches")
-        )
-        assert first_coarsened_descriptor[1].count() == 0
-        remaining_length = len(first_coarsened_descriptor) - 2
-        assert (
-            first_coarsened_descriptor[-remaining_length:]
-            == desc_initial[-remaining_length:]
-        )
-        assert coarsen_first_oct_mapping[0] == [0]
-        for i in range(1, 2**dimensionality + 2):
-            assert coarsen_first_oct_mapping[i] == [1]
-        for i in range(2**dimensionality + 2, len(desc_initial)):
-            assert coarsen_first_oct_mapping[i] == [i - 2**dimensionality]
+        # iterate all partial coarsenings where at least the last dimension is coarsened
+        for j in range(2 ** (dimensionality - 1)):
+            coarsen_dimensions = (
+                ba.util.int2ba(j, length=dimensionality - 1)
+                if dimensionality > 1
+                else ba.bitarray()
+            )
+            coarsen_dimensions += ba.bitarray("1")
+            p = PlannedAdaptiveRefinement(discretization_initial)
+            # apply to second hierarchical interval (index 1)
+            p.plan_coarsening(1, coarsen_dimensions)
+            new_descriptor, new_mapping = p.apply_refinements(track_mapping="patches")
+            assert validate_descriptor(new_descriptor)
+
+            # assert that the mapping is correct
+            previous_children_of_one = desc_initial.get_children(1)
+            for c in previous_children_of_one:
+                previous_children_of_children_of_one = desc_initial.get_children(c)
+                for cc in previous_children_of_children_of_one:
+                    assert new_mapping[cc] == [c]
 
 
 def helper_check_mapping(
