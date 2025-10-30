@@ -4,6 +4,8 @@ import functools
 
 
 class LocationCodeMap:
+    """An (intermediate) explicit mapping from location codes to indices."""
+
     def __init__(self) -> None:
         self._map: dict[tuple[ba.bitarray, ...], int] = {}
         # TODO think of smarter data structure, maybe a patricia trie?
