@@ -1,4 +1,5 @@
 import bitarray as ba
+import bitarray.util
 from collections import defaultdict
 from functools import lru_cache
 import numpy as np
@@ -12,9 +13,11 @@ from dyada.descriptor import (
     get_regular_refined,
     hierarchical_to_box_index_mapping,
     find_uniqueness_violations,
+    Branch,
 )
 from dyada.discretization import Discretization
 from dyada.linearization import (
+    MortonOrderLinearization,
     get_dimensionwise_positions,
     get_dimensionwise_positions_from_branch,
 )
@@ -273,7 +276,6 @@ class PlannedAdaptiveRefinement:
                 history_of_binary_positions, history_of_level_increments
             )
             current_old_index, intermediate_generation = self.find_next_twig(
-                descriptor,
                 modified_dimensionwise_positions,
                 ancestry[-1] if len(ancestry) > 0 else 0,
             )
@@ -320,13 +322,66 @@ class PlannedAdaptiveRefinement:
             )
             history_of_binary_positions.append(latest_binary_position)
 
+    def is_old_index_now_at_or_containing_location_code(
+        self,
+        desired_dimensionwise_positions: list[ba.bitarray],
+        parent_of_next_refinement: int,
+        parent_branch: Branch,
+        old_index: int,
+    ) -> tuple[bool, list[ba.bitarray]]:
+        descriptor = self._discretization.descriptor
+        num_dimensions = descriptor.get_num_dimensions()
+        old_index_branch, _ = descriptor.get_branch(
+            old_index,
+            is_box_index=False,
+            hint_previous_branch=(parent_of_next_refinement, parent_branch),
+        )
+        old_index_dimensionwise_positions = get_dimensionwise_positions_from_branch(
+            old_index_branch, self._discretization._linearization
+        )
+
+        old_index_ancestors = descriptor.get_ancestry(old_index_branch)
+        old_index_ancestry_accumulated_markers = np.sum(
+            [self._markers[ancestor] for ancestor in old_index_ancestors],
+            axis=0,
+        )
+        shortened_parent_positions = [
+            desired_dimensionwise_positions[d][
+                : len(desired_dimensionwise_positions[d])
+                - old_index_ancestry_accumulated_markers[d]
+            ]
+            for d in range(num_dimensions)
+        ]
+        part_of_history = all(
+            bitarray_startswith(
+                old_index_dimensionwise_positions[d],
+                shortened_parent_positions[d],
+            )
+            for d in range(num_dimensions)
+        )
+        return part_of_history, old_index_dimensionwise_positions
+
     def find_next_twig(
         self,
-        descriptor: RefinementDescriptor,
         desired_dimensionwise_positions: list[ba.bitarray],
         parent_of_next_refinement: int,
     ) -> tuple[int, list[int]]:
-        # with which binary position do we get the currently desired position?
+        """get the (old) tree node corresponding to the location code, and any nodes encountered on the way
+        Args:
+            desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
+            parent_of_next_refinement (int): parent or other ancestor of the index we're looking for
+        Returns:
+            tuple[int, list[tuple[int, list[ba.bitarray]]]]:
+                tuple consisting of the (old) node index
+                and a list of (otherwise forgotten) intermediate nodes and their location codes
+                    these intermediate nodes are descendants of parent_of_next_refinement,
+                    and either culled children of the returned node
+                    (in case it is now a leaf),
+                    or culled ancestors of the returned node
+        """
+        # with which next (old) index do we get the currently desired position?
+
+        descriptor = self._discretization.descriptor
         if len(desired_dimensionwise_positions) == 0:
             return 0, []  # root node
         num_dimensions = descriptor.get_num_dimensions()
@@ -339,41 +394,19 @@ class PlannedAdaptiveRefinement:
         # keeping track of predecessors that are going to disappear
         twig_found = False
         intermediate_generation: list[int] = []
-        children_changed = True
         while not twig_found:
-            assert children_changed, "No child twig found, something is wrong"
-            children_changed = False
+            # find the child whose branch puts it at the same level/index as
+            # the modified branch we're looking at
             for child in children:
-                # find the child whose branch puts it at the same level/index as
-                # the modified branch we're looking at
-                child_old_branch, _ = descriptor.get_branch(
-                    child,
-                    is_box_index=False,
-                    hint_previous_branch=(parent_of_next_refinement, parent_branch),
-                )
-                child_dimensionwise_positions = get_dimensionwise_positions_from_branch(
-                    child_old_branch, self._discretization._linearization
+                part_of_history, child_dimensionwise_positions = (
+                    self.is_old_index_now_at_or_containing_location_code(
+                        desired_dimensionwise_positions,
+                        parent_of_next_refinement,
+                        parent_branch,
+                        child,
+                    )
                 )
 
-                child_ancestors = descriptor.get_ancestry(child_old_branch)
-                child_ancestry_accumulated_markers = np.sum(
-                    [self._markers[ancestor] for ancestor in child_ancestors],
-                    axis=0,
-                )
-                shortened_parent_positions = [
-                    desired_dimensionwise_positions[d][
-                        : len(desired_dimensionwise_positions[d])
-                        - child_ancestry_accumulated_markers[d]
-                    ]
-                    for d in range(num_dimensions)
-                ]
-                part_of_history = all(
-                    bitarray_startswith(
-                        child_dimensionwise_positions[d],
-                        shortened_parent_positions[d],
-                    )
-                    for d in range(num_dimensions)
-                )
                 if not part_of_history:
                     continue
 
@@ -381,34 +414,52 @@ class PlannedAdaptiveRefinement:
                     self.refinement_with_marker_applied(child)
                 )
                 if (
-                    np.min(child_marker) < 0
-                    and child_future_refinement == descriptor.d_zeros
+                    np.min(child_marker) >= 0
+                    or child_future_refinement != descriptor.d_zeros
                 ):
-                    children_of_coarsened = descriptor.get_children(child)
-                    history_matches = all(
-                        child_dimensionwise_positions[d]
-                        == desired_dimensionwise_positions[d]
-                        for d in range(num_dimensions)
-                    )
-                    # if it's a perfect match, it's a coarsened node
-                    if history_matches:
-                        current_old_index = child
-                        twig_found = True
-                        # this means that its former children are now gone
-                        # and need to be mapped to this child's index
-                        for child_of_coarsened in children_of_coarsened:
-                            intermediate_generation.append(child_of_coarsened)
-                    else:
-                        # else, it's a node that's going to disappear
-                        # -> restart loop with new children
-                        intermediate_generation.append(child)
-                        children = children_of_coarsened
-                        children_changed = True
-                else:
-                    current_old_index = child
+                    return child, intermediate_generation
+
+                child_refinement = self._discretization.descriptor[child]
+                child_refined_dimensions = {
+                    d for d in range(num_dimensions) if child_refinement[d] == 1
+                }
+                children_of_coarsened = descriptor.get_children(child)
+                history_matches = all(
+                    child_dimensionwise_positions[d]
+                    == desired_dimensionwise_positions[d]
+                    for d in range(num_dimensions)
+                )
+                # if it's a perfect match, it's a coarsened node
+                if history_matches:
                     twig_found = True
-                break
-        return current_old_index, intermediate_generation
+                    # this means that its former children are now gone
+                    # and need to be mapped to this child's index
+                    for grandchild_index, child_of_coarsened in enumerate(
+                        children_of_coarsened
+                    ):
+                        # need to append the binarized index of the child, broadcast to split dimensions
+                        # this needs linearization (if not morton order)
+                        if not (
+                            self._discretization._linearization
+                            == MortonOrderLinearization()
+                        ):
+                            raise NotImplementedError(
+                                "Refinement tracking not implemented for non-Morton order linearizations"
+                            )
+                        grandchild_location_code = child_dimensionwise_positions.copy()
+                        binarized_index = bitarray.util.int2ba(
+                            grandchild_index, length=child_refinement.count()
+                        )
+                        for d_i, d in enumerate(child_refined_dimensions):
+                            grandchild_location_code[d].append(binarized_index[d_i])
+                        intermediate_generation.append(child_of_coarsened)
+                    return child, intermediate_generation
+                else:
+                    # else, it's a node that's going to disappear
+                    # -> restart loop with new children and remember this one
+                    intermediate_generation.append(child)
+                    children = children_of_coarsened
+        assert False
 
     def track_indices(self, old_index: int, new_index: int) -> None:
         assert new_index > -1
