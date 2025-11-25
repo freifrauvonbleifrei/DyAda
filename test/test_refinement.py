@@ -569,6 +569,30 @@ def test_refine_2d_4():
     ]
 
 
+def test_refine_2d_5():
+    """Test found through randomized testing, it used to return incomplete mapping"""
+    descriptor = RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray("11 10 00 01 01 00 00 01 00 00 00 00 00"),
+    )
+    assert validate_descriptor(descriptor)
+
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    refinement = ba.bitarray("01")
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, refinement)
+    new_discretization, index_mapping = p.apply_refinements(track_mapping="patches")
+
+    assert validate_descriptor(new_discretization.descriptor)
+    helper_check_mapping(
+        index_mapping,
+        discretization,
+        new_discretization,
+        mapping_indices_are_boxes=False,
+        tested_refinement=[refinement],
+    )
+
+
 def test_refine_3d():
     prependable_string = "110001000000001000000001000000"
     for round_number in range(4):
