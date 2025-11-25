@@ -371,9 +371,9 @@ class PlannedAdaptiveRefinement:
             desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
             parent_of_next_refinement (int): parent or other ancestor of the index we're looking for
         Returns:
-            tuple[int, list[tuple[int, list[ba.bitarray]]]]:
+            tuple[int, list[int]]:
                 tuple consisting of the (old) node index
-                and a list of (otherwise forgotten) intermediate nodes and their location codes
+                and a list of (otherwise forgotten) intermediate nodes:
                     these intermediate nodes are descendants of parent_of_next_refinement,
                     and either culled children of the returned node
                     (in case it is now a leaf),
