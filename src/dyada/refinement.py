@@ -246,6 +246,13 @@ class PlannedAdaptiveRefinement:
                     return
 
             else:
+                for p in intermediate_generation:
+                    yield self.Refinement(
+                        self.Refinement.Type.TrackOnly,
+                        p,
+                        None,
+                        ancestrybranch.ancestry[-1],
+                    )
                 yield self.Refinement(
                     self.Refinement.Type.CopyOver,
                     current_old_index,
