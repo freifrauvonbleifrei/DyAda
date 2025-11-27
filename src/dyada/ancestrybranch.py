@@ -59,15 +59,18 @@ class AncestryBranch:
         self, markers: MappingProxyType[int, npt.NDArray[np.int8]]
     ) -> tuple[int, list[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
         # get the currently desired location info
-        modified_dimensionwise_positions = get_dimensionwise_positions(
-            self._history_of_binary_positions, self._history_of_level_increments
-        )
-        current_old_index, intermediate_generation = find_next_twig(
-            self._discretization,
-            markers,
-            modified_dimensionwise_positions,
-            self.ancestry[-1] if len(self.ancestry) > 0 else 0,
-        )
+        current_old_index = 0
+        intermediate_generation: list[int] = []
+        if len(self._history_of_binary_positions) > 0:  # if not at root
+            modified_dimensionwise_positions = get_dimensionwise_positions(
+                self._history_of_binary_positions, self._history_of_level_increments
+            )
+            current_old_index, intermediate_generation = find_next_twig(
+                self._discretization,
+                markers,
+                modified_dimensionwise_positions,
+                self.ancestry[-1],
+            )
         self.ancestry.append(current_old_index)
         next_refinement, next_marker = refinement_with_marker_applied(
             self._discretization.descriptor, current_old_index, markers
@@ -195,11 +198,7 @@ def find_next_twig(
                 (in case it is now a leaf),
                 or culled ancestors of the returned node
     """
-    # with which next (old) index do we get the currently desired position?
-
     descriptor = discretization.descriptor
-    if len(desired_dimensionwise_positions) == 0:
-        return 0, []  # root node
     num_dimensions = descriptor.get_num_dimensions()
     parent_branch, _ = descriptor.get_branch(
         parent_of_next_refinement, is_box_index=False
@@ -208,9 +207,8 @@ def find_next_twig(
 
     # determine which child twig to go down next,
     # keeping track of predecessors that are going to disappear
-    twig_found = False
     intermediate_generation: list[int] = []
-    while not twig_found:
+    while True:
         # find the child whose branch puts it at the same level/index as
         # the modified branch we're looking at
         for child in children:
@@ -224,10 +222,8 @@ def find_next_twig(
                     child,
                 )
             )
-
             if not part_of_history:
                 continue
-
             child_future_refinement, child_marker = refinement_with_marker_applied(
                 descriptor, child, MappingProxyType(markers)
             )
@@ -235,16 +231,16 @@ def find_next_twig(
                 np.min(child_marker) >= 0
                 or child_future_refinement != descriptor.d_zeros
             ):
+                # if it's a perfect match, we found the next twig
                 return child, intermediate_generation
 
+            # else it's a coarsened node and we can see if there is a matching child
             children_of_coarsened = descriptor.get_children(child)
             history_matches = all(
                 child_dimensionwise_positions[d] == desired_dimensionwise_positions[d]
                 for d in range(num_dimensions)
             )
-            # if it's a perfect match, it's a coarsened node
             if history_matches:
-                twig_found = True
                 # this means that its former children are now gone
                 # and need to be mapped to this child's index
                 for child_of_coarsened in children_of_coarsened:
@@ -263,5 +259,3 @@ def find_next_twig(
                 # -> restart loop with new children and remember this one
                 intermediate_generation.append(child)
                 children = children_of_coarsened
-
-    raise RuntimeError("Logic error: no matching child found in find_next_twig.")
