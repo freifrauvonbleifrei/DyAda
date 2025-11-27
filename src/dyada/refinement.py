@@ -1,5 +1,7 @@
 import bitarray as ba
 from collections import defaultdict
+import dataclasses
+from enum import auto, Enum
 from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
@@ -222,6 +224,18 @@ class PlannedAdaptiveRefinement:
                 # no more indices left in markers
                 break
 
+    @dataclasses.dataclass
+    class Refinement:
+        class Type(Enum):
+            CopyOver = auto()
+            TrackOnly = auto()
+            ExpandLeaf = auto()
+
+        type: "Type"
+        old_index: int
+        new_refinement: ba.bitarray | None = None
+        marker_or_ancestor: npt.NDArray[np.int8] | int | None = None
+
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
         ancestrybranch = AncestryBranch(self._discretization, starting_index)
@@ -232,19 +246,32 @@ class PlannedAdaptiveRefinement:
                 ancestrybranch.get_current_location_info(proxy_markers)
             )
             if next_refinement == descriptor.d_zeros:
-                yield current_old_index, next_refinement, next_marker
+                yield self.Refinement(
+                    self.Refinement.Type.ExpandLeaf,
+                    current_old_index,
+                    next_refinement,
+                    next_marker,
+                )
                 for p in intermediate_generation:
-                    yield p, ba.bitarray(None), ancestrybranch.ancestry[-2]
-                # only on leaves, we can advance the branch
+                    yield self.Refinement(
+                        self.Refinement.Type.TrackOnly,
+                        p,
+                        None,
+                        ancestrybranch.ancestry[-2],
+                    )
+                # only on leaves, we advance the branch
                 try:
                     ancestrybranch.advance()
-                except IndexError:
-                    # done!
+                except IndexError:  # done!
                     return
 
             else:
-                # on non-leaves, we need to grow the branch
-                yield current_old_index, next_refinement
+                yield self.Refinement(
+                    self.Refinement.Type.CopyOver,
+                    current_old_index,
+                    next_refinement,
+                )
+                # on non-leaves, we grow the branch
                 ancestrybranch.grow(next_refinement)
 
     def track_indices(self, old_index: int, new_index: int) -> None:
@@ -295,44 +322,40 @@ class PlannedAdaptiveRefinement:
 
             # only refine where there are markers
             last_extended_index = -1
-            for (
-                old_index,
-                new_refinement,
-                *marker_or_ancestor,
-            ) in self.modified_branch_generator(index_to_refine):
-                if len(marker_or_ancestor) > 0:
-                    assert (
-                        new_refinement == old_descriptor.d_zeros
-                        or new_refinement == ba.bitarray(None)
-                    )
-                    if np.min(marker_or_ancestor) < 0:
-                        # a node was coarsened, but is still there
-                        assert self._discretization.descriptor[old_index].count() > 0
+            for requested_refinement in self.modified_branch_generator(index_to_refine):
+                match requested_refinement:
+                    case self.Refinement(
+                        self.Refinement.Type.TrackOnly,
+                        old_index,
+                        None,
+                        int() as new_index,
+                    ):
+                        # track only the index,
+                        # namely the one of the previous (grand...)parent
+                        self.track_indices(old_index, new_index)
+                    case self.Refinement(
+                        self.Refinement.Type.ExpandLeaf,
+                        old_index,
+                        ba.bitarray() as new_refinement,
+                        np.ndarray() as new_marker,
+                    ):
+                        assert self._discretization.descriptor[old_index].count() == 0
+                        self.extend_descriptor_and_track_indices(
+                            new_descriptor,
+                            old_index,
+                            get_regular_refined(new_marker),  # type: ignore
+                        )
+                    case self.Refinement(
+                        self.Refinement.Type.CopyOver,
+                        old_index,
+                        ba.bitarray() as new_refinement,
+                    ):
                         self.extend_descriptor_and_track_indices(
                             new_descriptor, old_index, new_refinement
                         )
-                    else:
-                        if new_refinement == ba.bitarray(None):
-                            assert len(marker_or_ancestor) == 1
-                            # track only the index,
-                            # namely the one of the previous (grand...)parent
-                            new_index = marker_or_ancestor[0]
-                            self.track_indices(old_index, new_index)
-                        else:
-                            # case of expanding a leaf
-                            assert (
-                                self._discretization.descriptor[old_index].count() == 0
-                            )
-                            self.extend_descriptor_and_track_indices(
-                                new_descriptor,
-                                old_index,
-                                get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
-                            )
-                else:
-                    # a stable parent node
-                    self.extend_descriptor_and_track_indices(
-                        new_descriptor, old_index, new_refinement
-                    )
+                    case _:
+                        raise RuntimeError("Logic error: should not be reached")
+
                 last_extended_index = max(last_extended_index, old_index)
             one_after_last_extended_index = last_extended_index + 1
 
