@@ -1,5 +1,4 @@
 import bitarray as ba
-import bitarray.util
 from collections import defaultdict
 from functools import lru_cache
 import numpy as np
