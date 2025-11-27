@@ -168,7 +168,7 @@ def is_old_index_now_at_or_containing_location_code(
     old_index_dimensionwise_positions = get_dimensionwise_positions_from_branch(
         old_index_branch, discretization._linearization
     )
-    
+
     old_index_ancestors = descriptor.get_ancestry(old_index_branch)
     old_index_ancestry_accumulated_markers = np.sum(
         [markers[ancestor] for ancestor in old_index_ancestors],
@@ -189,6 +189,13 @@ def is_old_index_now_at_or_containing_location_code(
         for d in range(descriptor.get_num_dimensions())
     )
     return part_of_history, old_index_dimensionwise_positions
+
+
+def old_node_will_be_contained_in_new_descriptor(descriptor, old_index, markers):
+    future_refinement, marker = refinement_with_marker_applied(
+        descriptor, old_index, markers
+    )
+    return np.min(marker) >= 0 or future_refinement != descriptor.d_zeros
 
 
 def find_next_twig(
@@ -227,14 +234,9 @@ def find_next_twig(
             )
             if not part_of_history:
                 continue
-            child_future_refinement, child_marker = refinement_with_marker_applied(
-                descriptor, child, MappingProxyType(markers)
-            )
-            if (
-                np.min(child_marker) >= 0
-                or child_future_refinement != descriptor.d_zeros
-            ):
-                # if it's a perfect match, we found the next twig
+
+            if old_node_will_be_contained_in_new_descriptor(descriptor, child, markers):
+                # we found the next twig
                 return child, intermediate_generation
 
             # else it's a coarsened node and we can see if there is a matching child
