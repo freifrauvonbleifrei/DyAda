@@ -114,10 +114,14 @@ def helper_check_mapping(
                 new_interval = coordinates_from_index(
                     new_discretization, new_index, mapping_indices_are_boxes
                 )
-                np.all(old_interval.lower_bound <= new_interval.lower_bound) and np.all(
+                assert np.all(
+                    old_interval.lower_bound <= new_interval.lower_bound
+                ) and np.all(
                     new_interval.lower_bound <= old_interval.upper_bound
                 )  # type: ignore
-                np.all(old_interval.lower_bound <= new_interval.upper_bound) and np.all(
+                assert np.all(
+                    old_interval.lower_bound <= new_interval.upper_bound
+                ) and np.all(
                     new_interval.upper_bound <= old_interval.upper_bound
                 )  # type: ignore
 
@@ -573,18 +577,9 @@ def test_refine_3d():
         num_boxes_before = descriptor.get_num_boxes()
         discretization = Discretization(MortonOrderLinearization(), descriptor)
 
-        try:
-            new_discretization, index_mapping = apply_single_refinement(
-                discretization, len(discretization) - 1, ba.bitarray("001")
-            )
-        except Exception as e:
-            print(e.markers)
-            # plot_tree_tikz(e.descriptor, filename="error")
-            labels = [""] * len(descriptor)
-            for key, value in e.markers.items():
-                labels[key] = ",".join(str(v) for v in value)
-            # plot_tree_tikz(descriptor, labels=labels, filename="error_labels")
-            raise e.error
+        new_discretization, index_mapping = apply_single_refinement(
+            discretization, len(discretization) - 1, ba.bitarray("001")
+        )
 
         new_descriptor = new_discretization.descriptor
         validate_descriptor(new_descriptor)
