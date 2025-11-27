@@ -446,7 +446,8 @@ class PlannedAdaptiveRefinement:
                     # -> restart loop with new children and remember this one
                     intermediate_generation.append(child)
                     children = children_of_coarsened
-        assert False
+
+        raise RuntimeError("Logic error: no matching child found in find_next_twig.")
 
     def track_indices(self, old_index: int, new_index: int) -> None:
         assert new_index > -1
