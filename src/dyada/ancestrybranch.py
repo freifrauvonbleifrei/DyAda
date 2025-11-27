@@ -147,7 +147,6 @@ def is_old_index_now_at_or_containing_location_code(
     old_index: int,
 ) -> tuple[bool, list[ba.bitarray]]:
     """Check whether old_index is now at or containing the next hyperrectangular location code.
-
     Args:
         discretization (Discretization): the old discretization we're referring to
         markers (MappingProxyType[int, npt.NDArray[np.int8]]): markers that should be applied to the old discretization
@@ -161,7 +160,6 @@ def is_old_index_now_at_or_containing_location_code(
         list[ba.bitarray]: the location code of the old_index
     """
     descriptor = discretization.descriptor
-    num_dimensions = descriptor.get_num_dimensions()
     old_index_branch, _ = descriptor.get_branch(
         old_index,
         is_box_index=False,
@@ -170,7 +168,7 @@ def is_old_index_now_at_or_containing_location_code(
     old_index_dimensionwise_positions = get_dimensionwise_positions_from_branch(
         old_index_branch, discretization._linearization
     )
-
+    
     old_index_ancestors = descriptor.get_ancestry(old_index_branch)
     old_index_ancestry_accumulated_markers = np.sum(
         [markers[ancestor] for ancestor in old_index_ancestors],
@@ -181,14 +179,14 @@ def is_old_index_now_at_or_containing_location_code(
             : len(desired_dimensionwise_positions[d])
             - old_index_ancestry_accumulated_markers[d]
         ]
-        for d in range(num_dimensions)
+        for d in range(descriptor.get_num_dimensions())
     ]
     part_of_history = all(
         bitarray_startswith(
             old_index_dimensionwise_positions[d],
             shortened_parent_positions[d],
         )
-        for d in range(num_dimensions)
+        for d in range(descriptor.get_num_dimensions())
     )
     return part_of_history, old_index_dimensionwise_positions
 
@@ -206,23 +204,16 @@ def find_next_twig(
     Returns:
         tuple[int, list[int]]:
             tuple consisting of the (old) node index
-            and a list of (otherwise forgotten) intermediate nodes:
-                these intermediate nodes are descendants of parent_of_next_refinement,
-                and either culled children of the returned node
-                (in case it is now a leaf),
-                or culled ancestors of the returned node
+            and a list of (otherwise forgotten) intermediate nodes
     """
     descriptor = discretization.descriptor
-    num_dimensions = descriptor.get_num_dimensions()
     parent_branch, _ = descriptor.get_branch(
         parent_of_next_refinement, is_box_index=False
     )
     children = descriptor.get_children(parent_of_next_refinement, parent_branch)
-
     intermediate_generation: set[int] = set()
     while True:
-        # find the child whose branch puts it at the same level/index as
-        # the modified branch we're looking at
+        # find the child whose branch puts it at the same level/index as the modified branch we're looking at
         for child in children:
             part_of_history, child_dimensionwise_positions = (
                 is_old_index_now_at_or_containing_location_code(
@@ -250,11 +241,10 @@ def find_next_twig(
             children_of_coarsened = descriptor.get_children(child)
             history_matches = all(
                 child_dimensionwise_positions[d] == desired_dimensionwise_positions[d]
-                for d in range(num_dimensions)
+                for d in range(descriptor.get_num_dimensions())
             )
             if history_matches:
-                # this means that its former children are now gone
-                # and need to be mapped to this child's index
+                # this means that its former children are now gone and need to be mapped to this child's index
                 for child_of_coarsened in children_of_coarsened:
                     # need to append the binarized index of the child, broadcast to split dimensions
                     # this needs linearization (if not morton order)
