@@ -463,8 +463,7 @@ class PlannedAdaptiveRefinement:
 
     def track_indices(self, old_index: int, new_index: int) -> None:
         assert new_index > -1
-        if new_index not in self._index_mapping[old_index]:
-            self._index_mapping[old_index] += [new_index]
+        self._index_mapping[old_index].add(new_index)
 
     def extend_descriptor_and_track_indices(
         self,
@@ -561,24 +560,25 @@ class PlannedAdaptiveRefinement:
 
     def create_new_descriptor(
         self, track_mapping: str = "boxes"
-    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
-        self._index_mapping: dict[int, list[int]] = defaultdict(list)
+    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, list[set[int]]]]:
+        old_descriptor = self._discretization.descriptor
+        self._index_mapping: list[set[int]] = [
+            set() for _ in range(len(old_descriptor))
+        ]
 
         # start generating the new descriptor
-        new_descriptor = RefinementDescriptor(
-            self._discretization.descriptor.get_num_dimensions()
-        )
+        new_descriptor = RefinementDescriptor(old_descriptor.get_num_dimensions())
         new_descriptor._data = ba.bitarray()
 
         # we are not changing the old descriptor, and greedily build the new one
         # so we can cache the box indices of both
-        if not is_lru_cached(self._discretization.descriptor.to_box_index):
-            self._discretization.descriptor.to_box_index = lru_cache(maxsize=None)(
-                self._discretization.descriptor._to_box_index_recursive
+        if not is_lru_cached(old_descriptor.to_box_index):
+            old_descriptor.to_box_index = lru_cache(maxsize=None)(
+                old_descriptor._to_box_index_recursive
             )
-            self._discretization.descriptor._to_box_index_recursive = lru_cache(
-                maxsize=None
-            )(self._discretization.descriptor._to_box_index_recursive)
+            old_descriptor._to_box_index_recursive = lru_cache(maxsize=None)(
+                old_descriptor._to_box_index_recursive
+            )
         new_descriptor.to_box_index = lru_cache(maxsize=None)(  # type: ignore
             new_descriptor._to_box_index_recursive
         )
@@ -592,7 +592,7 @@ class PlannedAdaptiveRefinement:
             # transform the mapping to box indices
             self._index_mapping = hierarchical_to_box_index_mapping(
                 self._index_mapping,
-                self._discretization.descriptor,
+                old_descriptor,
                 new_descriptor,
             )
         elif track_mapping == "patches":
@@ -606,7 +606,7 @@ class PlannedAdaptiveRefinement:
 
     def apply_refinements(
         self, track_mapping: str = "boxes"
-    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
+    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, list[set[int]]]]:
         assert self._upward_queue.empty()
         assert self._markers == {}
         self.populate_queue()
@@ -622,7 +622,7 @@ def apply_single_refinement(
     box_index: int,
     dimensions_to_refine: Optional[ba.bitarray] = None,
     track_mapping: str = "boxes",
-) -> tuple[Discretization, dict]:
+) -> tuple[Discretization, list[set[int]]]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
     new_descriptor, mapping = p.apply_refinements(track_mapping=track_mapping)
@@ -630,23 +630,19 @@ def apply_single_refinement(
 
 
 def merge_mappings(
-    first_mapping: dict[int, list[int]],
-    second_mapping: dict[int, list[int]],
-) -> dict[int, list[int]]:
+    first_mapping: list[set[int]],
+    second_mapping: list[set[int]],
+) -> list[set[int]]:
     # if either mapping is empty, return the other one
     if not first_mapping:
         return second_mapping
     if not second_mapping:
         return first_mapping
-    for k, v in first_mapping.items():
-        assert isinstance(k, int) and isinstance(v, list)
-        for v_i in v:
-            assert isinstance(v_i, int)
     # merge the mappings
-    merged_mapping: dict[int, list[int]] = defaultdict(list)
-    for k, v in first_mapping.items():
+    merged_mapping: list[set[int]] = [set() for _ in range(len(first_mapping))]
+    for k, v in enumerate(first_mapping):
         for v_i in v:
-            merged_mapping[k] += second_mapping[v_i]
+            merged_mapping[k] |= second_mapping[v_i]
     return merged_mapping
 
 

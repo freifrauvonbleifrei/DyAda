@@ -66,31 +66,34 @@ def helper_check_mapping(
     old_descriptor = old_discretization.descriptor
     new_descriptor = new_discretization.descriptor
     count_new_indices: Counter = Counter()
-    for value in index_mapping.values():
+    for value in index_mapping:
         count_new_indices.update(value)
     if mapping_indices_are_boxes:
-        assert index_mapping.keys() == set(range(old_descriptor.get_num_boxes()))
+        assert len(index_mapping) == old_descriptor.get_num_boxes()
+        assert set() not in index_mapping
         assert sorted(count_new_indices.elements()) == list(
             range(new_descriptor.get_num_boxes())
         )
     else:
-        assert index_mapping.keys() == set(range(len(old_descriptor)))
+        assert len(index_mapping) == len(old_descriptor)
+        assert set() not in index_mapping
         assert set(count_new_indices.elements()) == set(range(len(new_descriptor)))
-    for b in range(old_descriptor.get_num_boxes()):
-        if len(index_mapping[b]) == 1:
+    for b, mapped_to_indices in enumerate(index_mapping):
+        if len(mapped_to_indices) == 1:
             # make sure the coordinates are correct
+            (mapped_to_index,) = mapped_to_indices
             if not (
                 coordinates_from_index(
-                    new_discretization, index_mapping[b][0], mapping_indices_are_boxes
+                    new_discretization, mapped_to_index, mapping_indices_are_boxes
                 )
                 == coordinates_from_index(
                     old_discretization, b, mapping_indices_are_boxes
                 )
             ):
                 print(
-                    f"mapping failed for box {b} with index {index_mapping[b][0]}"
+                    f"mapping failed for box {b} with index {mapped_to_index}"
                     " and coordinates {coordinates_from_box_index(old_discretization, b)} "
-                    "-> {coordinates_from_box_index(new_discretization, index_mapping[b][0])}"
+                    "-> {coordinates_from_box_index(new_discretization, mapped_to_index)}"
                 )
                 print(f"old descriptor: {old_descriptor}")
                 print(f"new descriptor: {new_descriptor}")
@@ -99,7 +102,7 @@ def helper_check_mapping(
             if mapping_indices_are_boxes:
                 # otherwise, there may be smaller, now-deleted patches as well
                 assert coordinates_from_index(
-                    new_discretization, index_mapping[b][0], mapping_indices_are_boxes
+                    new_discretization, mapped_to_index, mapping_indices_are_boxes
                 ) == coordinates_from_index(
                     old_discretization, b, mapping_indices_are_boxes
                 )
@@ -107,7 +110,7 @@ def helper_check_mapping(
             old_interval = coordinates_from_index(
                 old_discretization, b, mapping_indices_are_boxes
             )
-            for new_index in index_mapping[b]:
+            for new_index in mapped_to_indices:
                 new_interval = coordinates_from_index(
                     new_discretization, new_index, mapping_indices_are_boxes
                 )
@@ -244,19 +247,18 @@ def test_refine_grandchild_split():
     assert new_descriptor._data == ba.bitarray("111100000100000100000010000000")
 
     # test the mapping of the boxes
-    former_to_now = {
-        0: [0, 1],
-        1: [2],
-        2: [4],
-        3: [3],
-        4: [5],
-        5: [6],
-        6: [7],
-        7: [8],
-        8: [9],
-    }
-    for former, now in former_to_now.items():
-        assert box_mapping[former] == now
+    former_to_now = [
+        {0, 1},
+        {2},
+        {4},
+        {3},
+        {5},
+        {6},
+        {7},
+        {8},
+        {9},
+    ]
+    assert box_mapping == former_to_now
 
 
 def test_refine_multi_grandchild_split():
@@ -335,19 +337,19 @@ def test_refine_2d_1():
     validate_descriptor(new_descriptor)
     assert new_descriptor.get_num_boxes() == num_boxes_before + 1
     assert new_descriptor == correct_descriptor
-    assert index_mapping == {
-        0: [0],
-        1: [0],
-        2: [1],
-        3: [7],
-        4: [2, 8],
-        5: [3, 9],
-        6: [4],
-        7: [5],
-        8: [10],
-        9: [11],
-        10: [6, 12],
-    }
+    assert index_mapping == [
+        {0},
+        {0},
+        {1},
+        {7},
+        {2, 8},
+        {3, 9},
+        {4},
+        {5},
+        {10},
+        {11},
+        {6, 12},
+    ]
     helper_check_mapping(index_mapping, discretization, new_discretization, False)
     helper_check_mapping(box_mapping, discretization, new_discretization, True)
     for b in range(descriptor.get_num_boxes()):
@@ -355,9 +357,10 @@ def test_refine_2d_1():
             b == (len(discretization) - 1) and len(box_mapping[b]) == 2
         )
         if len(box_mapping[b]) == 1:
+            (mapped_to_index,) = box_mapping[b]
             # make sure the coordinates are correct
             assert coordinates_from_box_index(
-                new_discretization, box_mapping[b][0]
+                new_discretization, mapped_to_index
             ) == coordinates_from_box_index(discretization, b)
 
 
@@ -445,23 +448,23 @@ def test_refine_2d_3():
     )
     assert num_rounds == 1
     assert normalized_descriptor == new_descriptor
-    assert mapping == {
-        0: [0],
-        1: [1],
-        2: [2],
-        3: [2],
-        4: [3],
-        5: [5],
-        6: [2],
-        7: [4],
-        8: [6],
-        9: [7],
-        10: [8],
-        11: [9],
-        12: [10],
-        13: [11],
-        14: [12],
-    }
+    assert mapping == [
+        {0},
+        {1},
+        {2},
+        {2},
+        {3},
+        {5},
+        {2},
+        {4},
+        {6},
+        {7},
+        {8},
+        {9},
+        {10},
+        {11},
+        {12},
+    ]
 
 
 def test_refine_2d_4():
@@ -500,60 +503,60 @@ def test_refine_2d_4():
         ),
     )
     assert find_uniqueness_violations(new_descriptor) == []
-    assert mapping == {
-        0: [0],
-        1: [1],
-        2: [2],
-        3: [3],
-        4: [8],
-        5: [12],
-        6: [4],
-        7: [6],
-        8: [9],
-        9: [13],
-        10: [5],
-        11: [7],
-        12: [10],
-        13: [14],
-        14: [11],
-        15: [15],
-    }
+    assert mapping == [
+        {0},
+        {1},
+        {2},
+        {3},
+        {8},
+        {12},
+        {4},
+        {6},
+        {9},
+        {13},
+        {5},
+        {7},
+        {10},
+        {14},
+        {11},
+        {15},
+    ]
     _, patch_mapping, num_rounds = normalize_discretization(
         Discretization(MortonOrderLinearization(), non_normalized_descriptor),
         track_mapping="patches",
     )
     assert num_rounds == 5
-    assert patch_mapping == {
-        0: [0],
-        1: [1, 17],  # [0],
-        2: [1, 17],  # [0],
-        3: [1],
-        4: [2],
-        5: [3],
-        6: [4],
-        7: [5],
-        8: [6],
-        9: [12],
-        10: [18],
-        11: [7, 13, 19],  # [0],
-        12: [7, 13, 19],  # [0],
-        13: [7, 13],  # [1],
-        14: [7],
-        15: [8],
-        16: [10],
-        17: [14],
-        18: [20],
-        19: [7, 13, 19],  # [0],
-        20: [7, 13],  # [1],
-        21: [7],
-        22: [9],
-        23: [11],
-        24: [15],
-        25: [21],
-        26: [0],
-        27: [16],
-        28: [22],
-    }
+    assert patch_mapping == [
+        {0},
+        {1, 17},  # {0},
+        {1, 17},  # {0},
+        {1},
+        {2},
+        {3},
+        {4},
+        {5},
+        {6},
+        {12},
+        {18},
+        {7, 13, 19},  # {0},
+        {7, 13, 19},  # {0},
+        {7, 13},  # {1},
+        {7},
+        {8},
+        {10},
+        {14},
+        {20},
+        {7, 13, 19},  # {0},
+        {7, 13},  # {1},
+        {7},
+        {9},
+        {11},
+        {15},
+        {21},
+        {0},
+        {16},
+        {22},
+    ]
 
 
 def test_refine_3d():
@@ -593,8 +596,9 @@ def test_refine_3d():
             )
             if len(index_mapping[b]) == 1:
                 # make sure the coordinates are correct
+                (mapped_to_index,) = index_mapping[b]
                 assert coordinates_from_box_index(
-                    new_discretization, index_mapping[b][0]
+                    new_discretization, mapped_to_index
                 ) == coordinates_from_box_index(discretization, b)
 
 
