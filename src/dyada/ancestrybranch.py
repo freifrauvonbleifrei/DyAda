@@ -57,10 +57,10 @@ class AncestryBranch:
 
     def get_current_location_info(
         self, markers: MappingProxyType[int, npt.NDArray[np.int8]]
-    ) -> tuple[int, list[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
+    ) -> tuple[int, set[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
         # get the currently desired location info
         current_old_index = 0
-        intermediate_generation: list[int] = []
+        intermediate_generation: set[int] = set()
         if len(self._history_of_binary_positions) > 0:  # if not at root
             modified_dimensionwise_positions = get_dimensionwise_positions(
                 self._history_of_binary_positions, self._history_of_level_increments
@@ -146,6 +146,20 @@ def is_old_index_now_at_or_containing_location_code(
     parent_branch: Branch,
     old_index: int,
 ) -> tuple[bool, list[ba.bitarray]]:
+    """Check whether old_index is now at or containing the next hyperrectangular location code.
+
+    Args:
+        discretization (Discretization): the old discretization we're referring to
+        markers (MappingProxyType[int, npt.NDArray[np.int8]]): markers that should be applied to the old discretization
+        desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
+        parent_of_next_refinement (int): the current parent or other ancestor of the index we're looking for
+        parent_branch (Branch): the branch corresponding to the parent_of_next_refinement
+        old_index (int): the old index we're checking
+
+    Returns:
+        bool            : whether old_index is now at or containing the location code
+        list[ba.bitarray]: the location code of the old_index
+    """
     descriptor = discretization.descriptor
     num_dimensions = descriptor.get_num_dimensions()
     old_index_branch, _ = descriptor.get_branch(
@@ -184,7 +198,7 @@ def find_next_twig(
     markers: MappingProxyType[int, npt.NDArray[np.int8]],
     desired_dimensionwise_positions: list[ba.bitarray],
     parent_of_next_refinement: int,
-) -> tuple[int, list[int]]:
+) -> tuple[int, set[int]]:
     """get the (old) tree node corresponding to the location code, and any nodes encountered on the way
     Args:
         desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
@@ -205,9 +219,7 @@ def find_next_twig(
     )
     children = descriptor.get_children(parent_of_next_refinement, parent_branch)
 
-    # determine which child twig to go down next,
-    # keeping track of predecessors that are going to disappear
-    intermediate_generation: list[int] = []
+    intermediate_generation: set[int] = set()
     while True:
         # find the child whose branch puts it at the same level/index as
         # the modified branch we're looking at
@@ -249,13 +261,11 @@ def find_next_twig(
                     if not (
                         discretization._linearization == MortonOrderLinearization()
                     ):
-                        raise NotImplementedError(
-                            "Refinement tracking not implemented for non-Morton order linearizations"
-                        )
-                    intermediate_generation.append(child_of_coarsened)
+                        raise NotImplementedError("Refinement tracking")
+                    intermediate_generation.add(child_of_coarsened)
                 return child, intermediate_generation
             else:
-                # else, it's a node that's going to disappear
+                # else, it's an ancestor node that's going to disappear
                 # -> restart loop with new children and remember this one
-                intermediate_generation.append(child)
+                intermediate_generation.add(child)
                 children = children_of_coarsened

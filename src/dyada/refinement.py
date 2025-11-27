@@ -227,7 +227,6 @@ class PlannedAdaptiveRefinement:
         ancestrybranch = AncestryBranch(self._discretization, starting_index)
         proxy_markers = MappingProxyType(self._markers)
 
-        intermediate_generation: list[int] = []
         while True:
             current_old_index, intermediate_generation, next_refinement, next_marker = (
                 ancestrybranch.get_current_location_info(proxy_markers)
