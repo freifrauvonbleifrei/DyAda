@@ -220,7 +220,6 @@ def find_next_twig(
     children = descriptor.get_children(parent_of_next_refinement, parent_branch)
     intermediate_generation: set[int] = set()
     while True:
-        # find the child whose branch puts it at the same level/index as the modified branch we're looking at
         for child in children:
             part_of_history, child_dimensionwise_positions = (
                 is_old_index_now_at_or_containing_location_code(
@@ -236,23 +235,21 @@ def find_next_twig(
                 continue
 
             if old_node_will_be_contained_in_new_descriptor(descriptor, child, markers):
-                # we found the next twig
-                return child, intermediate_generation
+                return child, intermediate_generation  # # we found the next twig
 
             # else it's a coarsened node and we can see if there is a matching child
             children_of_coarsened = descriptor.get_children(child)
-            history_matches = all(
-                child_dimensionwise_positions[d] == desired_dimensionwise_positions[d]
-                for d in range(descriptor.get_num_dimensions())
+            history_matches = (
+                child_dimensionwise_positions == desired_dimensionwise_positions
             )
+
             if history_matches:
                 # this means that its former children are now gone and need to be mapped to this child's index
                 for child_of_coarsened in children_of_coarsened:
                     # need to append the binarized index of the child, broadcast to split dimensions
-                    # this needs linearization (if not morton order)
                     if not (
                         discretization._linearization == MortonOrderLinearization()
-                    ):
+                    ):  # this would need proper linearization
                         raise NotImplementedError("Refinement tracking")
                     intermediate_generation.add(child_of_coarsened)
                 return child, intermediate_generation
