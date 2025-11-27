@@ -446,12 +446,6 @@ class PlannedAdaptiveRefinement:
                             raise NotImplementedError(
                                 "Refinement tracking not implemented for non-Morton order linearizations"
                             )
-                        grandchild_location_code = child_dimensionwise_positions.copy()
-                        binarized_index = bitarray.util.int2ba(
-                            grandchild_index, length=child_refinement.count()
-                        )
-                        for d_i, d in enumerate(child_refined_dimensions):
-                            grandchild_location_code[d].append(binarized_index[d_i])
                         intermediate_generation.append(child_of_coarsened)
                     return child, intermediate_generation
                 else:
