@@ -14,6 +14,7 @@ from dyada.descriptor import (
     RefinementDescriptor,
     get_regular_refined,
     hierarchical_to_box_index_mapping,
+    int8_ndarray_from_iterable,
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
@@ -49,11 +50,7 @@ class PlannedAdaptiveRefinement:
                 "1" * self._discretization.descriptor.get_num_dimensions()
             )
         # must be iterable, convert to np.array
-        dimensions_to_refine = np.fromiter(
-            dimensions_to_refine,
-            dtype=np.int8,
-            count=self._discretization.descriptor.get_num_dimensions(),
-        )
+        dimensions_to_refine = int8_ndarray_from_iterable(dimensions_to_refine)
         # get hierarchical index
         linear_index = self._discretization.descriptor.to_hierarchical_index(box_index)
         # store by linear index
@@ -69,12 +66,7 @@ class PlannedAdaptiveRefinement:
 
         # put initial markers
         for linear_index, dimensions_to_refine in self._planned_refinements:
-            self._markers[linear_index] += np.fromiter(
-                dimensions_to_refine,
-                dtype=np.int8,
-                count=self._discretization.descriptor.get_num_dimensions(),
-            )
-
+            self._markers[linear_index] += int8_ndarray_from_iterable(dimensions_to_refine)
         # put into the upward queue
         for linear_index in self._markers.keys():
             # obtain level sum to know the priority, highest level should come first
@@ -139,10 +131,8 @@ class PlannedAdaptiveRefinement:
                 siblings = self._discretization.descriptor.get_siblings(linear_index)
 
                 all_siblings_refinements = [
-                    np.fromiter(
+                    int8_ndarray_from_iterable(
                         self._discretization.descriptor[sibling],
-                        dtype=np.int8,
-                        count=num_dimensions,
                     )
                     for sibling in siblings
                 ]
@@ -190,10 +180,8 @@ class PlannedAdaptiveRefinement:
 
                 # 1st case: negative but cannot be used to coarsen here
                 marker_negative = marker_to_push_down < 0
-                can_be_coarsened = np.fromiter(
+                can_be_coarsened = int8_ndarray_from_iterable(
                     descriptor[current_index],
-                    dtype=np.int8,
-                    count=descriptor.get_num_dimensions(),
                 )
                 marker_to_push_down[marker_negative] += can_be_coarsened[
                     marker_negative
@@ -201,10 +189,8 @@ class PlannedAdaptiveRefinement:
 
                 # 2nd case: positive but cannot be used to refine here
                 marker_positive = marker_to_push_down > 0
-                can_be_refined = np.fromiter(
+                can_be_refined = int8_ndarray_from_iterable(
                     ~descriptor[current_index],
-                    dtype=np.int8,
-                    count=descriptor.get_num_dimensions(),
                 )
                 marker_to_push_down[marker_positive] -= can_be_refined[marker_positive]
 
@@ -482,10 +468,8 @@ def normalize_discretization(
             for i in sorted_violation[1:]:
                 dimensions_to_shift &= descriptor[i]
             assert dimensions_to_shift.count() > 0
-            dimensions_to_shift_array = np.fromiter(
+            dimensions_to_shift_array = int8_ndarray_from_iterable(
                 dimensions_to_shift,
-                dtype=np.int8,
-                count=descriptor.get_num_dimensions(),
             )
             p._markers[sorted_violation[0]] += dimensions_to_shift_array
             for i in sorted_violation[1:]:

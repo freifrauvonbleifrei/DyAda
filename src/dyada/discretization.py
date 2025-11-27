@@ -20,6 +20,7 @@ from dyada.descriptor import (
     Branch,
     RefinementDescriptor,
     branch_generator,
+    int8_ndarray_from_iterable,
 )
 from dyada.linearization import (
     Linearization,
@@ -54,10 +55,8 @@ def get_level_index_from_branch(
     num_dimensions = len(branch[0].level_increment)
 
     current_index_bitarray = get_binary_index_from_branch(linearization, branch)
-    current_level = np.fromiter(
+    current_level = int8_ndarray_from_iterable(
         [len(b) for b in current_index_bitarray],
-        dtype=np.int8,
-        count=num_dimensions,
     )
     current_index = np.fromiter(
         [
@@ -67,7 +66,6 @@ def get_level_index_from_branch(
         dtype=np.int64,
         count=num_dimensions,
     )
-
     return LevelIndex(
         current_level,
         current_index,
