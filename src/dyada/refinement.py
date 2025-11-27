@@ -419,10 +419,6 @@ class PlannedAdaptiveRefinement:
                 ):
                     return child, intermediate_generation
 
-                child_refinement = self._discretization.descriptor[child]
-                child_refined_dimensions = {
-                    d for d in range(num_dimensions) if child_refinement[d] == 1
-                }
                 children_of_coarsened = descriptor.get_children(child)
                 history_matches = all(
                     child_dimensionwise_positions[d]
@@ -434,9 +430,7 @@ class PlannedAdaptiveRefinement:
                     twig_found = True
                     # this means that its former children are now gone
                     # and need to be mapped to this child's index
-                    for grandchild_index, child_of_coarsened in enumerate(
-                        children_of_coarsened
-                    ):
+                    for child_of_coarsened in children_of_coarsened:
                         # need to append the binarized index of the child, broadcast to split dimensions
                         # this needs linearization (if not morton order)
                         if not (
