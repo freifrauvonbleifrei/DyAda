@@ -561,11 +561,11 @@ def test_refine_2d_4():
 
 def test_refine_3d():
     prependable_string = "110001000000001000000001000000"
-    for round in range(4):
+    for round_number in range(4):
         descriptor = RefinementDescriptor.from_binary(
             3,
             ba.bitarray(
-                prependable_string * round
+                prependable_string * round_number
                 + "110001000000001010000000000001010000000000000"
             ),
         )
@@ -630,11 +630,11 @@ def test_refine_4d():
 def test_refine_random():
     for d in range(1, 5):
         descriptor = RefinementDescriptor(d, 0)
-        for round in range(3):
+        for round_number in range(3):
             r = Discretization(MortonOrderLinearization(), descriptor)
             p = PlannedAdaptiveRefinement(r)
             round_refinements = []
-            for _ in range(2 ** (round + d // 2)):
+            for _ in range(2 ** (round_number + d // 2)):
                 random_box = np.random.randint(0, descriptor.get_num_boxes())
                 random_refinement = ba.bitarray(
                     (np.random.randint(0, 2) for _ in range(d))
@@ -672,7 +672,7 @@ def test_refine_random_increments():
         descriptor = RefinementDescriptor(d, 0)
         assert descriptor.get_num_boxes() == 1
         possible_increments = list(single_bit_set_gen(d))
-        for round in range(10 + 4 ^ d):
+        for round_number in range(10 + 4 ^ d):
             random_box = np.random.randint(0, descriptor.get_num_boxes())
             random_refinement = possible_increments[np.random.randint(0, d)]
 
@@ -693,7 +693,7 @@ def test_refine_random_increments():
                     )
             except Exception as e:
                 print(
-                    f"failed for round {round} with box {random_box} and refinement {random_refinement}"
+                    f"failed for round {round_number} with box {random_box} and refinement {random_refinement}"
                 )
                 print(f"old descriptor: {descriptor}")
                 print(f"new descriptor: {new_descriptor}")
