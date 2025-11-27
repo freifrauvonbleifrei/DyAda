@@ -66,7 +66,9 @@ class PlannedAdaptiveRefinement:
 
         # put initial markers
         for linear_index, dimensions_to_refine in self._planned_refinements:
-            self._markers[linear_index] += int8_ndarray_from_iterable(dimensions_to_refine)
+            self._markers[linear_index] += int8_ndarray_from_iterable(
+                dimensions_to_refine
+            )
         # put into the upward queue
         for linear_index in self._markers.keys():
             # obtain level sum to know the priority, highest level should come first
