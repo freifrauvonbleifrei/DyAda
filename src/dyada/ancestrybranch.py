@@ -51,7 +51,7 @@ class AncestryBranch:
                     self._history_of_level_increments[: i + 1],
                 )
             )
-        # the ancestry, in old indices but new relatonships
+        # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
         assert len(self.ancestry) == self._initial_branch_depth - 1
 
