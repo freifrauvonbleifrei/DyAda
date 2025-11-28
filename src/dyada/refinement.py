@@ -284,32 +284,38 @@ class PlannedAdaptiveRefinement:
             ):
                 self.track_indices(old_index, new_index)
 
+    def filter_markers_by_min_index(
+        self, min_index: int
+    ) -> MappingProxyType[int, npt.NDArray[np.int8]]:
+        # filter the markers to the current interval
+        filtered_markers = {k: v for k, v in self._markers.items() if k >= min_index}
+        return MappingProxyType(filtered_markers)
+
+    def get_next_index_to_refine(self, min_index: int) -> int:
+        return min(
+            self.filter_markers_by_min_index(min_index).keys(),
+            default=-1,
+        )
+
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor
     ) -> RefinementDescriptor:
         old_descriptor = self._discretization.descriptor
+        last_extended_index = -1
         one_after_last_extended_index = 0
-
         while one_after_last_extended_index < len(old_descriptor):
-            # filter the markers to the current interval
-            filtered_markers = {
-                k: v
-                for k, v in self._markers.items()
-                if k >= one_after_last_extended_index
-            }
-            index_to_refine = min(filtered_markers.keys(), default=-1)
+            index_to_refine = self.get_next_index_to_refine(
+                one_after_last_extended_index
+            )
             if index_to_refine == -1:
                 break
 
-            # linearly copy up to marked
-            self.extend_descriptor_and_track_indices(
+            self.extend_descriptor_and_track_indices(  # linearly copy up to marked
                 new_descriptor,
                 (one_after_last_extended_index, index_to_refine),
                 old_descriptor[one_after_last_extended_index:index_to_refine],
             )
-
             # only refine where there are markers
-            last_extended_index = -1
             for requested_refinement in self.modified_branch_generator(index_to_refine):
                 match requested_refinement:
                     case self.Refinement(
@@ -318,8 +324,7 @@ class PlannedAdaptiveRefinement:
                         None,
                         int() as new_index,
                     ):
-                        # track only the index,
-                        # namely the one of the previous (grand...)parent
+                        # track only the index, namely the one of the previous (grand...)parent
                         self.track_indices(old_index, new_index)
                     case self.Refinement(
                         self.Refinement.Type.ExpandLeaf,
@@ -327,7 +332,6 @@ class PlannedAdaptiveRefinement:
                         ba.bitarray() as new_refinement,
                         np.ndarray() as new_marker,
                     ):
-                        assert self._discretization.descriptor[old_index].count() == 0
                         self.extend_descriptor_and_track_indices(
                             new_descriptor,
                             old_index,
@@ -343,7 +347,6 @@ class PlannedAdaptiveRefinement:
                         )
                     case _:
                         raise RuntimeError("Logic error: should not be reached")
-
                 last_extended_index = max(last_extended_index, old_index)
             one_after_last_extended_index = last_extended_index + 1
 
