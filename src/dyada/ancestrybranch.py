@@ -191,11 +191,20 @@ def is_old_index_now_at_or_containing_location_code(
     return part_of_history, old_index_dimensionwise_positions
 
 
-def old_node_will_be_contained_in_new_descriptor(descriptor, old_index, markers):
+def old_node_will_be_contained_in_new_descriptor(
+    descriptor: RefinementDescriptor,
+    old_index: int,
+    markers: MappingProxyType[int, npt.NDArray[np.int8]],
+) -> bool:
+    """whether the node at old_index will be contained in the new descriptor after applying markers.
+
+    Returns:
+        bool: true if the node will be contained, false if it will be coarsened away
+    """
     future_refinement, marker = refinement_with_marker_applied(
         descriptor, old_index, markers
     )
-    return np.min(marker) >= 0 or future_refinement != descriptor.d_zeros
+    return bool(np.min(marker)) >= 0 or future_refinement.count() > 0
 
 
 def find_next_twig(
@@ -206,12 +215,14 @@ def find_next_twig(
 ) -> tuple[int, set[int]]:
     """get the (old) tree node corresponding to the location code, and any nodes encountered on the way
     Args:
+        discretization (Discretization): the old discretization we're referring to
+        markers (MappingProxyType[int, npt.NDArray[np.int8]]): refinement markers that should be applied to the discretization
         desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
         parent_of_next_refinement (int): parent or other ancestor of the index we're looking for
     Returns:
-        tuple[int, list[int]]:
+        tuple[int, set[int]]:
             tuple consisting of the (old) node index
-            and a list of (otherwise forgotten) intermediate nodes
+            and a set of (otherwise forgotten) intermediate nodes
     """
     descriptor = discretization.descriptor
     parent_branch, _ = descriptor.get_branch(
