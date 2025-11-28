@@ -122,16 +122,15 @@ class PlannedAdaptiveRefinement:
             self._markers[descendant] += marker
 
     def upwards_sweep(self) -> None:
-        num_dimensions = self._discretization.descriptor.get_num_dimensions()
         # traverse the tree from down (high level sums) to the coarser levels
+        num_dimensions = self._discretization.descriptor.get_num_dimensions()
         while not self._upward_queue.empty():
             level_sum, linear_index = self._upward_queue.get()
-            # only continue upwards if not yet at the root
-            if linear_index != 0:
+
+            if linear_index != 0:  # only continue upwards if not yet at the root
                 # check if refinement can be moved up the branch (even partially);
                 # this requires that all siblings are or would be refined
                 siblings = self._discretization.descriptor.get_siblings(linear_index)
-
                 all_siblings_refinements = [
                     int8_ndarray_from_iterable(
                         self._discretization.descriptor[sibling],
@@ -145,7 +144,6 @@ class PlannedAdaptiveRefinement:
 
                 # check where the siblings are all refined
                 possible_to_move_up = np.min(all_siblings_refinements, axis=0)
-                assert possible_to_move_up.shape == (num_dimensions,)
                 assert np.all(possible_to_move_up >= 0)
 
                 if np.any(possible_to_move_up > 0):
@@ -163,7 +161,6 @@ class PlannedAdaptiveRefinement:
                 for sibling in siblings:
                     if (level_sum, sibling) in self._upward_queue.queue:
                         self._upward_queue.queue.remove((level_sum, sibling))
-
             self._upward_queue.task_done()
 
     def downwards_sweep(self) -> None:
@@ -172,11 +169,7 @@ class PlannedAdaptiveRefinement:
             return
         current_index = min(self._markers.keys())
         while True:
-            if descriptor.is_box(current_index):
-                # if it's a leaf node, continue
-                assert np.all(self._markers[current_index] > -1)
-
-            else:
+            if not descriptor.is_box(current_index):
                 # check if (parts of) the marker need pushing down
                 marker_to_push_down = self._markers[current_index].copy()
 
