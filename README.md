@@ -1,5 +1,6 @@
 # `DyAda`: A Code for Dyadic Adaptivity in Optimization, Simulation, and Machine Learning
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/d685d20e77394fcda2991b20afdd9cdb)](https://app.codacy.com/gh/freifrauvonbleifrei/DyAda?utm_source=github.com&utm_medium=referral&utm_content=freifrauvonbleifrei/DyAda&utm_campaign=Badge_Grade)
 [![Python package CI](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/badge.svg)](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/)
 ![Coverage](coverage.svg)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
