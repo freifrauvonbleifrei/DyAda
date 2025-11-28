@@ -577,7 +577,7 @@ def test_refine_2d_5():
     )
     assert validate_descriptor(descriptor)
     discretization = Discretization(MortonOrderLinearization(), descriptor)
-    
+
     refinement = ba.bitarray("01")
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(0, refinement)
