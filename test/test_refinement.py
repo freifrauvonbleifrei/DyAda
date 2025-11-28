@@ -58,7 +58,7 @@ def test_refine_3d_only_leaves():
 
 
 def helper_check_mapping(
-    index_mapping: dict,
+    index_mapping: list[set[int]],
     old_discretization: Discretization,
     new_discretization: Discretization,
     mapping_indices_are_boxes=True,
