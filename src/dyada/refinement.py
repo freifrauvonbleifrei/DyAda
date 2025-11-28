@@ -1,23 +1,23 @@
 import bitarray as ba
 from collections import defaultdict
+import dataclasses
+from enum import auto, Enum
 from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
+from types import MappingProxyType
 from typing import Optional, Union
 
-from dyada.coordinates import bitarray_startswith
+from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import (
     RefinementDescriptor,
     get_regular_refined,
     hierarchical_to_box_index_mapping,
+    int8_ndarray_from_iterable,
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
-from dyada.linearization import (
-    get_dimensionwise_positions,
-    get_dimensionwise_positions_from_branch,
-)
 
 
 def is_lru_cached(func):
@@ -50,11 +50,7 @@ class PlannedAdaptiveRefinement:
                 "1" * self._discretization.descriptor.get_num_dimensions()
             )
         # must be iterable, convert to np.array
-        dimensions_to_refine = np.fromiter(
-            dimensions_to_refine,
-            dtype=np.int8,
-            count=self._discretization.descriptor.get_num_dimensions(),
-        )
+        dimensions_to_refine = int8_ndarray_from_iterable(dimensions_to_refine)
         # get hierarchical index
         linear_index = self._discretization.descriptor.to_hierarchical_index(box_index)
         # store by linear index
@@ -70,12 +66,9 @@ class PlannedAdaptiveRefinement:
 
         # put initial markers
         for linear_index, dimensions_to_refine in self._planned_refinements:
-            self._markers[linear_index] += np.fromiter(
-                dimensions_to_refine,
-                dtype=np.int8,
-                count=self._discretization.descriptor.get_num_dimensions(),
+            self._markers[linear_index] += int8_ndarray_from_iterable(
+                dimensions_to_refine
             )
-
         # put into the upward queue
         for linear_index in self._markers.keys():
             # obtain level sum to know the priority, highest level should come first
@@ -129,21 +122,17 @@ class PlannedAdaptiveRefinement:
             self._markers[descendant] += marker
 
     def upwards_sweep(self) -> None:
-        num_dimensions = self._discretization.descriptor.get_num_dimensions()
         # traverse the tree from down (high level sums) to the coarser levels
         while not self._upward_queue.empty():
             level_sum, linear_index = self._upward_queue.get()
-            # only continue upwards if not yet at the root
-            if linear_index != 0:
+
+            if linear_index != 0:  # only continue upwards if not yet at the root
                 # check if refinement can be moved up the branch (even partially);
                 # this requires that all siblings are or would be refined
                 siblings = self._discretization.descriptor.get_siblings(linear_index)
-
                 all_siblings_refinements = [
-                    np.fromiter(
+                    int8_ndarray_from_iterable(
                         self._discretization.descriptor[sibling],
-                        dtype=np.int8,
-                        count=num_dimensions,
                     )
                     for sibling in siblings
                 ]
@@ -154,7 +143,6 @@ class PlannedAdaptiveRefinement:
 
                 # check where the siblings are all refined
                 possible_to_move_up = np.min(all_siblings_refinements, axis=0)
-                assert possible_to_move_up.shape == (num_dimensions,)
                 assert np.all(possible_to_move_up >= 0)
 
                 if np.any(possible_to_move_up > 0):
@@ -172,7 +160,6 @@ class PlannedAdaptiveRefinement:
                 for sibling in siblings:
                     if (level_sum, sibling) in self._upward_queue.queue:
                         self._upward_queue.queue.remove((level_sum, sibling))
-
             self._upward_queue.task_done()
 
     def downwards_sweep(self) -> None:
@@ -181,20 +168,14 @@ class PlannedAdaptiveRefinement:
             return
         current_index = min(self._markers.keys())
         while True:
-            if descriptor.is_box(current_index):
-                # if it's a leaf node, continue
-                assert np.all(self._markers[current_index] > -1)
-
-            else:
+            if not descriptor.is_box(current_index):
                 # check if (parts of) the marker need pushing down
                 marker_to_push_down = self._markers[current_index].copy()
 
                 # 1st case: negative but cannot be used to coarsen here
                 marker_negative = marker_to_push_down < 0
-                can_be_coarsened = np.fromiter(
+                can_be_coarsened = int8_ndarray_from_iterable(
                     descriptor[current_index],
-                    dtype=np.int8,
-                    count=descriptor.get_num_dimensions(),
                 )
                 marker_to_push_down[marker_negative] += can_be_coarsened[
                     marker_negative
@@ -202,10 +183,8 @@ class PlannedAdaptiveRefinement:
 
                 # 2nd case: positive but cannot be used to refine here
                 marker_positive = marker_to_push_down > 0
-                can_be_refined = np.fromiter(
+                can_be_refined = int8_ndarray_from_iterable(
                     ~descriptor[current_index],
-                    dtype=np.int8,
-                    count=descriptor.get_num_dimensions(),
                 )
                 marker_to_push_down[marker_positive] -= can_be_refined[marker_positive]
 
@@ -225,195 +204,59 @@ class PlannedAdaptiveRefinement:
                 # no more indices left in markers
                 break
 
-    def refinement_with_marker_applied(
-        self, linear_index
-    ) -> tuple[ba.frozenbitarray, npt.NDArray[np.int8]]:
-        refinement = self._discretization.descriptor[linear_index]
-        marker = self._markers[linear_index]
-        if refinement.count() == 0:
-            assert np.all(marker > -1)
-            return refinement, marker
+    @dataclasses.dataclass
+    class Refinement:
+        class Type(Enum):
+            CopyOver = auto()
+            TrackOnly = auto()
+            ExpandLeaf = auto()
 
-        positive = ba.bitarray([1 if m > 0 else 0 for m in marker])
-        assert (refinement & positive).count() == 0
-        refinement |= positive
-
-        negative = ba.bitarray([1 if m < 0 else 0 for m in marker])
-        assert (~refinement & negative).count() == 0
-        refinement ^= negative
-
-        return refinement, marker
+        type: "Type"
+        old_index: int
+        new_refinement: ba.bitarray | None = None
+        marker_or_ancestor: npt.NDArray[np.int8] | int | None = None
 
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
-        # iterates a modified version of the descriptor, incorporating the markers knowledge
-        # and keeping track of the ancestry
-        current_modified_branch, _ = descriptor.get_branch(
-            starting_index, is_box_index=False
-        )
-        initial_branch_depth = len(current_modified_branch)
-        history_of_indices, history_of_level_increments = (
-            current_modified_branch.to_history()
-        )
-        history_of_binary_positions = []
-        for i in range(initial_branch_depth - 1):
-            history_of_binary_positions.append(
-                self._discretization._linearization.get_binary_position_from_index(
-                    history_of_indices[: i + 1], history_of_level_increments[: i + 1]
-                )
-            )
-        # the ancestry, in old indices but new relatonships
-        ancestry = descriptor.get_ancestry(current_modified_branch)
-        assert len(ancestry) == initial_branch_depth - 1
+        ancestrybranch = AncestryBranch(self._discretization, starting_index)
+        proxy_markers = MappingProxyType(self._markers)
 
-        intermediate_generation: list[int] = []
         while True:
-            # get the currently desired location info
-            modified_dimensionwise_positions = get_dimensionwise_positions(
-                history_of_binary_positions, history_of_level_increments
-            )
-            current_old_index, intermediate_generation = self.find_next_twig(
-                descriptor,
-                modified_dimensionwise_positions,
-                ancestry[-1] if len(ancestry) > 0 else 0,
-            )
-            ancestry.append(current_old_index)
-            next_refinement, next_marker = self.refinement_with_marker_applied(
-                current_old_index
+            current_old_index, intermediate_generation, next_refinement, next_marker = (
+                ancestrybranch.get_current_location_info(proxy_markers)
             )
             if next_refinement == descriptor.d_zeros:
-                yield current_old_index, next_refinement, next_marker
+                yield self.Refinement(
+                    self.Refinement.Type.ExpandLeaf,
+                    current_old_index,
+                    next_refinement,
+                    next_marker,
+                )
                 for p in intermediate_generation:
-                    yield p, ba.bitarray(None), ancestry[-2]
-                # only on leaves, we can advance the branch
+                    yield self.Refinement(
+                        self.Refinement.Type.TrackOnly,
+                        p,
+                        None,
+                        ancestrybranch.ancestry[-2],
+                    )
+                # only on leaves, we advance the branch
                 try:
-                    current_modified_branch.advance_branch(initial_branch_depth)
-                except IndexError:
-                    # done!
+                    ancestrybranch.advance()
+                except IndexError:  # done!
                     return
-                # prune all other data to current length,
-                # so we don't have to recompute from new branch
-                current_modified_branch_depth = len(current_modified_branch)
-                history_of_binary_positions = history_of_binary_positions[
-                    : current_modified_branch_depth - 2
-                ]
-                history_of_indices = history_of_indices[
-                    : current_modified_branch_depth - 1
-                ]
-                history_of_indices[-1] += 1
-                history_of_level_increments = history_of_level_increments[
-                    : current_modified_branch_depth - 1
-                ]
-                ancestry = ancestry[: current_modified_branch_depth - 1]
+
             else:
-                # on non-leaves, we need to grow the branch
-                yield current_old_index, next_refinement
-                current_modified_branch.grow_branch(next_refinement)
-                history_of_level_increments.append(next_refinement)
-                history_of_indices.append(0)
-
-            # update history of binary positions
-            latest_binary_position = (
-                self._discretization._linearization.get_binary_position_from_index(
-                    history_of_indices, history_of_level_increments
+                yield self.Refinement(
+                    self.Refinement.Type.CopyOver,
+                    current_old_index,
+                    next_refinement,
                 )
-            )
-            history_of_binary_positions.append(latest_binary_position)
-
-    def find_next_twig(
-        self,
-        descriptor: RefinementDescriptor,
-        desired_dimensionwise_positions: list[ba.bitarray],
-        parent_of_next_refinement: int,
-    ) -> tuple[int, list[int]]:
-        # with which binary position do we get the currently desired position?
-        if len(desired_dimensionwise_positions) == 0:
-            return 0, []  # root node
-        num_dimensions = descriptor.get_num_dimensions()
-        parent_branch, _ = descriptor.get_branch(
-            parent_of_next_refinement, is_box_index=False
-        )
-        children = descriptor.get_children(parent_of_next_refinement, parent_branch)
-
-        # determine which child twig to go down next,
-        # keeping track of predecessors that are going to disappear
-        twig_found = False
-        intermediate_generation: list[int] = []
-        children_changed = True
-        while not twig_found:
-            assert children_changed, "No child twig found, something is wrong"
-            children_changed = False
-            for child in children:
-                # find the child whose branch puts it at the same level/index as
-                # the modified branch we're looking at
-                child_old_branch, _ = descriptor.get_branch(
-                    child,
-                    is_box_index=False,
-                    hint_previous_branch=(parent_of_next_refinement, parent_branch),
-                )
-                child_dimensionwise_positions = get_dimensionwise_positions_from_branch(
-                    child_old_branch, self._discretization._linearization
-                )
-
-                child_ancestors = descriptor.get_ancestry(child_old_branch)
-                child_ancestry_accumulated_markers = np.sum(
-                    [self._markers[ancestor] for ancestor in child_ancestors],
-                    axis=0,
-                )
-                shortened_parent_positions = [
-                    desired_dimensionwise_positions[d][
-                        : len(desired_dimensionwise_positions[d])
-                        - child_ancestry_accumulated_markers[d]
-                    ]
-                    for d in range(num_dimensions)
-                ]
-                part_of_history = all(
-                    bitarray_startswith(
-                        child_dimensionwise_positions[d],
-                        shortened_parent_positions[d],
-                    )
-                    for d in range(num_dimensions)
-                )
-                if not part_of_history:
-                    continue
-
-                child_future_refinement, child_marker = (
-                    self.refinement_with_marker_applied(child)
-                )
-                if (
-                    np.min(child_marker) < 0
-                    and child_future_refinement == descriptor.d_zeros
-                ):
-                    children_of_coarsened = descriptor.get_children(child)
-                    history_matches = all(
-                        child_dimensionwise_positions[d]
-                        == desired_dimensionwise_positions[d]
-                        for d in range(num_dimensions)
-                    )
-                    # if it's a perfect match, it's a coarsened node
-                    if history_matches:
-                        current_old_index = child
-                        twig_found = True
-                        # this means that its former children are now gone
-                        # and need to be mapped to this child's index
-                        for child_of_coarsened in children_of_coarsened:
-                            intermediate_generation.append(child_of_coarsened)
-                    else:
-                        # else, it's a node that's going to disappear
-                        # -> restart loop with new children
-                        intermediate_generation.append(child)
-                        children = children_of_coarsened
-                        children_changed = True
-                else:
-                    current_old_index = child
-                    twig_found = True
-                break
-        return current_old_index, intermediate_generation
+                # on non-leaves, we grow the branch
+                ancestrybranch.grow(next_refinement)
 
     def track_indices(self, old_index: int, new_index: int) -> None:
         assert new_index > -1
-        if new_index not in self._index_mapping[old_index]:
-            self._index_mapping[old_index] += [new_index]
+        self._index_mapping[old_index].add(new_index)
 
     def extend_descriptor_and_track_indices(
         self,
@@ -433,70 +276,69 @@ class PlannedAdaptiveRefinement:
             ):
                 self.track_indices(old_index, new_index)
 
+    def filter_markers_by_min_index(
+        self, min_index: int
+    ) -> MappingProxyType[int, npt.NDArray[np.int8]]:
+        # filter the markers to the current interval
+        filtered_markers = {k: v for k, v in self._markers.items() if k >= min_index}
+        return MappingProxyType(filtered_markers)
+
+    def get_next_index_to_refine(self, min_index: int) -> int:
+        return min(
+            self.filter_markers_by_min_index(min_index).keys(),
+            default=-1,
+        )
+
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor
     ) -> RefinementDescriptor:
         old_descriptor = self._discretization.descriptor
+        last_extended_index = -1
         one_after_last_extended_index = 0
-
         while one_after_last_extended_index < len(old_descriptor):
-            # filter the markers to the current interval
-            filtered_markers = {
-                k: v
-                for k, v in self._markers.items()
-                if k >= one_after_last_extended_index
-            }
-            index_to_refine = min(filtered_markers.keys(), default=-1)
+            index_to_refine = self.get_next_index_to_refine(
+                one_after_last_extended_index
+            )
             if index_to_refine == -1:
                 break
 
-            # linearly copy up to marked
-            self.extend_descriptor_and_track_indices(
+            self.extend_descriptor_and_track_indices(  # linearly copy up to marked
                 new_descriptor,
                 (one_after_last_extended_index, index_to_refine),
                 old_descriptor[one_after_last_extended_index:index_to_refine],
             )
-
             # only refine where there are markers
-            last_extended_index = -1
-            for (
-                old_index,
-                new_refinement,
-                *marker_or_ancestor,
-            ) in self.modified_branch_generator(index_to_refine):
-                if len(marker_or_ancestor) > 0:
-                    assert (
-                        new_refinement == old_descriptor.d_zeros
-                        or new_refinement == ba.bitarray(None)
-                    )
-                    if np.min(marker_or_ancestor) < 0:
-                        # a node was coarsened, but is still there
-                        assert self._discretization.descriptor[old_index].count() > 0
+            for requested_refinement in self.modified_branch_generator(index_to_refine):
+                match requested_refinement:
+                    case self.Refinement(
+                        self.Refinement.Type.TrackOnly,
+                        old_index,
+                        None,
+                        int() as new_index,
+                    ):
+                        # track only the index, namely the one of the previous (grand...)parent
+                        self.track_indices(old_index, new_index)
+                    case self.Refinement(
+                        self.Refinement.Type.ExpandLeaf,
+                        old_index,
+                        ba.bitarray() as new_refinement,
+                        np.ndarray() as new_marker,
+                    ):
+                        self.extend_descriptor_and_track_indices(
+                            new_descriptor,
+                            old_index,
+                            get_regular_refined(new_marker),  # type: ignore
+                        )
+                    case self.Refinement(
+                        self.Refinement.Type.CopyOver,
+                        old_index,
+                        ba.bitarray() as new_refinement,
+                    ):
                         self.extend_descriptor_and_track_indices(
                             new_descriptor, old_index, new_refinement
                         )
-                    else:
-                        if new_refinement == ba.bitarray(None):
-                            assert len(marker_or_ancestor) == 1
-                            # track only the index,
-                            # namely the one of the previous (grand...)parent
-                            new_index = marker_or_ancestor[0]
-                            self.track_indices(old_index, new_index)
-                        else:
-                            # case of expanding a leaf
-                            assert (
-                                self._discretization.descriptor[old_index].count() == 0
-                            )
-                            self.extend_descriptor_and_track_indices(
-                                new_descriptor,
-                                old_index,
-                                get_regular_refined(self._markers[old_index]),  # type: ignore #marker?
-                            )
-                else:
-                    # a stable parent node
-                    self.extend_descriptor_and_track_indices(
-                        new_descriptor, old_index, new_refinement
-                    )
+                    case _:
+                        raise RuntimeError("Logic error: should not be reached")
                 last_extended_index = max(last_extended_index, old_index)
             one_after_last_extended_index = last_extended_index + 1
 
@@ -508,26 +350,27 @@ class PlannedAdaptiveRefinement:
         )
         return new_descriptor
 
-    def create_new_descriptor(
+    def create_new_discretization(
         self, track_mapping: str = "boxes"
-    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
-        self._index_mapping: dict[int, list[int]] = defaultdict(list)
+    ) -> tuple[Discretization, list[set[int]]]:
+        old_descriptor = self._discretization.descriptor
+        self._index_mapping: list[set[int]] = [
+            set() for _ in range(len(old_descriptor))
+        ]
 
         # start generating the new descriptor
-        new_descriptor = RefinementDescriptor(
-            self._discretization.descriptor.get_num_dimensions()
-        )
+        new_descriptor = RefinementDescriptor(old_descriptor.get_num_dimensions())
         new_descriptor._data = ba.bitarray()
 
         # we are not changing the old descriptor, and greedily build the new one
         # so we can cache the box indices of both
-        if not is_lru_cached(self._discretization.descriptor.to_box_index):
-            self._discretization.descriptor.to_box_index = lru_cache(maxsize=None)(
-                self._discretization.descriptor._to_box_index_recursive
+        if not is_lru_cached(old_descriptor.to_box_index):
+            old_descriptor.to_box_index = lru_cache(maxsize=None)(
+                old_descriptor._to_box_index_recursive
             )
-            self._discretization.descriptor._to_box_index_recursive = lru_cache(
-                maxsize=None
-            )(self._discretization.descriptor._to_box_index_recursive)
+            old_descriptor._to_box_index_recursive = lru_cache(maxsize=None)(
+                old_descriptor._to_box_index_recursive
+            )
         new_descriptor.to_box_index = lru_cache(maxsize=None)(  # type: ignore
             new_descriptor._to_box_index_recursive
         )
@@ -541,7 +384,7 @@ class PlannedAdaptiveRefinement:
             # transform the mapping to box indices
             self._index_mapping = hierarchical_to_box_index_mapping(
                 self._index_mapping,
-                self._discretization.descriptor,
+                old_descriptor,
                 new_descriptor,
             )
         elif track_mapping == "patches":
@@ -551,11 +394,14 @@ class PlannedAdaptiveRefinement:
                 "track_mapping must be either 'boxes' or 'patches', got "
                 + str(track_mapping)
             )
-        return new_descriptor, self._index_mapping
+        return (
+            Discretization(self._discretization._linearization, new_descriptor),
+            self._index_mapping,
+        )
 
     def apply_refinements(
         self, track_mapping: str = "boxes"
-    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, dict]]:
+    ) -> tuple[Discretization, list[set[int]]]:
         assert self._upward_queue.empty()
         assert self._markers == {}
         self.populate_queue()
@@ -563,7 +409,7 @@ class PlannedAdaptiveRefinement:
         self.downwards_sweep()
         assert len(self._planned_refinements) == 0
 
-        return self.create_new_descriptor(track_mapping)
+        return self.create_new_discretization(track_mapping)
 
 
 def apply_single_refinement(
@@ -571,31 +417,26 @@ def apply_single_refinement(
     box_index: int,
     dimensions_to_refine: Optional[ba.bitarray] = None,
     track_mapping: str = "boxes",
-) -> tuple[Discretization, dict]:
+) -> tuple[Discretization, list[set[int]]]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
-    new_descriptor, mapping = p.apply_refinements(track_mapping=track_mapping)
-    return Discretization(discretization._linearization, new_descriptor), mapping
+    return p.apply_refinements(track_mapping=track_mapping)
 
 
 def merge_mappings(
-    first_mapping: dict[int, list[int]],
-    second_mapping: dict[int, list[int]],
-) -> dict[int, list[int]]:
+    first_mapping: list[set[int]],
+    second_mapping: list[set[int]],
+) -> list[set[int]]:
     # if either mapping is empty, return the other one
     if not first_mapping:
         return second_mapping
     if not second_mapping:
         return first_mapping
-    for k, v in first_mapping.items():
-        assert isinstance(k, int) and isinstance(v, list)
-        for v_i in v:
-            assert isinstance(v_i, int)
     # merge the mappings
-    merged_mapping: dict[int, list[int]] = defaultdict(list)
-    for k, v in first_mapping.items():
+    merged_mapping: list[set[int]] = [set() for _ in range(len(first_mapping))]
+    for k, v in enumerate(first_mapping):
         for v_i in v:
-            merged_mapping[k] += second_mapping[v_i]
+            merged_mapping[k] |= second_mapping[v_i]
     return merged_mapping
 
 
@@ -603,44 +444,41 @@ def normalize_discretization(
     discretization: Discretization,
     track_mapping: str = "patches",
     max_normalization_rounds: int = 2**31 - 1,
-) -> tuple[RefinementDescriptor, dict[int, list[int]], int]:
+) -> tuple[Discretization, list[set[int]], int]:
     """
     Normalize the discretization so that it fulfills the uniqueness condition
     and we get a normalized omnitree.
     """
-    descriptor = discretization.descriptor
     normalization_rounds = 0
     # find the tuples of indices where the uniqueness condition is violated
-    violations = find_uniqueness_violations(descriptor)
-    mapping: dict[int, list[int]] = {}
+    violations = find_uniqueness_violations(discretization.descriptor)
+    mapping: list[set[int]] = []
     while len(violations) > 0 and normalization_rounds < max_normalization_rounds:
         normalization_rounds += 1
-        p = PlannedAdaptiveRefinement(
-            Discretization(discretization._linearization, descriptor)
-        )
+        p = PlannedAdaptiveRefinement(discretization)
         # remove these violations, by putting markers and executing create_new_descriptor
         for violation in violations:
             # find the dimension(s) of the violation
             sorted_violation = sorted(violation)
-            dimensions_to_shift = ~ba.bitarray(descriptor[sorted_violation[0]])
+            dimensions_to_shift = ~ba.bitarray(
+                discretization.descriptor[sorted_violation[0]]
+            )
             for i in sorted_violation[1:]:
-                dimensions_to_shift &= descriptor[i]
+                dimensions_to_shift &= discretization.descriptor[i]
             assert dimensions_to_shift.count() > 0
-            dimensions_to_shift_array = np.fromiter(
+            dimensions_to_shift_array = int8_ndarray_from_iterable(
                 dimensions_to_shift,
-                dtype=np.int8,
-                count=descriptor.get_num_dimensions(),
             )
             p._markers[sorted_violation[0]] += dimensions_to_shift_array
             for i in sorted_violation[1:]:
                 p._markers[i] -= dimensions_to_shift_array
+
         # apply the refinements
-        new_descriptor, new_mapping = p.create_new_descriptor(
+        new_discretization, new_mapping = p.create_new_discretization(
             track_mapping=track_mapping
         )
+        discretization = new_discretization
         mapping = merge_mappings(mapping, new_mapping)
+        violations = find_uniqueness_violations(discretization.descriptor)
 
-        descriptor = new_descriptor
-        violations = find_uniqueness_violations(descriptor)
-
-    return descriptor, mapping, normalization_rounds
+    return discretization, mapping, normalization_rounds

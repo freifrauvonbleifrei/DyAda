@@ -497,30 +497,32 @@ def validate_descriptor(descriptor: RefinementDescriptor):
     return True
 
 
+def int8_ndarray_from_iterable(iterable) -> npt.NDArray[np.int8]:
+    return np.fromiter(iterable, dtype=np.int8, count=len(iterable))
+
+
 def get_level_from_branch(branch: Branch) -> np.ndarray:
     num_dimensions = len(branch[0].level_increment)
     found_level = np.array([0] * num_dimensions, dtype=np.int8)
     for level_count in range(1, len(branch)):
-        found_level += np.fromiter(
-            branch[level_count].level_increment, dtype=np.int8, count=num_dimensions
-        )
+        found_level += int8_ndarray_from_iterable(branch[level_count].level_increment)
     return found_level
 
 
 def hierarchical_to_box_index_mapping(
-    hierarchical_mapping: dict[int, list[int]],
+    hierarchical_mapping: list[set[int]],
     key_descriptor: RefinementDescriptor,
-    value_desciptor: RefinementDescriptor,
-) -> dict[int, list[int]]:
-    box_mapping = {
-        key_descriptor.to_box_index(old_index): [
-            value_desciptor.to_box_index(new_index)
+    value_descriptor: RefinementDescriptor,
+) -> list[set[int]]:
+    box_mapping = [
+        set(
+            value_descriptor.to_box_index(new_index)
             for new_index in new_indices
-            if value_desciptor.is_box(new_index)
-        ]
-        for old_index, new_indices in hierarchical_mapping.items()
+            if value_descriptor.is_box(new_index)
+        )
+        for old_index, new_indices in enumerate(hierarchical_mapping)
         if key_descriptor.is_box(old_index)
-    }
+    ]
     return box_mapping
 
 
