@@ -123,7 +123,6 @@ class PlannedAdaptiveRefinement:
 
     def upwards_sweep(self) -> None:
         # traverse the tree from down (high level sums) to the coarser levels
-        num_dimensions = self._discretization.descriptor.get_num_dimensions()
         while not self._upward_queue.empty():
             level_sum, linear_index = self._upward_queue.get()
 
