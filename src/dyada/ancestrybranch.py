@@ -204,7 +204,7 @@ def old_node_will_be_contained_in_new_descriptor(
     future_refinement, marker = refinement_with_marker_applied(
         descriptor, old_index, markers
     )
-    return bool(np.min(marker)) >= 0 or future_refinement.count() > 0
+    return np.min(marker) >= 0 or future_refinement != descriptor.d_zeros  # type: ignore
 
 
 def find_next_twig(
