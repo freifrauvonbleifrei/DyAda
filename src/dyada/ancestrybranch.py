@@ -213,7 +213,7 @@ def find_next_twig(
     desired_dimensionwise_positions: list[ba.bitarray],
     parent_of_next_refinement: int,
 ) -> tuple[int, set[int]]:
-    """get the (old) tree node corresponding to the location code, and any nodes encountered on the way
+    """Get the (old) tree node corresponding to the location code, and any nodes encountered on the way.
     Args:
         discretization (Discretization): the old discretization we're referring to
         markers (MappingProxyType[int, npt.NDArray[np.int8]]): refinement markers that should be applied to the discretization
