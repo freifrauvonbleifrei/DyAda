@@ -242,7 +242,6 @@ def find_next_twig(
             history_matches = (
                 child_dimensionwise_positions == desired_dimensionwise_positions
             )
-
             if history_matches:
                 # this means that its former children are now gone and need to be mapped to this child's index
                 for child_of_coarsened in children_of_coarsened:

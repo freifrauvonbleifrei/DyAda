@@ -118,21 +118,20 @@ def test_plot_complex_2d_with_stack():
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(2, "01")
     p.plan_refinement(4, "02")
-    non_normalized_descriptor, _ = p.apply_refinements()
+    non_normalized_discretization, _ = p.apply_refinements()
+    non_normalized_descriptor = non_normalized_discretization.descriptor
     assert non_normalized_descriptor._data == ba.bitarray(
         "11 00 10 01 00 00 01 00 00 00 10 00 01 00 00"
     )
-    new_descriptor = non_normalized_descriptor
-    new_discretization = Discretization(MortonOrderLinearization(), new_descriptor)
     plot_all_boxes_2d(
-        new_discretization,
+        non_normalized_discretization,
         backend="tikz",
         filename="complex_2d_square_after",
     )
-    plot_descriptor_tikz(new_descriptor, filename="complex_2d_desc_after")
-    plot_tree_tikz(new_descriptor, filename="complex_2d_tree_after")
+    plot_descriptor_tikz(non_normalized_descriptor, filename="complex_2d_desc_after")
+    plot_tree_tikz(non_normalized_descriptor, filename="complex_2d_tree_after")
     plot_location_stack_tikz(
-        new_discretization, filename="complex_2d_location_stack_after"
+        non_normalized_discretization, filename="complex_2d_location_stack_after"
     )
 
 
@@ -187,25 +186,23 @@ def test_draw_simplest_grandchild_split_tikz():
 
 def test_plot_boxes_3d_from_descriptor():
     descriptor = RefinementDescriptor(3, [1, 0, 1])
-    r = Discretization(MortonOrderLinearization(), descriptor)
-    p = PlannedAdaptiveRefinement(r)
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(3, ba.bitarray("101"))
     p.plan_refinement(1, ba.bitarray("001"))
     p.plan_refinement(2, ba.bitarray("010"))
-    descriptor, _ = p.apply_refinements()
-    validate_descriptor(descriptor)
-    r = Discretization(MortonOrderLinearization(), descriptor)
-    p = PlannedAdaptiveRefinement(r)
+    discretization, _ = p.apply_refinements()
+    validate_descriptor(discretization.descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(3, ba.bitarray("100"))
     p.plan_refinement(7, ba.bitarray("010"))
-    descriptor, _ = p.apply_refinements()
-    validate_descriptor(descriptor)
-    r = Discretization(MortonOrderLinearization(), descriptor)
-    p = PlannedAdaptiveRefinement(r)
+    discretization, _ = p.apply_refinements()
+    validate_descriptor(discretization.descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(9, ba.bitarray("101"))
-    new_descriptor, _ = p.apply_refinements()
-    validate_descriptor(new_descriptor)
-    r = Discretization(MortonOrderLinearization(), new_descriptor)
+    discretization, _ = p.apply_refinements()
+    validate_descriptor(discretization.descriptor)
+    new_descriptor = discretization.descriptor
     backends = ["tikz", "obj"]
     backends.append("matplotlib") if module_is_available("matplotlib") else None
     backends.append("opengl") if module_is_available("OpenGL") else None
@@ -226,23 +223,27 @@ def test_plot_boxes_3d_from_descriptor():
             with plt.ion():  # turns off blocking figures for test
                 plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
         plot_all_boxes_3d(
-            r, wireframe=True, filename="test_filename_wireframe", backend=backend
+            discretization,
+            wireframe=True,
+            filename="test_filename_wireframe",
+            backend=backend,
         )
 
 
 def test_plot_octree_3d_from_descriptor():
     descriptor = RefinementDescriptor(3, [1, 1, 1])
-    r = Discretization(MortonOrderLinearization(), descriptor)
-    p = PlannedAdaptiveRefinement(r)
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(4, ba.bitarray("111"))
     p.plan_refinement(7, ba.bitarray("111"))
-    new_descriptor, _ = p.apply_refinements()
-    validate_descriptor(new_descriptor)
-    r = Discretization(MortonOrderLinearization(), new_descriptor)
-    p = PlannedAdaptiveRefinement(r)
-    p.plan_refinement(new_descriptor.get_num_boxes() - 2, ba.bitarray("111"))
-    new_descriptor, _ = p.apply_refinements()
-    r = Discretization(MortonOrderLinearization(), new_descriptor)
+    new_discretization, _ = p.apply_refinements()
+    validate_descriptor(new_discretization.descriptor)
+    p = PlannedAdaptiveRefinement(new_discretization)
+    p.plan_refinement(
+        new_discretization.descriptor.get_num_boxes() - 2, ba.bitarray("111")
+    )
+    new_discretization, _ = p.apply_refinements()
+    new_descriptor = new_discretization.descriptor
     backends = ["tikz", "obj"]
     backends.append("matplotlib") if module_is_available("matplotlib") else None
     backends.append("opengl") if module_is_available("OpenGL") else None
@@ -265,7 +266,9 @@ def test_plot_octree_3d_from_descriptor():
                 draw_options="fill opacity=0.1",
                 backend=backend,
             )
-    plot_all_boxes_3d(r, wireframe=True, filename="octree", labels=None)
+    plot_all_boxes_3d(
+        new_discretization, wireframe=True, filename="octree", labels=None
+    )
     plot_tree_tikz(new_descriptor, filename="octree_tree")
     with pytest.raises(ValueError):
         plot_all_boxes_3d(r, filename="octree_tree", backend="unknown")

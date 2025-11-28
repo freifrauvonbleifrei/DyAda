@@ -355,9 +355,9 @@ class PlannedAdaptiveRefinement:
         )
         return new_descriptor
 
-    def create_new_descriptor(
+    def create_new_discretization(
         self, track_mapping: str = "boxes"
-    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, list[set[int]]]]:
+    ) -> tuple[Discretization, list[set[int]]]:
         old_descriptor = self._discretization.descriptor
         self._index_mapping: list[set[int]] = [
             set() for _ in range(len(old_descriptor))
@@ -399,11 +399,14 @@ class PlannedAdaptiveRefinement:
                 "track_mapping must be either 'boxes' or 'patches', got "
                 + str(track_mapping)
             )
-        return new_descriptor, self._index_mapping
+        return (
+            Discretization(self._discretization._linearization, new_descriptor),
+            self._index_mapping,
+        )
 
     def apply_refinements(
         self, track_mapping: str = "boxes"
-    ) -> Union[RefinementDescriptor, tuple[RefinementDescriptor, list[set[int]]]]:
+    ) -> tuple[Discretization, list[set[int]]]:
         assert self._upward_queue.empty()
         assert self._markers == {}
         self.populate_queue()
@@ -411,7 +414,7 @@ class PlannedAdaptiveRefinement:
         self.downwards_sweep()
         assert len(self._planned_refinements) == 0
 
-        return self.create_new_descriptor(track_mapping)
+        return self.create_new_discretization(track_mapping)
 
 
 def apply_single_refinement(
@@ -422,8 +425,7 @@ def apply_single_refinement(
 ) -> tuple[Discretization, list[set[int]]]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
-    new_descriptor, mapping = p.apply_refinements(track_mapping=track_mapping)
-    return Discretization(discretization._linearization, new_descriptor), mapping
+    return p.apply_refinements(track_mapping=track_mapping)
 
 
 def merge_mappings(
@@ -447,28 +449,27 @@ def normalize_discretization(
     discretization: Discretization,
     track_mapping: str = "patches",
     max_normalization_rounds: int = 2**31 - 1,
-) -> tuple[RefinementDescriptor, list[set[int]], int]:
+) -> tuple[Discretization, list[set[int]], int]:
     """
     Normalize the discretization so that it fulfills the uniqueness condition
     and we get a normalized omnitree.
     """
-    descriptor = discretization.descriptor
     normalization_rounds = 0
     # find the tuples of indices where the uniqueness condition is violated
-    violations = find_uniqueness_violations(descriptor)
+    violations = find_uniqueness_violations(discretization.descriptor)
     mapping: list[set[int]] = []
     while len(violations) > 0 and normalization_rounds < max_normalization_rounds:
         normalization_rounds += 1
-        p = PlannedAdaptiveRefinement(
-            Discretization(discretization._linearization, descriptor)
-        )
+        p = PlannedAdaptiveRefinement(discretization)
         # remove these violations, by putting markers and executing create_new_descriptor
         for violation in violations:
             # find the dimension(s) of the violation
             sorted_violation = sorted(violation)
-            dimensions_to_shift = ~ba.bitarray(descriptor[sorted_violation[0]])
+            dimensions_to_shift = ~ba.bitarray(
+                discretization.descriptor[sorted_violation[0]]
+            )
             for i in sorted_violation[1:]:
-                dimensions_to_shift &= descriptor[i]
+                dimensions_to_shift &= discretization.descriptor[i]
             assert dimensions_to_shift.count() > 0
             dimensions_to_shift_array = int8_ndarray_from_iterable(
                 dimensions_to_shift,
@@ -476,13 +477,13 @@ def normalize_discretization(
             p._markers[sorted_violation[0]] += dimensions_to_shift_array
             for i in sorted_violation[1:]:
                 p._markers[i] -= dimensions_to_shift_array
+
         # apply the refinements
-        new_descriptor, new_mapping = p.create_new_descriptor(
+        new_discretization, new_mapping = p.create_new_discretization(
             track_mapping=track_mapping
         )
+        discretization = new_discretization
         mapping = merge_mappings(mapping, new_mapping)
+        violations = find_uniqueness_violations(discretization.descriptor)
 
-        descriptor = new_descriptor
-        violations = find_uniqueness_violations(descriptor)
-
-    return descriptor, mapping, normalization_rounds
+    return discretization, mapping, normalization_rounds
