@@ -212,7 +212,10 @@ def test_plot_boxes_3d_from_descriptor():
     for backend in backends:
         if backend == "tikz":
             plot_all_boxes_3d(
-                r, labels="boxes", draw_options="fill opacity=0.1", backend=backend
+                discretization,
+                labels="boxes",
+                draw_options="fill opacity=0.1",
+                backend=backend,
             )
             plot_tree_tikz(
                 new_descriptor,
@@ -221,7 +224,9 @@ def test_plot_boxes_3d_from_descriptor():
             plot_descriptor_tikz(new_descriptor)
         else:
             with plt.ion():  # turns off blocking figures for test
-                plot_all_boxes_3d(r, labels="boxes", alpha=0.1, backend=backend)
+                plot_all_boxes_3d(
+                    discretization, labels="boxes", alpha=0.1, backend=backend
+                )
         plot_all_boxes_3d(
             discretization,
             wireframe=True,
@@ -250,7 +255,7 @@ def test_plot_octree_3d_from_descriptor():
     for backend in backends:
         if backend == "matplotlib" or backend == "opengl":
             plot_all_boxes_3d(
-                r,
+                new_discretization,
                 labels="boxes",
                 filename="octree",
                 alpha=0.1,
@@ -260,7 +265,7 @@ def test_plot_octree_3d_from_descriptor():
             )
         else:
             plot_all_boxes_3d(
-                r,
+                new_discretization,
                 labels="boxes",
                 filename="octree",
                 draw_options="fill opacity=0.1",
@@ -271,4 +276,4 @@ def test_plot_octree_3d_from_descriptor():
     )
     plot_tree_tikz(new_descriptor, filename="octree_tree")
     with pytest.raises(ValueError):
-        plot_all_boxes_3d(r, filename="octree_tree", backend="unknown")
+        plot_all_boxes_3d(new_discretization, filename="octree_tree", backend="unknown")
