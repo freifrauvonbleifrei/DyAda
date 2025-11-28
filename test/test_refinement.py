@@ -573,11 +573,11 @@ def test_refine_2d_5():
     """Test found through randomized testing, it used to return incomplete mapping"""
     descriptor = RefinementDescriptor.from_binary(
         2,
-        ba.bitarray("11 10 00 01 01 00 00 01 00 00 00 00 00"),
+        ba.bitarray("10 00 01 01 00 00 01 00 00"),
     )
     assert validate_descriptor(descriptor)
-
     discretization = Discretization(MortonOrderLinearization(), descriptor)
+    
     refinement = ba.bitarray("01")
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(0, refinement)
@@ -591,6 +591,22 @@ def test_refine_2d_5():
         mapping_indices_are_boxes=False,
         tested_refinement=[refinement],
     )
+
+    assert new_discretization.descriptor._data == ba.bitarray(
+        "11 00 01 00 00 00 01 00 00"
+    )
+    expected_mapping = {
+        0: {0},
+        1: {0, 1, 5},
+        2: {0, 3, 6},
+        3: {2},
+        4: {3},
+        5: {4},
+        6: {6},
+        7: {7},
+        8: {8},
+    }
+    assert index_mapping == [expected_mapping[i] for i in range(len(expected_mapping))]
 
 
 def test_refine_3d():
