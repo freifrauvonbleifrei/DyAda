@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
-from typing import Sequence
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Sequence, Union
 
 
 def single_bit_set_gen(num_dimensions: int):
@@ -126,3 +128,68 @@ def get_dimensionwise_positions_from_branch(branch, linearization):
     return get_dimensionwise_positions(
         history_of_binary_positions, history_of_level_increments
     )
+
+
+@dataclass
+class DimensionSeparatedLocalPosition:
+    separated_positions: ba.frozenbitarray
+    remaining_positions: ba.frozenbitarray
+
+
+type CoarseningStack = list[Union[DimensionSeparatedLocalPosition, int]]
+
+
+@lru_cache
+def get_initial_coarsening_stack(
+    current_parent_refinement: ba.frozenbitarray,
+    dimensions_to_coarsen: tuple[int],
+    linearization: Linearization = MortonOrderLinearization(),
+) -> CoarseningStack:
+    if not isinstance(linearization, MortonOrderLinearization):
+        raise NotImplementedError(
+            "Initial coarsening stack generation only implemented for"
+            + "Morton order linearization, other linearizations may need"
+            + "different signature."
+        )
+
+    for dimension in dimensions_to_coarsen:
+        assert current_parent_refinement[dimension] == 1
+
+    initial_coarsening_stack: CoarseningStack = []
+    num_dimensions = len(current_parent_refinement)
+    num_current_children = 2 ** current_parent_refinement.count()
+
+    for child_index in range(num_current_children):
+        binary_position = linearization.get_binary_position_from_index(
+            (child_index,),
+            (current_parent_refinement,),
+        )
+        separated_positions = ba.bitarray()
+        remaining_positions = ba.bitarray()
+        for d in range(num_dimensions):
+            if d in dimensions_to_coarsen:
+                separated_positions.append(binary_position[d])
+            else:
+                remaining_positions.append(binary_position[d])
+        initial_coarsening_stack.append(
+            DimensionSeparatedLocalPosition(
+                separated_positions=ba.frozenbitarray(separated_positions),
+                remaining_positions=ba.frozenbitarray(remaining_positions),
+            )
+        )
+
+    # reverse so we can pop() from the back
+    initial_coarsening_stack.reverse()
+    return initial_coarsening_stack
+
+
+def replace_same_remaining_position_by_mapped_to_index(
+    coarsening_stack: CoarseningStack,
+    position_to_replace: DimensionSeparatedLocalPosition,
+    mapped_to_index: int,
+) -> None:
+    for i, entry in enumerate(coarsening_stack):
+        assert isinstance(entry, DimensionSeparatedLocalPosition)
+        if entry.remaining_positions == position_to_replace.remaining_positions:
+            coarsening_stack[i] = mapped_to_index
+    return
