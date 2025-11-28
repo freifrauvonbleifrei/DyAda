@@ -196,10 +196,10 @@ def old_node_will_be_contained_in_new_descriptor(
     old_index: int,
     markers: MappingProxyType[int, npt.NDArray[np.int8]],
 ) -> bool:
-    """whether the node at old_index will be contained in the new descriptor after applying markers.
+    """Check whether the node at old_index will be contained in the new descriptor after applying markers.
 
     Returns:
-        bool: true if the node will be contained, false if it will be coarsened away
+        bool: True if the node will be contained, False if it will be coarsened away.
     """
     future_refinement, marker = refinement_with_marker_applied(
         descriptor, old_index, markers
