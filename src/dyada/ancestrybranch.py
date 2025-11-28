@@ -246,7 +246,7 @@ def find_next_twig(
                 continue
 
             if old_node_will_be_contained_in_new_descriptor(descriptor, child, markers):
-                return child, intermediate_generation  # # we found the next twig
+                return child, intermediate_generation  # we found the next twig
 
             # else it's a coarsened node and we can see if there is a matching child
             children_of_coarsened = descriptor.get_children(child)
