@@ -49,14 +49,14 @@ class AncestryBranch:
         self._history_of_indices, self._history_of_level_increments = (
             self._current_modified_branch.to_history()
         )
-        self._history_of_binary_positions = []
-        for i in range(self._initial_branch_depth - 1):
-            self._history_of_binary_positions.append(
-                self._discretization._linearization.get_binary_position_from_index(
-                    self._history_of_indices[: i + 1],
-                    self._history_of_level_increments[: i + 1],
-                )
+        self._history_of_binary_positions = [
+            self._discretization._linearization.get_binary_position_from_index(
+                self._history_of_indices[: i + 1],
+                self._history_of_level_increments[: i + 1],
             )
+            for i in range(self._initial_branch_depth - 1)
+        ]
+
         # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
         assert len(self.ancestry) == self._initial_branch_depth - 1
