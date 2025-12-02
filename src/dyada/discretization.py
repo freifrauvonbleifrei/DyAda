@@ -202,6 +202,50 @@ class Discretization:
             else found_box_indices.pop()
         )
 
+    def get_index_from_location_code(self, location_code: list[ba.bitarray]) -> int:
+        # we avoid tracking the histories for now
+        assert self._linearization == MortonOrderLinearization()
+
+        found_part_of_location_code = [0 for _ in range(len(location_code))]
+        current_branch = Branch(self._descriptor.get_num_dimensions())
+        patch_index = -1
+        descriptor_iterator = iter(self._descriptor)
+        while True:
+            current_refinement = next(descriptor_iterator)
+            patch_index += 1
+            if all(
+                bp == len(location_code[d])
+                for d, bp in enumerate(found_part_of_location_code)
+            ):
+                # found all!
+                return patch_index
+
+            assert current_refinement.count() > 0, "box should have been found here"
+            # go deeper in the branch where the coordinate is
+            current_branch.grow_branch(current_refinement)
+
+            # increment "found" at these indices where refinement is 1
+            new_binary_position = ba.bitarray([0] * len(current_refinement))
+            for i, bitarray_i in enumerate(current_refinement):
+                if bitarray_i:
+                    new_binary_position[i] = location_code[i][
+                        found_part_of_location_code[i]
+                    ]
+                    found_part_of_location_code[i] += 1
+
+            # may raise error if not matching
+            child_index = self._linearization.get_index_from_binary_position(
+                new_binary_position, [], [current_refinement]
+            )
+
+            for _ in range(child_index):
+                # skip the children where the coordinate is not in the patch
+                current_refinement = next(descriptor_iterator)
+                patch_index += self._descriptor.skip_to_next_neighbor(
+                    descriptor_iterator, current_refinement
+                )[1]
+                current_branch.advance_branch()
+
     def slice(
         self,
         fixed_unit_coordinates: Sequence[Union[float, None]],

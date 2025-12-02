@@ -2,6 +2,10 @@ import pytest
 import bitarray as ba
 import numpy as np
 
+from dyada.coordinates import (
+    location_code_from_level_index,
+)
+
 from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
@@ -123,6 +127,20 @@ def test_get_box_from_coordinate():
         r.get_containing_box(np.array([1.5, 0.0]))
     with pytest.raises(ValueError):
         r.get_containing_box(np.array([1.5, 1.5]))
+
+
+def test_get_index_from_location_code_from_level_index_2d():
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 10 01 00 00 01 00 00 00 10 00 01 00 00")
+    )
+    validate_descriptor(descriptor)
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    # test all boxes
+    for i, level_index in enumerate(discretization.get_all_boxes_level_indices()):
+        location_code = location_code_from_level_index(level_index)
+        index = discretization.get_index_from_location_code(location_code)
+        box_index = discretization.descriptor.to_box_index(index)
+        assert box_index == i
 
 
 def helper_mapping_as_box_mapping(
