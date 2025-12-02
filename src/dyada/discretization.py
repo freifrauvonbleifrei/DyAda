@@ -134,8 +134,8 @@ class Discretization:
                 current_branch.to_history()
             )
 
-            coordinate_bitarrays = [location_code_from_float(c) for c in coordinate]
-            bitarrays_counted_levels = [0 for i in range(len(coordinate))]
+            location_code = [location_code_from_float(c) for c in coordinate]
+            found_part_of_location_code = [0 for i in range(len(coordinate))]
 
             box_index = -1
             descriptor_iterator = iter(self._descriptor)
@@ -149,7 +149,7 @@ class Discretization:
                     found_box_indices.add(box_index)
                     coordinates_found.add(tuple(coordinate))  # type: ignore
                     # assert (
-                    #     bitarrays_counted_levels
+                    #     found_part_of_location_code
                     #     == get_level_index_from_linear_index(
                     #         self._linearization, self._descriptor, box_index
                     #     ).d_level
@@ -158,14 +158,14 @@ class Discretization:
 
                 history_of_level_increments.append(current_refinement)
 
-                # increment the counted levels at these indices where refinement is 1
+                # increment the found part at these indices where refinement is 1
                 new_binary_position = ba.bitarray([0] * len(coordinate))
                 for i, bitarray_i in enumerate(current_refinement):
                     if bitarray_i:
-                        new_binary_position[i] = coordinate_bitarrays[i][
-                            bitarrays_counted_levels[i]
+                        new_binary_position[i] = location_code[i][
+                            found_part_of_location_code[i]
                         ]
-                        bitarrays_counted_levels[i] += 1
+                        found_part_of_location_code[i] += 1
 
                 child_index = self._linearization.get_index_from_binary_position(
                     new_binary_position, history_of_indices, history_of_level_increments
@@ -180,10 +180,10 @@ class Discretization:
                     )[0]
                     current_branch.advance_branch()
             # check if the coordinate could also be in another box
-            # this is the case if there are only zeros left in the coordinate_bitarrays behind the respective counted levels
+            # this is the case if there are only zeros left in the location_code behind the respective counted levels
             ambiguous_dimensions = [
-                coordinate_bitarrays[i].count() > 0
-                and coordinate_bitarrays[i][bitarrays_counted_levels[i] :].count() == 0
+                location_code[i].count() > 0
+                and location_code[i][found_part_of_location_code[i] :].count() == 0
                 for i in range(len(coordinate))
             ]
             ambiguous_indices = [i for i, a in enumerate(ambiguous_dimensions) if a]
