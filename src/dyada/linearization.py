@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import bitarray as ba
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Sequence, Union
+from typing import Sequence, TypeAlias, Union
 
 
 def single_bit_set_gen(num_dimensions: int):
@@ -31,9 +31,7 @@ def get_dimensionwise_positions(
     ]
     location_codes = []
     for d in range(num_dimensions):
-        location_codes.append(
-            transposed_positions[d][transposed_level_increments[d]]
-        )
+        location_codes.append(transposed_positions[d][transposed_level_increments[d]])
     return location_codes
 
 
@@ -136,7 +134,7 @@ class DimensionSeparatedLocalPosition:
     remaining_positions: ba.frozenbitarray
 
 
-type CoarseningStack = list[Union[DimensionSeparatedLocalPosition, int]]
+CoarseningStack: TypeAlias = list[Union[DimensionSeparatedLocalPosition, int]]
 
 
 @lru_cache
