@@ -9,7 +9,7 @@ from dyada.coordinates import (
     interval_from_sequences,
     get_coordinates_from_level_index,
     float_parts_bitarray,
-    deciding_bitarray_from_float,
+    location_code_from_float,
 )
 
 
@@ -62,7 +62,7 @@ def test_float_parts_bitarray():
     _, _, mantissa_bits = float_parts_bitarray(1.0)
     assert mantissa_bits.count() == 0
     # but putting 1.0 in the deciding_bitarray should give us 1111...
-    mantissa_bits = deciding_bitarray_from_float(1.0)
+    mantissa_bits = location_code_from_float(1.0)
     assert mantissa_bits.count() == len(mantissa_bits)
 
     with pytest.raises(ValueError):

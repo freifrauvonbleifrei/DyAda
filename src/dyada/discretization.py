@@ -13,7 +13,7 @@ from dyada.coordinates import (
     Coordinate,
     coordinate_from_sequence,
     CoordinateInterval,
-    deciding_bitarray_from_float,
+    location_code_from_float,
 )
 
 from dyada.descriptor import (
@@ -134,7 +134,7 @@ class Discretization:
                 current_branch.to_history()
             )
 
-            coordinate_bitarrays = [deciding_bitarray_from_float(c) for c in coordinate]
+            coordinate_bitarrays = [location_code_from_float(c) for c in coordinate]
             bitarrays_counted_levels = [0 for i in range(len(coordinate))]
 
             box_index = -1
@@ -227,7 +227,7 @@ class Discretization:
             0 if d in fixed_dimensions else None for d in range(num_dimensions)
         ]
         deciding_bitarrays = [
-            deciding_bitarray_from_float(c) if c is not None else None
+            location_code_from_float(c) if c is not None else None
             for c in fixed_unit_coordinates
         ]
         # create new empty descriptor
