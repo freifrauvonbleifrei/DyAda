@@ -218,12 +218,14 @@ class PlannedAdaptiveRefinement:
 
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
-        ancestrybranch = AncestryBranch(self._discretization, starting_index)
         proxy_markers = MappingProxyType(self._markers)
+        ancestrybranch = AncestryBranch(
+            self._discretization, starting_index, proxy_markers
+        )
 
         while True:
             current_old_index, intermediate_generation, next_refinement, next_marker = (
-                ancestrybranch.get_current_location_info(proxy_markers)
+                ancestrybranch.get_current_location_info()
             )
             if next_refinement == descriptor.d_zeros:
                 yield self.Refinement(

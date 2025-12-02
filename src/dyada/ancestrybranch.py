@@ -30,7 +30,13 @@ class AncestryBranch:
       new relationships (not determined by old descriptor)
     """
 
-    def __init__(self, discretization: Discretization, starting_index: int):
+    def __init__(
+        self,
+        discretization: Discretization,
+        starting_index: int,
+        markers: MappingProxyType[int, npt.NDArray[np.int8]],
+    ):
+        self.markers = markers
         self._discretization = discretization
         descriptor = self._discretization.descriptor
         # iterates a modified version of the descriptor, incorporating the markers knowledge
@@ -56,7 +62,7 @@ class AncestryBranch:
         assert len(self.ancestry) == self._initial_branch_depth - 1
 
     def get_current_location_info(
-        self, markers: MappingProxyType[int, npt.NDArray[np.int8]]
+        self,
     ) -> tuple[int, set[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
         # get the currently desired location info
         current_old_index = 0
@@ -67,14 +73,14 @@ class AncestryBranch:
             )
             current_old_index, intermediate_generation = find_next_twig(
                 self._discretization,
-                markers,
+                self.markers,
                 modified_dimensionwise_positions,
                 self.ancestry[-1],
             )
         self.ancestry.append(current_old_index)
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
-            next_marker := markers[current_old_index],
+            next_marker := self.markers[current_old_index],
         )
 
         return current_old_index, intermediate_generation, next_refinement, next_marker
