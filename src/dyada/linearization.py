@@ -12,7 +12,7 @@ def single_bit_set_gen(num_dimensions: int):
         yield bit_array
 
 
-def get_dimensionwise_positions(
+def location_codes_from_history(
     history_of_binary_positions: Sequence[ba.bitarray],
     history_of_level_increments: Sequence[ba.bitarray],
 ) -> list[ba.bitarray]:
@@ -111,7 +111,7 @@ class MortonOrderLinearization(Linearization):
         return index_in_box
 
 
-def get_dimensionwise_positions_from_branch(branch, linearization):
+def location_codes_from_branch(branch, linearization):
     history_of_indices, history_of_level_increments = branch.to_history()
     depth = len(history_of_indices)
     assert len(history_of_level_increments) == depth
@@ -123,7 +123,7 @@ def get_dimensionwise_positions_from_branch(branch, linearization):
                 history_of_level_increments[: i + 1],
             )
         )
-    return get_dimensionwise_positions(
+    return location_codes_from_history(
         history_of_binary_positions, history_of_level_increments
     )
 
