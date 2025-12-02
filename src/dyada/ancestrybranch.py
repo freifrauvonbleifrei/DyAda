@@ -60,6 +60,7 @@ class AncestryBranch:
         # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
         assert len(self.ancestry) == self._initial_branch_depth - 1
+        self.last_intermediate_generation: set[int] = set()
 
     def get_current_location_info(
         self,
@@ -82,7 +83,12 @@ class AncestryBranch:
             next_marker := self.markers[current_old_index],
         )
 
-        return current_old_index, intermediate_generation, next_refinement, next_marker
+        return (
+            current_old_index,
+            self.last_intermediate_generation,
+            next_refinement,
+            next_marker,
+        )
 
     def advance(self) -> None:
         self._current_modified_branch.advance_branch(self._initial_branch_depth)
