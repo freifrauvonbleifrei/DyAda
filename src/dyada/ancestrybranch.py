@@ -72,8 +72,9 @@ class AncestryBranch:
                 self.ancestry[-1],
             )
         self.ancestry.append(current_old_index)
-        next_refinement, next_marker = refinement_with_marker_applied(
-            self._discretization.descriptor, current_old_index, markers
+        next_refinement = refinement_with_marker_applied(
+            self._discretization.descriptor[current_old_index],
+            next_marker := markers[current_old_index],
         )
 
         return current_old_index, intermediate_generation, next_refinement, next_marker
@@ -117,25 +118,21 @@ class AncestryBranch:
 
 
 def refinement_with_marker_applied(
-    descriptor: RefinementDescriptor,
-    linear_index: int,
-    markers: MappingProxyType[int, np.ndarray],
-) -> tuple[ba.frozenbitarray, npt.NDArray[np.int8]]:
-    refinement = descriptor[linear_index]
-    marker = markers[linear_index]
+    refinement: ba.frozenbitarray,
+    marker: npt.NDArray[np.int8],
+) -> ba.frozenbitarray:
     if refinement.count() == 0:
         assert np.all(marker > -1)
-        return refinement, marker
+        return refinement
 
     positive = ba.bitarray([1 if m > 0 else 0 for m in marker])
     assert (refinement & positive).count() == 0
-    refinement |= positive
+    refinement_modified = refinement | positive
 
     negative = ba.bitarray([1 if m < 0 else 0 for m in marker])
     assert (~refinement & negative).count() == 0
-    refinement ^= negative
-
-    return refinement, marker
+    refinement_modified ^= negative
+    return ba.frozenbitarray(refinement_modified)
 
 
 def is_old_index_now_at_or_containing_location_code(
@@ -201,8 +198,8 @@ def old_node_will_be_contained_in_new_descriptor(
     Returns:
         bool: True if the node will be contained, False if it will be coarsened away.
     """
-    future_refinement, marker = refinement_with_marker_applied(
-        descriptor, old_index, markers
+    future_refinement = refinement_with_marker_applied(
+        descriptor[old_index], marker := markers[old_index]
     )
     return np.min(marker) >= 0 or future_refinement != descriptor.d_zeros  # type: ignore
 
