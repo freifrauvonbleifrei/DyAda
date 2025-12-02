@@ -226,7 +226,7 @@ class Discretization:
         maximum_level_in_slice = [
             0 if d in fixed_dimensions else None for d in range(num_dimensions)
         ]
-        deciding_bitarrays = [
+        location_codes = [
             location_code_from_float(c) if c is not None else None
             for c in fixed_unit_coordinates
         ]
@@ -256,7 +256,7 @@ class Discretization:
                 if level[d] == 0:
                     continue
                 # check if the bitarray is equal to the beginnig of the deciding bitarray
-                if not bitarray_index[d] == deciding_bitarrays[d][: level[d]]:  # type: ignore
+                if not bitarray_index[d] == location_codes[d][: level[d]]:  # type: ignore
                     keep = False
                     break
             if keep:

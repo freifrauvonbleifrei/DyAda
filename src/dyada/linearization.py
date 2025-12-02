@@ -29,12 +29,12 @@ def get_dimensionwise_positions(
         ba.bitarray([increment[d] for increment in history_of_level_increments])
         for d in range(num_dimensions)
     ]
-    deciding_bitarrays = []
+    location_codes = []
     for d in range(num_dimensions):
-        deciding_bitarrays.append(
+        location_codes.append(
             transposed_positions[d][transposed_level_increments[d]]
         )
-    return deciding_bitarrays
+    return location_codes
 
 
 class Linearization(ABC):

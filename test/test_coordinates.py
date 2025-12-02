@@ -61,7 +61,7 @@ def test_float_parts_bitarray():
     # 1.0 should be 0b
     _, _, mantissa_bits = float_parts_bitarray(1.0)
     assert mantissa_bits.count() == 0
-    # but putting 1.0 in the deciding_bitarray should give us 1111...
+    # but putting 1.0 in the location_code should give us 1111...
     mantissa_bits = location_code_from_float(1.0)
     assert mantissa_bits.count() == len(mantissa_bits)
 
