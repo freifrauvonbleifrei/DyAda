@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Sequence, TypeAlias, Union
+
+from dyada.structure import copying_lru_cache
 
 
 def single_bit_set_gen(num_dimensions: int):
@@ -137,7 +138,7 @@ class DimensionSeparatedLocalPosition:
 CoarseningStack: TypeAlias = list[Union[DimensionSeparatedLocalPosition, int]]
 
 
-@lru_cache
+@copying_lru_cache()
 def get_initial_coarsening_stack(
     current_parent_refinement: ba.frozenbitarray,
     dimensions_to_coarsen: tuple[int],
