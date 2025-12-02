@@ -187,6 +187,8 @@ def replace_same_remaining_position_by_mapped_to_index(
     mapped_to_index: int,
 ) -> None:
     for i, entry in enumerate(coarsening_stack):
+        if isinstance(entry, int):
+            continue
         assert isinstance(entry, DimensionSeparatedLocalPosition)
         if entry.remaining_positions == position_to_replace.remaining_positions:
             coarsening_stack[i] = mapped_to_index
