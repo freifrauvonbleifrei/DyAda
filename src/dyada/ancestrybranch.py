@@ -2,14 +2,18 @@ import bitarray as ba
 import numpy as np
 import numpy.typing as npt
 from types import MappingProxyType
+from typing import Union
 
 from dyada.coordinates import bitarray_startswith
 from dyada.descriptor import (
     RefinementDescriptor,
     Branch,
 )
-from dyada.discretization import Discretization
+from dyada.discretization import Discretization, branch_to_location_code
 from dyada.linearization import (
+    CoarseningStack,
+    DimensionSeparatedLocalPosition,
+    get_initial_coarsening_stack,
     MortonOrderLinearization,
     location_codes_from_history,
     location_codes_from_branch,
@@ -29,6 +33,22 @@ class AncestryBranch:
     - ancestry corresponds to the old indices on the current_modified_branch, but with potentially
       new relationships (not determined by old descriptor)
     """
+
+    type TrackInfo = CoarseningStack
+
+    def get_initial_track_info(
+        self, current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
+    ) -> Union["AncestryBranch.TrackInfo", None]:
+        if marker.min() < 0 and marker.max() <= 0:
+            # only coarsened
+            dimensions_to_coarsen = tuple(
+                i for i in range(len(marker)) if marker[i] < 0
+            )
+            coarsening_stack = get_initial_coarsening_stack(
+                ba.frozenbitarray(current_refinement), dimensions_to_coarsen
+            )
+            return coarsening_stack
+        return None
 
     def __init__(
         self,
@@ -62,6 +82,8 @@ class AncestryBranch:
         assert len(self.ancestry) == self._initial_branch_depth - 1
         self.last_intermediate_generation: set[int] = set()
 
+        self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
+
     def get_current_location_info(
         self,
     ) -> tuple[int, set[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
@@ -77,11 +99,25 @@ class AncestryBranch:
                 modified_dimensionwise_positions,
                 self.ancestry[-1],
             )
+
+            # update old track info
+            ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
+            if isinstance(ancestor_track_info, list):
+                ancestor_track_info.pop()
+
         self.ancestry.append(current_old_index)
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
             next_marker := self.markers[current_old_index],
         )
+
+        # process new track info
+        if current_old_index not in self.track_info_mapping:
+            most_recent_track_info = self.get_initial_track_info(
+                self._discretization.descriptor[current_old_index], next_marker
+            )
+            if most_recent_track_info is not None:
+                self.track_info_mapping[current_old_index] = most_recent_track_info
 
         return (
             current_old_index,
@@ -90,8 +126,53 @@ class AncestryBranch:
             next_marker,
         )
 
+    class WeAreDoneAndHereAreTheMissingRelationships(Exception):
+        def __init__(self, mapping: dict[int, set[int]]):
+            self.missing_mapping = mapping
+
     def advance(self) -> None:
-        self._current_modified_branch.advance_branch(self._initial_branch_depth)
+        try:
+            self._current_modified_branch.advance_branch(self._initial_branch_depth)
+        except IndexError as e:
+            # check if all relationships from coarsening trackngi are exhausted
+            mapping: dict[int, set[int]] = {}
+            for key, track_info in self.track_info_mapping.items():
+                if isinstance(track_info, list):
+                    ancestor_branch = self._discretization.descriptor.get_branch(
+                        key, is_box_index=False
+                    )[0]
+                    ancestor_location_code = branch_to_location_code(
+                        ancestor_branch, self._discretization._linearization
+                    )
+                    marker_negative_indices = [
+                        i for i, m in enumerate(self.markers[key]) if m < 0
+                    ]
+                    for index in track_info:
+                        if isinstance(index, DimensionSeparatedLocalPosition):
+                            assert index.remaining_positions.count() == 0
+                            # get their indices in the old discretization by their location code
+                            missed_descendant_location_code = [
+                                a.copy() for a in ancestor_location_code
+                            ]
+                            for c_i, coarsened_dim in enumerate(
+                                marker_negative_indices
+                            ):
+                                missed_descendant_location_code[coarsened_dim].append(
+                                    index.separated_positions[c_i]
+                                )
+                            missed_descendant_index = (
+                                self._discretization.get_index_from_location_code(
+                                    missed_descendant_location_code
+                                )
+                            )
+                            mapping.setdefault(missed_descendant_index, set()).add(key)
+                        else:
+                            raise TypeError("Unexpected type in track_info")
+
+            raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
+                mapping
+            ) from e
+
         # prune all other data to current length,
         # so we don't have to recompute from new branch
         current_modified_branch_depth = len(self._current_modified_branch)
