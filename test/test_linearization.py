@@ -154,17 +154,33 @@ def test_get_index_morton_order():
 def test_empty_coarsening_stack_initialization():
     initial_coarsening_stack = get_initial_coarsening_stack(
         current_parent_refinement=ba.frozenbitarray("111"),
-        dimensions_to_coarsen=tuple(),
+        dimensions_to_coarsen=ba.frozenbitarray("000"),
     )
     expected_coarsening_stack = [
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("000")),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("100")),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("010")),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("110")),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("001")),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("101")),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("011")),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray(), ba.frozenbitarray("111")),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("000"), ba.frozenbitarray("000")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("100"), ba.frozenbitarray("000")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("010"), ba.frozenbitarray("000")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("110"), ba.frozenbitarray("000")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("001"), ba.frozenbitarray("000")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("101"), ba.frozenbitarray("000")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("011"), ba.frozenbitarray("000")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("111"), ba.frozenbitarray("000")
+        ),
     ]
     expected_coarsening_stack.reverse()
     assert initial_coarsening_stack == expected_coarsening_stack
@@ -177,14 +193,30 @@ def test_all_coarsening_stack_initialization():
     )
 
     expected_coarsening_stack = [
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("000"), ba.frozenbitarray()),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("100"), ba.frozenbitarray()),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("010"), ba.frozenbitarray()),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("110"), ba.frozenbitarray()),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("001"), ba.frozenbitarray()),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("101"), ba.frozenbitarray()),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("011"), ba.frozenbitarray()),
-        DimensionSeparatedLocalPosition(ba.frozenbitarray("111"), ba.frozenbitarray()),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("000"), ba.frozenbitarray("111")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("100"), ba.frozenbitarray("111")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("010"), ba.frozenbitarray("111")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("110"), ba.frozenbitarray("111")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("001"), ba.frozenbitarray("111")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("101"), ba.frozenbitarray("111")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("011"), ba.frozenbitarray("111")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("111"), ba.frozenbitarray("111")
+        ),
     ]
     expected_coarsening_stack.reverse()
     assert initial_coarsening_stack == expected_coarsening_stack
@@ -197,34 +229,37 @@ def test_coarsening_stack_3d():
     )
     expected_coarsening_stack = [
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("00"), ba.frozenbitarray("0")
+            ba.frozenbitarray("000"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("10"), ba.frozenbitarray("0")
+            ba.frozenbitarray("100"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("01"), ba.frozenbitarray("0")
+            ba.frozenbitarray("010"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("11"), ba.frozenbitarray("0")
+            ba.frozenbitarray("110"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("00"), ba.frozenbitarray("1")
+            ba.frozenbitarray("001"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("10"), ba.frozenbitarray("1")
+            ba.frozenbitarray("101"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("01"), ba.frozenbitarray("1")
+            ba.frozenbitarray("011"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("11"), ba.frozenbitarray("1")
+            ba.frozenbitarray("111"), ba.frozenbitarray("110")
         ),
     ]
     expected_coarsening_stack.reverse()
     assert current_coarsening_stack == expected_coarsening_stack
 
     first_item = current_coarsening_stack.pop()
+    assert first_item.separated_positions == ba.frozenbitarray("00")
+    assert first_item.remaining_positions == ba.frozenbitarray("0")
+
     first_item_replace_index = 42
     replace_same_remaining_position_by_mapped_to_index(
         coarsening_stack=current_coarsening_stack,
@@ -236,16 +271,16 @@ def test_coarsening_stack_3d():
         42,
         42,
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("00"), ba.frozenbitarray("1")
+            ba.frozenbitarray("001"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("10"), ba.frozenbitarray("1")
+            ba.frozenbitarray("101"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("01"), ba.frozenbitarray("1")
+            ba.frozenbitarray("011"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("11"), ba.frozenbitarray("1")
+            ba.frozenbitarray("111"), ba.frozenbitarray("110")
         ),
     ]
     expected_coarsening_stack_after_replacement.reverse()

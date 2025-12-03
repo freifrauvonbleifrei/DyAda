@@ -45,15 +45,16 @@ class AncestryBranch:
     def get_initial_track_info(
         self, current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
     ) -> Union["AncestryBranch.TrackInfo", None]:
-        if marker.min() < 0 and marker.max() <= 0:
-            # only coarsened
-            dimensions_to_coarsen = tuple(
-                i for i in range(len(marker)) if marker[i] < 0
+        if marker.min() < 0:
+            dimensions_to_coarsen = ba.frozenbitarray(
+                marker[i] < 0 for i in range(len(marker))
             )
-            coarsening_stack = get_initial_coarsening_stack(
-                ba.frozenbitarray(current_refinement), dimensions_to_coarsen
-            )
-            return coarsening_stack
+            if marker.max() <= 0:
+                # only coarsened
+                coarsening_stack = get_initial_coarsening_stack(
+                    ba.frozenbitarray(current_refinement), dimensions_to_coarsen
+                )
+                return coarsening_stack
         return None
 
     def __init__(

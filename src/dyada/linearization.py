@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Sequence, TypeAlias, Union
 
 from dyada.structure import copying_lru_cache
@@ -129,30 +130,69 @@ def location_codes_from_branch(branch, linearization):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class DimensionSeparatedLocalPosition:
-    separated_positions: ba.frozenbitarray
-    remaining_positions: ba.frozenbitarray
+    local_position: ba.frozenbitarray
+    separated_dimensions_mask: ba.frozenbitarray
+
+    @cached_property
+    def remaining_positions_mask(self) -> ba.frozenbitarray:
+        return ba.frozenbitarray(~self.separated_dimensions_mask)
+
+    @cached_property
+    def separated_positions(self) -> ba.frozenbitarray:
+        return ba.frozenbitarray(self.local_position[self.separated_dimensions_mask])
+
+    @cached_property
+    def remaining_positions(self) -> ba.frozenbitarray:
+        return ba.frozenbitarray(self.local_position[~self.separated_dimensions_mask])
 
 
 CoarseningStack: TypeAlias = list[Union[DimensionSeparatedLocalPosition, int]]
 
 
+def indices_to_bitmask(
+    indices: Sequence[int], num_dimensions: int
+) -> ba.frozenbitarray:
+    return ba.frozenbitarray(1 if i in indices else 0 for i in range(num_dimensions))
+
+
 @copying_lru_cache()
 def get_initial_coarsening_stack(
     current_parent_refinement: ba.frozenbitarray,
-    dimensions_to_coarsen: tuple[int],
+    dimensions_to_coarsen: tuple[int, ...] | ba.frozenbitarray,
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
+    """Returns a stack of coarsening mappings for all current children of a parent patch.
+
+    Args:
+        current_parent_refinement (ba.frozenbitarray): current parent's refinement, frozen to be hashable
+        dimensions_to_coarsen (tuple[int, ...] | ba.frozenbitarray): a sorted tuple of dimensions to coarsen or a frozenbitarray mask
+        linearization (Linearization, optional): Linearization. Defaults to MortonOrderLinearization().
+
+    Raises:
+        NotImplementedError: if linearization is not Morton order
+
+    Returns:
+        CoarseningStack: a list of DimensionSeparatedLocalPosition entries, one per current child patch
+        reversed, so popping from the back gives the correct order.
+        The entries contain the separated positions for the coarsened dimensions and the remaining positions for the other dimensions.
+    """
+
     if not isinstance(linearization, MortonOrderLinearization):
         raise NotImplementedError(
             "Initial coarsening stack generation only implemented for"
             + "Morton order linearization, other linearizations may need"
             + "different signature."
         )
+    if not isinstance(dimensions_to_coarsen, ba.frozenbitarray):
+        assert len(dimensions_to_coarsen) == len(set(dimensions_to_coarsen))
+        dimensions_to_coarsen = indices_to_bitmask(
+            dimensions_to_coarsen, len(current_parent_refinement)
+        )
+    assert len(dimensions_to_coarsen) == len(current_parent_refinement)
 
-    for dimension in dimensions_to_coarsen:
-        assert current_parent_refinement[dimension] == 1
+    assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
 
     initial_coarsening_stack: CoarseningStack = []
     num_dimensions = len(current_parent_refinement)
@@ -163,17 +203,10 @@ def get_initial_coarsening_stack(
             (child_index,),
             (current_parent_refinement,),
         )
-        separated_positions = ba.bitarray()
-        remaining_positions = ba.bitarray()
-        for d in range(num_dimensions):
-            if d in dimensions_to_coarsen:
-                separated_positions.append(binary_position[d])
-            else:
-                remaining_positions.append(binary_position[d])
         initial_coarsening_stack.append(
             DimensionSeparatedLocalPosition(
-                separated_positions=ba.frozenbitarray(separated_positions),
-                remaining_positions=ba.frozenbitarray(remaining_positions),
+                local_position=ba.frozenbitarray(binary_position),
+                separated_dimensions_mask=dimensions_to_coarsen,
             )
         )
 
