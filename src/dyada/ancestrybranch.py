@@ -3,7 +3,7 @@ import dataclasses
 import numpy as np
 import numpy.typing as npt
 from types import MappingProxyType
-from typing import TypeAlias, Union
+from typing import Sequence, TypeAlias, Union
 
 from dyada.coordinates import bitarray_startswith
 from dyada.descriptor import (
