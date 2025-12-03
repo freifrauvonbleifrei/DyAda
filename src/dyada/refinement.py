@@ -244,7 +244,18 @@ class PlannedAdaptiveRefinement:
                 # only on leaves, we advance the branch
                 try:
                     ancestrybranch.advance()
-                except IndexError:  # done!
+                except (
+                    AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
+                ) as e:  # almost done!
+                    # yield the missing relationships
+                    for key, missing_indices in e.missing_mapping.items():
+                        for missing_index in missing_indices:
+                            yield self.Refinement(
+                                self.Refinement.Type.TrackOnly,
+                                key,
+                                None,
+                                missing_index,
+                            )
                     return
 
             else:
