@@ -239,11 +239,11 @@ def refinement_with_marker_applied(
 def is_old_index_now_at_or_containing_location_code(
     discretization: Discretization,
     markers: MappingProxyType[int, npt.NDArray[np.int8]],
-    desired_dimensionwise_positions: list[ba.bitarray],
+    desired_dimensionwise_positions: Sequence[ba.bitarray],
     parent_of_next_refinement: int,
     parent_branch: Branch,
     old_index: int,
-) -> tuple[bool, list[ba.bitarray]]:
+) -> tuple[bool, tuple[ba.bitarray]]:
     """Check whether old_index is now at or containing the next hyperrectangular location code.
     Args:
         discretization (Discretization): the old discretization we're referring to
@@ -308,7 +308,7 @@ def old_node_will_be_contained_in_new_descriptor(
 def find_next_twig(
     discretization: Discretization,
     markers: MappingProxyType[int, npt.NDArray[np.int8]],
-    desired_dimensionwise_positions: list[ba.bitarray],
+    desired_dimensionwise_positions: Sequence[ba.frozenbitarray],
     parent_of_next_refinement: int,
 ) -> tuple[int, set[int]]:
     """Get the (old) tree node corresponding to the location code, and any nodes encountered on the way.
