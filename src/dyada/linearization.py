@@ -195,7 +195,6 @@ def get_initial_coarsening_stack(
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
 
     initial_coarsening_stack: CoarseningStack = []
-    num_dimensions = len(current_parent_refinement)
     num_current_children = 2 ** current_parent_refinement.count()
 
     for child_index in range(num_current_children):
