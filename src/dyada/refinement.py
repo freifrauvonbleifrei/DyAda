@@ -278,8 +278,12 @@ class PlannedAdaptiveRefinement:
                     AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
                 ) as e:  # almost done!
                     # yield the missing relationships
-                    for key, missing_indices in e.missing_mapping.items():
-                        for missing_index in missing_indices:
+                    for key, same_missing_indices in e.missing_mapping.items():
+                        for same_missing_index in same_missing_indices:
+                            sibling_mapped_to = sorted(
+                                self._index_mapping[same_missing_index.old_index]
+                            )
+                            missing_index = sibling_mapped_to[0]
                             yield self.Refinement(
                                 self.Refinement.Type.TrackOnly,
                                 key,

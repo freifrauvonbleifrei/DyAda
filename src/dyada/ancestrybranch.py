@@ -1,4 +1,5 @@
 import bitarray as ba
+import dataclasses
 import numpy as np
 import numpy.typing as npt
 from types import MappingProxyType
@@ -18,6 +19,11 @@ from dyada.linearization import (
     location_codes_from_history,
     location_codes_from_branch,
 )
+
+
+@dataclasses.dataclass(frozen=True)
+class SameAncestorAs:
+    old_index: int
 
 
 class AncestryBranch:
@@ -127,15 +133,15 @@ class AncestryBranch:
         )
 
     class WeAreDoneAndHereAreTheMissingRelationships(Exception):
-        def __init__(self, mapping: dict[int, set[int]]):
+        def __init__(self, mapping: dict[int, set[SameAncestorAs]]):
             self.missing_mapping = mapping
 
     def advance(self) -> None:
         try:
             self._current_modified_branch.advance_branch(self._initial_branch_depth)
         except IndexError as e:
-            # check if all relationships from coarsening trackngi are exhausted
-            mapping: dict[int, set[int]] = {}
+            # check if all relationships from coarsening tracking are exhausted
+            mapping: dict[int, set[SameAncestorAs]] = {}
             for key, track_info in self.track_info_mapping.items():
                 if isinstance(track_info, list):
                     ancestor_branch = self._discretization.descriptor.get_branch(
@@ -165,7 +171,9 @@ class AncestryBranch:
                                     missed_descendant_location_code
                                 )
                             )
-                            mapping.setdefault(missed_descendant_index, set()).add(key)
+                            mapping.setdefault(missed_descendant_index, set()).add(
+                                SameAncestorAs(key)
+                            )
                         else:
                             raise TypeError("Unexpected type in track_info")
 
