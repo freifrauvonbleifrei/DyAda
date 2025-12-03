@@ -2,7 +2,7 @@ import bitarray as ba
 import numpy as np
 import numpy.typing as npt
 from types import MappingProxyType
-from typing import Union
+from typing import TypeAlias, Union
 
 from dyada.coordinates import bitarray_startswith
 from dyada.descriptor import (
@@ -34,7 +34,7 @@ class AncestryBranch:
       new relationships (not determined by old descriptor)
     """
 
-    type TrackInfo = CoarseningStack
+    TrackInfo: TypeAlias = CoarseningStack
 
     def get_initial_track_info(
         self, current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
