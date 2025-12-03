@@ -17,9 +17,9 @@ def single_bit_set_gen(num_dimensions: int):
 def location_codes_from_history(
     history_of_binary_positions: Sequence[ba.bitarray],
     history_of_level_increments: Sequence[ba.bitarray],
-) -> list[ba.bitarray]:
+) -> tuple[ba.frozenbitarray, ...]:
     if len(history_of_binary_positions) == 0:
-        return []
+        return ()
     num_dimensions = len(history_of_binary_positions[0])
     depth = len(history_of_binary_positions)
     assert len(history_of_level_increments) == depth
@@ -31,10 +31,10 @@ def location_codes_from_history(
         ba.bitarray([increment[d] for increment in history_of_level_increments])
         for d in range(num_dimensions)
     ]
-    location_codes = []
-    for d in range(num_dimensions):
-        location_codes.append(transposed_positions[d][transposed_level_increments[d]])
-    return location_codes
+    return tuple(
+        ba.frozenbitarray(transposed_positions[d][transposed_level_increments[d]])
+        for d in range(num_dimensions)
+    )
 
 
 class Linearization(ABC):
