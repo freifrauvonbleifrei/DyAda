@@ -258,19 +258,36 @@ class PlannedAdaptiveRefinement:
                 ancestrybranch.get_current_location_info()
             )
             if next_refinement == descriptor.d_zeros:
-                yield self.Refinement(
-                    self.Refinement.Type.ExpandLeaf,
-                    current_old_index,
-                    next_refinement,
-                    next_marker,
-                )
-                for p in intermediate_generation:
+                if np.min(next_marker) >= 0:
                     yield self.Refinement(
-                        self.Refinement.Type.TrackOnly,
-                        p,
-                        None,
-                        ancestrybranch.ancestry[-2],
+                        self.Refinement.Type.ExpandLeaf,
+                        current_old_index,
+                        next_refinement,
+                        next_marker,
                     )
+                    for p in intermediate_generation:
+                        yield self.Refinement(
+                            self.Refinement.Type.TrackOnly,
+                            p,
+                            None,
+                            ancestrybranch.ancestry[-2],
+                        )
+                else:
+                    # this node became leaf by coarsening
+                    yield self.Refinement(
+                        self.Refinement.Type.CopyOver,
+                        current_old_index,
+                        next_refinement,
+                        next_marker,
+                    )
+                    for p in intermediate_generation:
+                        yield self.Refinement(
+                            self.Refinement.Type.TrackOnly,
+                            p,
+                            None,
+                            ancestrybranch.ancestry[-1],
+                        )
+
                 # only on leaves, we advance the branch
                 try:
                     ancestrybranch.advance()
@@ -280,10 +297,10 @@ class PlannedAdaptiveRefinement:
                     # yield the missing relationships
                     for key, same_missing_indices in e.missing_mapping.items():
                         for same_missing_index in same_missing_indices:
-                            sibling_mapped_to = sorted(
+                            relative_mapped_to = sorted(
                                 self._index_mapping[same_missing_index.old_index]
                             )
-                            missing_index = sibling_mapped_to[0]
+                            missing_index = relative_mapped_to[0]
                             yield self.Refinement(
                                 self.Refinement.Type.TrackOnly,
                                 key,
