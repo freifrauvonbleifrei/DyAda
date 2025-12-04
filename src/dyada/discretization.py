@@ -202,17 +202,22 @@ class Discretization:
             else found_box_indices.pop()
         )
 
+    class NoExactMatchError(Exception):
+        def __init__(self, closest_match: int):
+            super().__init__()
+            self.closest_match = closest_match
+
     def get_index_from_location_code(self, location_code: list[ba.bitarray]) -> int:
         # we avoid tracking the histories for now
         assert self._linearization == MortonOrderLinearization()
 
         found_part_of_location_code = [0 for _ in range(len(location_code))]
         current_branch = Branch(self._descriptor.get_num_dimensions())
-        patch_index = -1
+        previous_patch_index = 0
+        patch_index = 0
         descriptor_iterator = iter(self._descriptor)
         while True:
             current_refinement = next(descriptor_iterator)
-            patch_index += 1
             if all(
                 bp == len(location_code[d])
                 for d, bp in enumerate(found_part_of_location_code)
@@ -228,6 +233,8 @@ class Discretization:
             new_binary_position = ba.bitarray([0] * len(current_refinement))
             for i, bitarray_i in enumerate(current_refinement):
                 if bitarray_i:
+                    if len(location_code[i]) <= found_part_of_location_code[i]:
+                        raise Discretization.NoExactMatchError(previous_patch_index)
                     new_binary_position[i] = location_code[i][
                         found_part_of_location_code[i]
                     ]
@@ -238,6 +245,7 @@ class Discretization:
                 new_binary_position, [], [current_refinement]
             )
 
+            previous_patch_index = patch_index
             for _ in range(child_index):
                 # skip the children where the coordinate is not in the patch
                 current_refinement = next(descriptor_iterator)
@@ -245,6 +253,7 @@ class Discretization:
                     descriptor_iterator, current_refinement
                 )[1]
                 current_branch.advance_branch()
+            patch_index += 1
 
     def slice(
         self,
