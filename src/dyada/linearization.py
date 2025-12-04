@@ -222,10 +222,75 @@ def get_initial_coarsening_stack(
                 separated_dimensions_mask=dimensions_to_coarsen,
             )
         )
+    initial_coarsening_stack.sort(
+        key=lambda entry: entry.separated_positions.to01()[::-1]
+    )
 
     # reverse so we can pop() from the back
     initial_coarsening_stack.reverse()
     return initial_coarsening_stack
+
+
+def get_initial_coarsen_refine_stack(
+    current_parent_refinement: ba.frozenbitarray,
+    dimensions_to_coarsen: tuple[int, ...] | ba.frozenbitarray,
+    dimensions_to_refine: tuple[int, ...] | ba.frozenbitarray,
+    linearization: Linearization = MortonOrderLinearization(),
+) -> CoarseningStack:
+    if not isinstance(dimensions_to_coarsen, ba.frozenbitarray):
+        assert len(dimensions_to_coarsen) == len(set(dimensions_to_coarsen))
+        dimensions_to_coarsen = indices_to_bitmask(
+            dimensions_to_coarsen, len(current_parent_refinement)
+        )
+    if not isinstance(dimensions_to_refine, ba.frozenbitarray):
+        assert len(dimensions_to_refine) == len(set(dimensions_to_refine))
+        dimensions_to_refine = indices_to_bitmask(
+            dimensions_to_refine, len(current_parent_refinement)
+        )
+    assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
+    assert (dimensions_to_refine & current_parent_refinement).count() == 0
+
+    initial_coarsening_stack = get_initial_coarsening_stack(
+        current_parent_refinement,
+        dimensions_to_coarsen,
+        linearization,
+    )
+    # initial_coarsening_stack.reverse()
+
+    stable_dimensions = ~dimensions_to_coarsen & ~dimensions_to_refine
+    later_refined_dimensions = (
+        current_parent_refinement & ~dimensions_to_coarsen
+    ) | dimensions_to_refine
+    later_num_children = 2 ** later_refined_dimensions.count()
+    children_positions = [
+        linearization.get_binary_position_from_index(
+            (i,),
+            (later_refined_dimensions,),
+        )
+        for i in range(later_num_children)
+    ]
+    children_locations = [
+        location_codes_from_history(
+            [pos],
+            [later_refined_dimensions],
+        )
+        for pos in children_positions
+    ]
+    children_locations.reverse()
+
+    coarsen_refine_stack: CoarseningStack = []
+
+    for entry in initial_coarsening_stack:
+        for child_location in children_locations:
+            coarsen_refine_stack.append(
+                DimensionSeparatedLocalPosition(
+                    local_position=entry.local_position,
+                    separated_dimensions_mask=entry.separated_dimensions_mask,
+                    new_refined_location_code=child_location,
+                )
+            )
+
+    return coarsen_refine_stack
 
 
 def inform_same_remaining_position_about_index(

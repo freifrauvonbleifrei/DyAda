@@ -6,7 +6,9 @@ from dyada.linearization import (
     MortonOrderLinearization,
     SameIndexAs,
     get_initial_coarsening_stack,
+    get_initial_coarsen_refine_stack,
     inform_same_remaining_position_about_index,
+    location_code_from_strings,
 )
 
 
@@ -223,6 +225,29 @@ def test_all_coarsening_stack_initialization():
     assert initial_coarsening_stack == expected_coarsening_stack
 
 
+def test_coarsening_stack_2d():
+    current_coarsening_stack = get_initial_coarsening_stack(
+        current_parent_refinement=ba.frozenbitarray("11"),
+        dimensions_to_coarsen=(0,),
+    )
+    expected_coarsening_stack = [
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("00"), ba.frozenbitarray("10")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("01"), ba.frozenbitarray("10")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("10"), ba.frozenbitarray("10")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("11"), ba.frozenbitarray("10")
+        ),
+    ]
+    expected_coarsening_stack.reverse()
+    assert current_coarsening_stack == expected_coarsening_stack
+
+
 def test_coarsening_stack_3d():
     current_coarsening_stack = get_initial_coarsening_stack(
         current_parent_refinement=ba.frozenbitarray("111"),
@@ -233,22 +258,22 @@ def test_coarsening_stack_3d():
             ba.frozenbitarray("000"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("100"), ba.frozenbitarray("110")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("010"), ba.frozenbitarray("110")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("110"), ba.frozenbitarray("110")
-        ),
-        DimensionSeparatedLocalPosition(
             ba.frozenbitarray("001"), ba.frozenbitarray("110")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("100"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
             ba.frozenbitarray("101"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("010"), ba.frozenbitarray("110")
+        ),
+        DimensionSeparatedLocalPosition(
             ba.frozenbitarray("011"), ba.frozenbitarray("110")
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("110"), ba.frozenbitarray("110")
         ),
         DimensionSeparatedLocalPosition(
             ba.frozenbitarray("111"), ba.frozenbitarray("110")
@@ -267,18 +292,156 @@ def test_coarsening_stack_3d():
         position_to_update=first_item,
         mapped_to_index=first_item_update_index,
     )
-    expected_index_stack_after_updatement = [
-        SameIndexAs({42}),
-        SameIndexAs({42}),
+    expected_index_stack_after_update = [
+        None,
         SameIndexAs({42}),
         None,
+        SameIndexAs({42}),
         None,
-        None,
+        SameIndexAs({42}),
         None,
     ]
-    expected_index_stack_after_updatement.reverse()
+    expected_index_stack_after_update.reverse()
     assert all(
         current_coarsening_stack[i].same_index_as
-        == expected_index_stack_after_updatement[i]
+        == expected_index_stack_after_update[i]
         for i in range(len(current_coarsening_stack))
     )
+
+
+def test_coarsen_refine_stack_3d():
+    coarsen_refine_stack = get_initial_coarsen_refine_stack(
+        current_parent_refinement=ba.frozenbitarray("011"),
+        dimensions_to_coarsen=(2,),
+        dimensions_to_refine=(0,),
+    )
+
+    expected_coarsen_refine_stack = [
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("011"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("011"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("011"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "0", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("011"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "0", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("001"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("001"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("001"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "0", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("001"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "0", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("010"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("010"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("010"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "0", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("010"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "0", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("000"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("000"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "1", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("000"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["1", "0", ""]),
+        ),
+        DimensionSeparatedLocalPosition(
+            ba.frozenbitarray("000"),
+            ba.frozenbitarray("001"),
+            None,
+            location_code_from_strings(["0", "0", ""]),
+        ),
+    ]
+    assert coarsen_refine_stack == expected_coarsen_refine_stack
+
+    # make sure we can re-use the references again...
+    first_item = coarsen_refine_stack.pop()
+    inform_same_remaining_position_about_index(
+        coarsen_refine_stack, first_item, SameIndexAs({99})
+    )
+
+    expected_same_index_as = [
+        None,
+        None,
+        None,
+        None,
+        SameIndexAs({99}),
+        SameIndexAs({99}),
+        SameIndexAs({99}),
+        SameIndexAs({99}),
+        None,
+        None,
+        None,
+        None,
+        SameIndexAs({99}),
+        SameIndexAs({99}),
+        SameIndexAs({99}),
+    ]
+
+    for actual, expected in zip(
+        list(item.same_index_as for item in coarsen_refine_stack),
+        expected_same_index_as,
+    ):
+        assert actual == expected
