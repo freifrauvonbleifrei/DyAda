@@ -33,6 +33,32 @@ def test_coarsen_simplest_2d():
     assert new_descriptor._data == ba.bitarray("00")
 
 
+def test_coarsen_partly_2d():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(2, ba.bitarray("11 00 00 00 00")),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(0, ba.bitarray("10"))
+    new_discretization, index_mapping = p.apply_refinements(track_mapping="patches")
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor._data == ba.bitarray("01 00 00")
+    expected_index_mapping = {0: {0}, 1: {1}, 2: {1}, 3: {2}, 4: {2}}
+    assert index_mapping == [
+        expected_index_mapping[i] for i in range(len(expected_index_mapping))
+    ]
+
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(0, ba.bitarray("01"))
+    new_discretization, index_mapping = p.apply_refinements(track_mapping="patches")
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor._data == ba.bitarray("10 00 00")
+    expected_index_mapping = {0: {0}, 1: {1}, 2: {2}, 3: {1}, 4: {2}}
+    assert index_mapping == [
+        expected_index_mapping[i] for i in range(len(expected_index_mapping))
+    ]
+
+
 def test_coarsen_octree():
     for dimensionality in range(1, 5):
         desc_initial = RefinementDescriptor(dimensionality, [2] * dimensionality)

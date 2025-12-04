@@ -299,10 +299,7 @@ class PlannedAdaptiveRefinement:
                         for same_missing_index in same_missing_indices:
                             missing_indices = set()
                             for old_index in same_missing_index.old_indices:
-                                relative_mapped_to = sorted(
-                                    self._index_mapping[old_index]
-                                )
-                                missing_indices.add(relative_mapped_to[0])
+                                missing_indices |= self._index_mapping[old_index]
                             for missing_index in missing_indices:
                                 yield self.Refinement(
                                     self.Refinement.Type.TrackOnly,

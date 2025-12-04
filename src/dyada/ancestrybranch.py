@@ -111,7 +111,7 @@ class AncestryBranch:
 
             # update old track info
             ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
-            if isinstance(ancestor_track_info, list):
+            if ancestor_track_info is not None:
                 this_item = ancestor_track_info.pop()
                 if this_item.same_index_as is None:
                     inform_same_remaining_position_about_index(
@@ -144,6 +144,7 @@ class AncestryBranch:
     class WeAreDoneAndHereAreTheMissingRelationships(Exception):
         def __init__(self, mapping: dict[int, list[SameIndexAs]]):
             self.missing_mapping = mapping
+            super().__init__()
 
     def advance(self) -> None:
         try:
@@ -161,27 +162,38 @@ class AncestryBranch:
                 marker_negative_indices = [
                     i for i, m in enumerate(self.markers[key]) if m < 0
                 ]
-                if isinstance(track_info, list):
-                    for index in track_info:
-                        assert isinstance(index, DimensionSeparatedLocalPosition)
-                        # get their indices in the old discretization by their location code
-                        missed_descendant_location_code = [
-                            a.copy() for a in ancestor_location_code
-                        ]
-                        for c_i, coarsened_dim in enumerate(marker_negative_indices):
-                            missed_descendant_location_code[coarsened_dim].append(
-                                index.separated_positions[c_i]
-                            )
-                        missed_descendant_index = (
-                            self._discretization.get_index_from_location_code(
-                                missed_descendant_location_code
+                current_refinement_dimensions = [
+                    i for i, b in enumerate(self._discretization.descriptor[key]) if b
+                ]
+                for index in track_info:
+                    # get their indices in the old discretization by their location code
+                    missed_descendant_location_code = [
+                        a.copy() for a in ancestor_location_code
+                    ]
+                    for d in current_refinement_dimensions:
+                        missed_descendant_location_code[d].append(
+                            index.local_position[d]
+                        )
+
+                    missed_descendant_index = (
+                        self._discretization.get_index_from_location_code(
+                            missed_descendant_location_code
+                        )
+                    )
+                    if index.same_index_as is None:
+                        assert self._discretization.descriptor[  # TODO drop this assert
+                            key
+                        ] == ba.frozenbitarray(
+                            1 if i in marker_negative_indices else 0
+                            for i in range(
+                                self._discretization.descriptor.get_num_dimensions()
                             )
                         )
-                        mapping.setdefault(missed_descendant_index, []).append(
-                            SameIndexAs({key})
-                        )
-                else:
-                    raise TypeError("Unexpected type as track_info") from e
+                        map_to = SameIndexAs({key})
+                    else:
+                        map_to = index.same_index_as
+
+                    mapping.setdefault(missed_descendant_index, []).append(map_to)
 
             raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
                 mapping
