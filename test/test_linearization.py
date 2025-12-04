@@ -2,10 +2,11 @@ import bitarray as ba
 import pytest
 
 from dyada.linearization import (
-    MortonOrderLinearization,
     DimensionSeparatedLocalPosition,
+    MortonOrderLinearization,
+    SameIndexAs,
     get_initial_coarsening_stack,
-    replace_same_remaining_position_by_mapped_to_index,
+    inform_same_remaining_position_about_index,
 )
 
 
@@ -260,28 +261,24 @@ def test_coarsening_stack_3d():
     assert first_item.separated_positions == ba.frozenbitarray("00")
     assert first_item.remaining_positions == ba.frozenbitarray("0")
 
-    first_item_replace_index = 42
-    replace_same_remaining_position_by_mapped_to_index(
+    first_item_update_index = SameIndexAs({42})
+    inform_same_remaining_position_about_index(
         coarsening_stack=current_coarsening_stack,
-        position_to_replace=first_item,
-        mapped_to_index=first_item_replace_index,
+        position_to_update=first_item,
+        mapped_to_index=first_item_update_index,
     )
-    expected_coarsening_stack_after_replacement = [
-        42,
-        42,
-        42,
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("001"), ba.frozenbitarray("110")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("101"), ba.frozenbitarray("110")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("011"), ba.frozenbitarray("110")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("111"), ba.frozenbitarray("110")
-        ),
+    expected_index_stack_after_updatement = [
+        SameIndexAs({42}),
+        SameIndexAs({42}),
+        SameIndexAs({42}),
+        None,
+        None,
+        None,
+        None,
     ]
-    expected_coarsening_stack_after_replacement.reverse()
-    assert current_coarsening_stack == expected_coarsening_stack_after_replacement
+    expected_index_stack_after_updatement.reverse()
+    assert all(
+        current_coarsening_stack[i].same_index_as
+        == expected_index_stack_after_updatement[i]
+        for i in range(len(current_coarsening_stack))
+    )

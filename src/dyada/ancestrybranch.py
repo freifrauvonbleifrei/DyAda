@@ -1,5 +1,4 @@
 import bitarray as ba
-import dataclasses
 import numpy as np
 import numpy.typing as npt
 from types import MappingProxyType
@@ -14,16 +13,13 @@ from dyada.discretization import Discretization, branch_to_location_code
 from dyada.linearization import (
     CoarseningStack,
     DimensionSeparatedLocalPosition,
+    SameIndexAs,
     get_initial_coarsening_stack,
     MortonOrderLinearization,
     location_codes_from_history,
     location_codes_from_branch,
+    inform_same_remaining_position_about_index,
 )
-
-
-@dataclasses.dataclass(frozen=True)
-class SameAncestorAs:
-    old_index: int
 
 
 class AncestryBranch:
@@ -55,6 +51,8 @@ class AncestryBranch:
                     ba.frozenbitarray(current_refinement), dimensions_to_coarsen
                 )
                 return coarsening_stack
+            else:
+                assert False, "coarsen + refine not implemented yet"
         return None
 
     def __init__(
@@ -106,11 +104,21 @@ class AncestryBranch:
                 modified_dimensionwise_positions,
                 self.ancestry[-1],
             )
+            # filter intermediate generation by senior indices
+            skipped_ancestors = {
+                a for a in self.last_intermediate_generation if a < current_old_index
+            }
 
             # update old track info
             ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
             if isinstance(ancestor_track_info, list):
-                ancestor_track_info.pop()
+                this_item = ancestor_track_info.pop()
+                if this_item.same_index_as is None:
+                    inform_same_remaining_position_about_index(
+                        ancestor_track_info,
+                        this_item,
+                        SameIndexAs(skipped_ancestors | {current_old_index}),
+                    )
 
         self.ancestry.append(current_old_index)
         next_refinement = refinement_with_marker_applied(
@@ -134,7 +142,7 @@ class AncestryBranch:
         )
 
     class WeAreDoneAndHereAreTheMissingRelationships(Exception):
-        def __init__(self, mapping: dict[int, set[SameAncestorAs]]):
+        def __init__(self, mapping: dict[int, list[SameIndexAs]]):
             self.missing_mapping = mapping
 
     def advance(self) -> None:
@@ -142,41 +150,38 @@ class AncestryBranch:
             self._current_modified_branch.advance_branch(self._initial_branch_depth)
         except IndexError as e:
             # check if all relationships from coarsening tracking are exhausted
-            mapping: dict[int, set[SameAncestorAs]] = {}
+            mapping: dict[int, list[SameIndexAs]] = {}
             for key, track_info in self.track_info_mapping.items():
+                ancestor_branch = self._discretization.descriptor.get_branch(
+                    key, is_box_index=False
+                )[0]
+                ancestor_location_code = branch_to_location_code(
+                    ancestor_branch, self._discretization._linearization
+                )
+                marker_negative_indices = [
+                    i for i, m in enumerate(self.markers[key]) if m < 0
+                ]
                 if isinstance(track_info, list):
-                    ancestor_branch = self._discretization.descriptor.get_branch(
-                        key, is_box_index=False
-                    )[0]
-                    ancestor_location_code = branch_to_location_code(
-                        ancestor_branch, self._discretization._linearization
-                    )
-                    marker_negative_indices = [
-                        i for i, m in enumerate(self.markers[key]) if m < 0
-                    ]
                     for index in track_info:
-                        if isinstance(index, DimensionSeparatedLocalPosition):
-                            assert index.remaining_positions.count() == 0
-                            # get their indices in the old discretization by their location code
-                            missed_descendant_location_code = [
-                                a.copy() for a in ancestor_location_code
-                            ]
-                            for c_i, coarsened_dim in enumerate(
-                                marker_negative_indices
-                            ):
-                                missed_descendant_location_code[coarsened_dim].append(
-                                    index.separated_positions[c_i]
-                                )
-                            missed_descendant_index = (
-                                self._discretization.get_index_from_location_code(
-                                    missed_descendant_location_code
-                                )
+                        assert isinstance(index, DimensionSeparatedLocalPosition)
+                        # get their indices in the old discretization by their location code
+                        missed_descendant_location_code = [
+                            a.copy() for a in ancestor_location_code
+                        ]
+                        for c_i, coarsened_dim in enumerate(marker_negative_indices):
+                            missed_descendant_location_code[coarsened_dim].append(
+                                index.separated_positions[c_i]
                             )
-                            mapping.setdefault(missed_descendant_index, set()).add(
-                                SameAncestorAs(key)
+                        missed_descendant_index = (
+                            self._discretization.get_index_from_location_code(
+                                missed_descendant_location_code
                             )
-                        else:
-                            raise TypeError("Unexpected type in track_info")
+                        )
+                        mapping.setdefault(missed_descendant_index, []).append(
+                            SameIndexAs({key})
+                        )
+                else:
+                    raise TypeError("Unexpected type as track_info") from e
 
             raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
                 mapping

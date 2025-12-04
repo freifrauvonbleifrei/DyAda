@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import bitarray as ba
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Sequence, TypeAlias, Union
+from typing import Sequence, TypeAlias
 
 from dyada.structure import copying_lru_cache
 
@@ -137,10 +137,17 @@ def location_codes_from_branch(branch, linearization):
     )
 
 
-@dataclass(frozen=True)
+@dataclass
+class SameIndexAs:
+    old_indices: set[int]
+
+
+@dataclass
 class DimensionSeparatedLocalPosition:
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
+    same_index_as: SameIndexAs | None = None
+    new_refined_location_code: LocationCode | None = None
 
     @cached_property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
@@ -155,7 +162,7 @@ class DimensionSeparatedLocalPosition:
         return ba.frozenbitarray(self.local_position[~self.separated_dimensions_mask])
 
 
-CoarseningStack: TypeAlias = list[Union[DimensionSeparatedLocalPosition, int]]
+CoarseningStack: TypeAlias = list[DimensionSeparatedLocalPosition]
 
 
 def indices_to_bitmask(
@@ -221,15 +228,11 @@ def get_initial_coarsening_stack(
     return initial_coarsening_stack
 
 
-def replace_same_remaining_position_by_mapped_to_index(
+def inform_same_remaining_position_about_index(
     coarsening_stack: CoarseningStack,
-    position_to_replace: DimensionSeparatedLocalPosition,
-    mapped_to_index: int,
+    position_to_update: DimensionSeparatedLocalPosition,
+    mapped_to_index: SameIndexAs,
 ) -> None:
     for i, entry in enumerate(coarsening_stack):
-        if isinstance(entry, int):
-            continue
-        assert isinstance(entry, DimensionSeparatedLocalPosition)
-        if entry.remaining_positions == position_to_replace.remaining_positions:
-            coarsening_stack[i] = mapped_to_index
-    return
+        if entry.remaining_positions == position_to_update.remaining_positions:
+            coarsening_stack[i].same_index_as = mapped_to_index
