@@ -12,7 +12,6 @@ from dyada.descriptor import (
 from dyada.discretization import Discretization, branch_to_location_code
 from dyada.linearization import (
     CoarseningStack,
-    DimensionSeparatedLocalPosition,
     SameIndexAs,
     get_initial_coarsening_stack,
     MortonOrderLinearization,

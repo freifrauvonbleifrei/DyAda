@@ -255,9 +255,7 @@ def get_initial_coarsen_refine_stack(
         dimensions_to_coarsen,
         linearization,
     )
-    # initial_coarsening_stack.reverse()
 
-    stable_dimensions = ~dimensions_to_coarsen & ~dimensions_to_refine
     later_refined_dimensions = (
         current_parent_refinement & ~dimensions_to_coarsen
     ) | dimensions_to_refine
