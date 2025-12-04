@@ -318,7 +318,7 @@ def test_coarsen_refine_stack_3d():
 
     expected_coarsen_refine_stack = [
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("011"),
+            ba.frozenbitarray("111"),
             ba.frozenbitarray("001"),
             None,
             location_code_from_strings(["1", "1", ""]),
@@ -330,31 +330,7 @@ def test_coarsen_refine_stack_3d():
             location_code_from_strings(["0", "1", ""]),
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("011"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["1", "0", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("011"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["0", "0", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("001"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["1", "1", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("001"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["0", "1", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("001"),
+            ba.frozenbitarray("101"),
             ba.frozenbitarray("001"),
             None,
             location_code_from_strings(["1", "0", ""]),
@@ -366,7 +342,7 @@ def test_coarsen_refine_stack_3d():
             location_code_from_strings(["0", "0", ""]),
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("010"),
+            ba.frozenbitarray("110"),
             ba.frozenbitarray("001"),
             None,
             location_code_from_strings(["1", "1", ""]),
@@ -378,31 +354,7 @@ def test_coarsen_refine_stack_3d():
             location_code_from_strings(["0", "1", ""]),
         ),
         DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("010"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["1", "0", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("010"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["0", "0", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("000"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["1", "1", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("000"),
-            ba.frozenbitarray("001"),
-            None,
-            location_code_from_strings(["0", "1", ""]),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("000"),
+            ba.frozenbitarray("100"),
             ba.frozenbitarray("001"),
             None,
             location_code_from_strings(["1", "0", ""]),
@@ -426,18 +378,10 @@ def test_coarsen_refine_stack_3d():
         None,
         None,
         None,
-        None,
-        SameIndexAs({99}),
-        SameIndexAs({99}),
-        SameIndexAs({99}),
         SameIndexAs({99}),
         None,
         None,
         None,
-        None,
-        SameIndexAs({99}),
-        SameIndexAs({99}),
-        SameIndexAs({99}),
     ]
 
     for actual, expected in zip(
