@@ -86,6 +86,33 @@ def test_coarsen_octree():
             assert coarsen_first_oct_mapping[i] == {i - 2**dimensionality}
 
 
+def test_flip_3d():
+    # needs the info from test_coarsen_refine_stack_3d to be correct
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(3, ba.bitarray("011 000 000 000 000")),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "100")
+    p.plan_refinement(1, "100")
+    p.plan_refinement(2, "100")
+    p.plan_refinement(3, "100")
+    p.plan_coarsening(0, ba.bitarray("001"))
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor._data == ba.bitarray("110 000 000 000 000")
+    expected_patch_mapping = {
+        0: {0},
+        1: {1, 2},
+        2: {3, 4},
+        3: {1, 2},
+        4: {3, 4},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])

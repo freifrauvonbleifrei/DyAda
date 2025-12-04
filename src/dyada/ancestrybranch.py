@@ -14,6 +14,7 @@ from dyada.linearization import (
     CoarseningStack,
     SameIndexAs,
     get_initial_coarsening_stack,
+    get_initial_coarsen_refine_stack,
     MortonOrderLinearization,
     location_codes_from_history,
     location_codes_from_branch,
@@ -50,8 +51,17 @@ class AncestryBranch:
                     ba.frozenbitarray(current_refinement), dimensions_to_coarsen
                 )
                 return coarsening_stack
-            else:
-                assert False, "coarsen + refine not implemented yet"
+            elif marker.max() > 0:
+                # coarsened and refined
+                dimensions_to_refine = ba.frozenbitarray(
+                    marker[i] > 0 for i in range(len(marker))
+                )
+                coarsen_refine_stack = get_initial_coarsen_refine_stack(
+                    ba.frozenbitarray(current_refinement),
+                    dimensions_to_coarsen,
+                    dimensions_to_refine,
+                )
+                return coarsen_refine_stack
         return None
 
     def __init__(
