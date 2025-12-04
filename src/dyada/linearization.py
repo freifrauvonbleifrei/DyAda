@@ -14,10 +14,17 @@ def single_bit_set_gen(num_dimensions: int):
         yield bit_array
 
 
+LocationCode: TypeAlias = tuple[ba.frozenbitarray, ...]
+
+
+def location_code_from_strings(s: Sequence[str]) -> LocationCode:
+    return tuple(ba.frozenbitarray(bit_string) for bit_string in s)
+
+
 def location_codes_from_history(
     history_of_binary_positions: Sequence[ba.bitarray],
     history_of_level_increments: Sequence[ba.bitarray],
-) -> tuple[ba.frozenbitarray, ...]:
+) -> LocationCode:
     if len(history_of_binary_positions) == 0:
         return ()
     num_dimensions = len(history_of_binary_positions[0])
