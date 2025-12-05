@@ -8,7 +8,6 @@ from dyada.linearization import (
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     inform_same_remaining_position_about_index,
-    location_code_from_strings,
 )
 
 
