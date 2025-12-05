@@ -43,7 +43,7 @@ class AncestryBranch:
     ) -> Union["AncestryBranch.TrackInfo", None]:
         if marker.min() < 0:
             dimensions_to_coarsen = ba.frozenbitarray(
-                marker[i] < 0 for i in range(len(marker))
+                1 if marker[i] < 0 else 0 for i in range(len(marker))
             )
             if marker.max() <= 0:
                 # only coarsened
@@ -54,7 +54,7 @@ class AncestryBranch:
             elif marker.max() > 0:
                 # coarsened and refined
                 dimensions_to_refine = ba.frozenbitarray(
-                    marker[i] > 0 for i in range(len(marker))
+                    1 if marker[i] > 0 else 0 for i in range(len(marker))
                 )
                 coarsen_refine_stack = get_initial_coarsen_refine_stack(
                     ba.frozenbitarray(current_refinement),
