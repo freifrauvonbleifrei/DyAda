@@ -13,36 +13,6 @@ def single_bit_set_gen(num_dimensions: int):
         yield bit_array
 
 
-LocationCode: TypeAlias = tuple[ba.frozenbitarray, ...]
-
-
-def location_code_from_strings(s: Sequence[str]) -> LocationCode:
-    return tuple(ba.frozenbitarray(bit_string) for bit_string in s)
-
-
-def location_codes_from_history(
-    history_of_binary_positions: Sequence[ba.bitarray],
-    history_of_level_increments: Sequence[ba.bitarray],
-) -> LocationCode:
-    if len(history_of_binary_positions) == 0:
-        return ()
-    num_dimensions = len(history_of_binary_positions[0])
-    depth = len(history_of_binary_positions)
-    assert len(history_of_level_increments) == depth
-    transposed_positions = [
-        ba.bitarray([position[d] for position in history_of_binary_positions])
-        for d in range(num_dimensions)
-    ]
-    transposed_level_increments = [
-        ba.bitarray([increment[d] for increment in history_of_level_increments])
-        for d in range(num_dimensions)
-    ]
-    return tuple(
-        ba.frozenbitarray(transposed_positions[d][transposed_level_increments[d]])
-        for d in range(num_dimensions)
-    )
-
-
 class Linearization(ABC):
     @staticmethod
     @abstractmethod
@@ -119,7 +89,37 @@ class MortonOrderLinearization(Linearization):
         return index_in_box
 
 
-def location_codes_from_branch(branch, linearization):
+LocationCode: TypeAlias = tuple[ba.frozenbitarray, ...]
+
+
+def location_code_from_strings(s: Sequence[str]) -> LocationCode:
+    return tuple(ba.frozenbitarray(bit_string) for bit_string in s)
+
+
+def location_code_from_history(
+    history_of_binary_positions: Sequence[ba.bitarray],
+    history_of_level_increments: Sequence[ba.bitarray],
+) -> LocationCode:
+    if len(history_of_binary_positions) == 0:
+        return ()
+    num_dimensions = len(history_of_binary_positions[0])
+    depth = len(history_of_binary_positions)
+    assert len(history_of_level_increments) == depth
+    transposed_positions = [
+        ba.bitarray([position[d] for position in history_of_binary_positions])
+        for d in range(num_dimensions)
+    ]
+    transposed_level_increments = [
+        ba.bitarray([increment[d] for increment in history_of_level_increments])
+        for d in range(num_dimensions)
+    ]
+    return tuple(
+        ba.frozenbitarray(transposed_positions[d][transposed_level_increments[d]])
+        for d in range(num_dimensions)
+    )
+
+
+def location_code_from_branch(branch, linearization: Linearization) -> LocationCode:
     history_of_indices, history_of_level_increments = branch.to_history()
     depth = len(history_of_indices)
     assert len(history_of_level_increments) == depth
@@ -131,7 +131,7 @@ def location_codes_from_branch(branch, linearization):
                 history_of_level_increments[: i + 1],
             )
         )
-    return location_codes_from_history(
+    return location_code_from_history(
         history_of_binary_positions, history_of_level_increments
     )
 

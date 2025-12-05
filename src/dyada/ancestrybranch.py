@@ -16,8 +16,8 @@ from dyada.linearization import (
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     MortonOrderLinearization,
-    location_codes_from_history,
-    location_codes_from_branch,
+    location_code_from_history,
+    location_code_from_branch,
     inform_same_remaining_position_about_index,
 )
 
@@ -105,7 +105,7 @@ class AncestryBranch:
         current_old_index = 0
         exact = True
         if len(self._history_of_binary_positions) > 0:  # if not at root
-            modified_dimensionwise_positions = location_codes_from_history(
+            modified_dimensionwise_positions = location_code_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
             )
             current_old_index, self.last_intermediate_generation, exact = (
