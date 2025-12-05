@@ -107,11 +107,13 @@ class AncestryBranch:
             modified_dimensionwise_positions = location_codes_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
             )
-            current_old_index, self.last_intermediate_generation = find_next_twig(
-                self._discretization,
-                self.markers,
-                modified_dimensionwise_positions,
-                self.ancestry[-1],
+            current_old_index, self.last_intermediate_generation, exact = (
+                find_next_twig(
+                    self._discretization,
+                    self.markers,
+                    modified_dimensionwise_positions,
+                    self.ancestry[-1],
+                )
             )
 
             # update old track info
@@ -124,7 +126,11 @@ class AncestryBranch:
                         this_item,
                         {SameIndexAs(current_old_index)},
                     )
-                self.last_intermediate_generation |= {current_old_index}
+                # self.last_intermediate_generation |= {current_old_index} # this is needed for coarsen
+            if not exact:
+                self.last_intermediate_generation |= {
+                    current_old_index
+                }  # this is needed for refine
 
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
@@ -333,7 +339,7 @@ def find_next_twig(
     markers: MappingProxyType[int, npt.NDArray[np.int8]],
     desired_dimensionwise_positions: Sequence[ba.frozenbitarray],
     parent_of_next_refinement: int,
-) -> tuple[int, set[int]]:
+) -> tuple[int, set[int], bool]:
     """Get the (old) tree node corresponding to the location code, and any nodes encountered on the way.
     Args:
         discretization (Discretization): the old discretization we're referring to
@@ -341,9 +347,10 @@ def find_next_twig(
         desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
         parent_of_next_refinement (int): parent or other ancestor of the index we're looking for
     Returns:
-        tuple[int, set[int]]:
+        tuple[int, set[int], bool]:
             tuple consisting of the (old) node index
             and a set of (otherwise forgotten) intermediate nodes
+            and a bool indicating whether the node is exactly at the location code
     """
     descriptor = discretization.descriptor
     parent_branch, _ = descriptor.get_branch(
@@ -366,15 +373,19 @@ def find_next_twig(
             if not part_of_history:
                 continue
 
+            location_code_matches = (
+                child_dimensionwise_positions == desired_dimensionwise_positions
+            )
             if old_node_will_be_contained_in_new_descriptor(descriptor, child, markers):
-                return child, intermediate_generation  # we found the next twig
+                return (
+                    child,
+                    intermediate_generation,
+                    location_code_matches,
+                )  # we found the next twig
 
             # else it's a coarsened node and we can see if there is a matching child
             children_of_coarsened = descriptor.get_children(child)
-            history_matches = (
-                child_dimensionwise_positions == desired_dimensionwise_positions
-            )
-            if history_matches:
+            if location_code_matches:
                 # this means that its former children are now gone and need to be mapped to this child's index
                 for child_of_coarsened in children_of_coarsened:
                     # need to append the binarized index of the child, broadcast to split dimensions
@@ -383,7 +394,7 @@ def find_next_twig(
                     ):  # this would need proper linearization
                         raise NotImplementedError("Refinement tracking")
                     intermediate_generation.add(child_of_coarsened)
-                return child, intermediate_generation
+                return child, intermediate_generation, False
             else:
                 # else, it's an ancestor node that's going to disappear
                 # -> restart loop with new children and remember this one

@@ -273,12 +273,18 @@ class PlannedAdaptiveRefinement:
                     next_refinement,
                 )
 
-            map_intermediate_to = self._index_mapping[current_old_index].copy()
             for p in intermediate_generation:
+                map_intermediate_to = {
+                    sorted(self._index_mapping[current_old_index])[0]
+                }
                 if p <= current_old_index:
-                    map_intermediate_to |= self._index_mapping[
-                        ancestrybranch.ancestry[-1]
-                    ]
+                    map_intermediate_to |= {
+                        sorted(self._index_mapping[ancestrybranch.ancestry[-1]])[0]
+                    }
+                if p == current_old_index and len(ancestrybranch.ancestry) > 1:
+                    map_intermediate_to |= {
+                        sorted(self._index_mapping[ancestrybranch.ancestry[-2]])[0]
+                    }
                 for a in map_intermediate_to:
                     yield self.Refinement(
                         self.Refinement.Type.TrackOnly,
