@@ -13,8 +13,8 @@ from dyada.descriptor import (
 from dyada.discretization import Discretization
 from dyada.linearization import (
     MortonOrderLinearization,
-    get_dimensionwise_positions,
-    get_dimensionwise_positions_from_branch,
+    location_code_from_history,
+    location_code_from_branch,
 )
 from dyada.markers import MarkerType, MarkersMapProxyType
 
@@ -65,7 +65,7 @@ class AncestryBranch:
         current_old_index = 0
         intermediate_generation: set[int] = set()
         if len(self._history_of_binary_positions) > 0:  # if not at root
-            modified_dimensionwise_positions = get_dimensionwise_positions(
+            modified_dimensionwise_positions = location_code_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
             )
             current_old_index, intermediate_generation = find_next_twig(
@@ -168,7 +168,7 @@ def is_old_index_now_at_or_containing_location_code(
         is_box_index=False,
         hint_previous_branch=(parent_of_next_refinement, parent_branch),
     )
-    old_index_dimensionwise_positions = get_dimensionwise_positions_from_branch(
+    old_index_dimensionwise_positions = location_code_from_branch(
         old_index_branch, discretization._linearization
     )
 
