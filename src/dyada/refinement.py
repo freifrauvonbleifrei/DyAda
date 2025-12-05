@@ -270,7 +270,7 @@ class PlannedAdaptiveRefinement:
                             self.Refinement.Type.TrackOnly,
                             p,
                             None,
-                            ancestrybranch.ancestry[-2],
+                            ancestrybranch.ancestry[-1],
                         )
                 else:
                     # this node became leaf by coarsening
@@ -285,7 +285,7 @@ class PlannedAdaptiveRefinement:
                             self.Refinement.Type.TrackOnly,
                             p,
                             None,
-                            ancestrybranch.ancestry[-1],
+                            current_old_index,
                         )
 
                 # only on leaves, we advance the branch
@@ -316,7 +316,7 @@ class PlannedAdaptiveRefinement:
                         self.Refinement.Type.TrackOnly,
                         p,
                         None,
-                        ancestrybranch.ancestry[-1],
+                        current_old_index,
                     )
                 yield self.Refinement(
                     self.Refinement.Type.CopyOver,

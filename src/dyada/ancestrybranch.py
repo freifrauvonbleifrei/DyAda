@@ -132,12 +132,12 @@ class AncestryBranch:
                         ),
                     )
 
-        self.ancestry.append(current_old_index)
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
             next_marker := self.markers[current_old_index],
         )
-
+        if next_refinement.count() > 0:
+            self.ancestry.append(current_old_index)
         # process new track info
         if current_old_index not in self.track_info_mapping:
             most_recent_track_info = self.get_initial_track_info(
