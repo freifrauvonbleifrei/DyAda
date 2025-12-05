@@ -103,6 +103,7 @@ class AncestryBranch:
     ) -> tuple[int, set[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
         # get the currently desired location info
         current_old_index = 0
+        exact = True
         if len(self._history_of_binary_positions) > 0:  # if not at root
             modified_dimensionwise_positions = location_codes_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
@@ -126,11 +127,9 @@ class AncestryBranch:
                         this_item,
                         {SameIndexAs(current_old_index)},
                     )
-                # self.last_intermediate_generation |= {current_old_index} # this is needed for coarsen
-            if not exact:
-                self.last_intermediate_generation |= {
-                    current_old_index
-                }  # this is needed for refine
+
+        if not exact:
+            self.last_intermediate_generation |= {current_old_index}
 
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
@@ -394,7 +393,7 @@ def find_next_twig(
                     ):  # this would need proper linearization
                         raise NotImplementedError("Refinement tracking")
                     intermediate_generation.add(child_of_coarsened)
-                return child, intermediate_generation, False
+                return child, intermediate_generation, True
             else:
                 # else, it's an ancestor node that's going to disappear
                 # -> restart loop with new children and remember this one
