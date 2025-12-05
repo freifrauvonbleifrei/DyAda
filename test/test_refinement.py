@@ -357,7 +357,7 @@ def test_refine_2d_1():
         5: {6},
         6: {3, 7},
     }
-    assert box_mapping == [value for value in expected_box_mapping.values()]
+    assert box_mapping == list(expected_box_mapping.values())
     expected_index_mapping = {
         0: {0},
         1: {0, 1, 7},
@@ -371,7 +371,7 @@ def test_refine_2d_1():
         9: {11},
         10: {0, 6, 12},
     }
-    assert index_mapping == [value for value in expected_index_mapping.values()]
+    assert index_mapping == list(expected_index_mapping.values())
 
 
 def test_refine_2d_2():
@@ -568,7 +568,7 @@ def test_refine_2d_4():
         27: {16},
         28: {22},
     }
-    assert patch_mapping == [value for value in expected_patch_mapping.values()]
+    assert patch_mapping == list(expected_patch_mapping.values())
 
 
 def test_refine_2d_5():
