@@ -291,7 +291,7 @@ def is_old_index_now_at_or_containing_location_code(
         is_box_index=False,
         hint_previous_branch=(parent_of_next_refinement, parent_branch),
     )
-    old_index_dimensionwise_positions = location_codes_from_branch(
+    old_index_dimensionwise_positions = location_code_from_branch(
         old_index_branch, discretization._linearization
     )
 
