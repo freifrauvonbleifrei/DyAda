@@ -346,19 +346,31 @@ def test_refine_2d_1():
     validate_descriptor(new_descriptor)
     assert new_descriptor.get_num_boxes() == num_boxes_before + 1
     assert new_descriptor == correct_descriptor
-    assert index_mapping == [
-        {0},
-        {0},
-        {1},
-        {7},
-        {2, 8},
-        {3, 9},
-        {4},
-        {5},
-        {10},
-        {11},
-        {6, 12},
-    ]
+    expected_box_mapping = {
+        0: {0},
+        1: {4},
+        2: {1},
+        3: {2},
+        4: {5},
+        5: {6},
+        6: {3, 7},
+    }
+    assert box_mapping == [value for value in expected_box_mapping.values()]
+    expected_index_mapping = {
+        0: {0},
+        1: {0, 1, 7},
+        2: {1},
+        3: {7},
+        4: {0, 2, 8},
+        5: {3, 9},
+        6: {4},
+        7: {5},
+        8: {10},
+        9: {11},
+        10: {0, 6, 12},
+    }
+    assert index_mapping == [value for value in expected_index_mapping.values()]
+
     helper_check_mapping(index_mapping, discretization, new_discretization, False)
     helper_check_mapping(box_mapping, discretization, new_discretization, True)
     for b in range(descriptor.get_num_boxes()):
