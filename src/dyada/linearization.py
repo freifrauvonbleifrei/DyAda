@@ -137,16 +137,16 @@ def location_codes_from_branch(branch, linearization):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class SameIndexAs:
-    old_indices: set[int]
+    old_index: int
 
 
 @dataclass
 class DimensionSeparatedLocalPosition:
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
-    same_index_as: SameIndexAs | None = None
+    same_index_as: set[SameIndexAs] | None = None
     new_refined_location_code: LocationCode | None = None
 
     @property
@@ -183,16 +183,11 @@ def get_initial_coarsening_stack(
         current_parent_refinement (ba.frozenbitarray): current parent's refinement, frozen to be hashable
         dimensions_to_coarsen (tuple[int, ...] | ba.frozenbitarray): a sorted tuple of dimensions to coarsen or a frozenbitarray mask
         linearization (Linearization, optional): Linearization. Defaults to MortonOrderLinearization().
-
-    Raises:
-        NotImplementedError: if linearization is not Morton order
-
     Returns:
         CoarseningStack: a list of DimensionSeparatedLocalPosition entries, one per current child patch
         reversed, so popping from the back gives the correct order.
         The entries contain the separated positions for the coarsened dimensions and the remaining positions for the other dimensions.
     """
-
     if not isinstance(linearization, MortonOrderLinearization):
         raise NotImplementedError(
             "Initial coarsening stack generation only implemented for"
@@ -205,12 +200,10 @@ def get_initial_coarsening_stack(
             dimensions_to_coarsen, len(current_parent_refinement)
         )
     assert len(dimensions_to_coarsen) == len(current_parent_refinement)
-
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
 
     initial_coarsening_stack: CoarseningStack = []
     num_current_children = 2 ** current_parent_refinement.count()
-
     for child_index in range(num_current_children):
         binary_position = linearization.get_binary_position_from_index(
             (child_index,),
@@ -222,10 +215,10 @@ def get_initial_coarsening_stack(
                 separated_dimensions_mask=dimensions_to_coarsen,
             )
         )
+
     initial_coarsening_stack.sort(
         key=lambda entry: entry.separated_positions.to01()[::-1]
     )
-
     # reverse so we can pop() from the back
     initial_coarsening_stack.reverse()
     return initial_coarsening_stack
@@ -300,7 +293,7 @@ def get_initial_coarsen_refine_stack(
 def inform_same_remaining_position_about_index(
     coarsening_stack: CoarseningStack,
     position_to_update: DimensionSeparatedLocalPosition,
-    mapped_to_index: SameIndexAs,
+    mapped_to_index: set[SameIndexAs],
 ) -> None:
     for i, entry in enumerate(coarsening_stack):
         if entry.remaining_positions == position_to_update.remaining_positions:

@@ -126,7 +126,10 @@ class AncestryBranch:
                     inform_same_remaining_position_about_index(
                         ancestor_track_info,
                         this_item,
-                        SameIndexAs(skipped_ancestors | {current_old_index}),
+                        set(
+                            SameIndexAs(a)
+                            for a in skipped_ancestors | {current_old_index}
+                        ),
                     )
 
         self.ancestry.append(current_old_index)
@@ -151,7 +154,7 @@ class AncestryBranch:
         )
 
     class WeAreDoneAndHereAreTheMissingRelationships(Exception):
-        def __init__(self, mapping: dict[int, list[SameIndexAs]]):
+        def __init__(self, mapping: dict[int, set[SameIndexAs]]):
             self.missing_mapping = mapping
             super().__init__()
 
@@ -160,7 +163,7 @@ class AncestryBranch:
             self._current_modified_branch.advance_branch(self._initial_branch_depth)
         except IndexError as e:
             # check if all relationships from coarsening tracking are exhausted
-            mapping: dict[int, list[SameIndexAs]] = {}
+            mapping: dict[int, set[SameIndexAs]] = {}
             for key, track_info in self.track_info_mapping.items():
                 ancestor_branch = self._discretization.descriptor.get_branch(
                     key, is_box_index=False
@@ -198,11 +201,11 @@ class AncestryBranch:
                                 self._discretization.descriptor.get_num_dimensions()
                             )
                         )
-                        map_to = SameIndexAs({key})
+                        map_to = {SameIndexAs(key)}
                     else:
                         map_to = index.same_index_as
 
-                    mapping.setdefault(missed_descendant_index, []).append(map_to)
+                    mapping[missed_descendant_index] = map_to
 
             raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
                 mapping

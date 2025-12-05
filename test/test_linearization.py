@@ -286,7 +286,7 @@ def test_coarsening_stack_3d():
     assert first_item.separated_positions == ba.frozenbitarray("00")
     assert first_item.remaining_positions == ba.frozenbitarray("0")
 
-    first_item_update_index = SameIndexAs({42})
+    first_item_update_index = {SameIndexAs(42)}
     inform_same_remaining_position_about_index(
         coarsening_stack=current_coarsening_stack,
         position_to_update=first_item,
@@ -294,11 +294,11 @@ def test_coarsening_stack_3d():
     )
     expected_index_stack_after_update = [
         None,
-        SameIndexAs({42}),
+        {SameIndexAs(42)},
         None,
-        SameIndexAs({42}),
+        {SameIndexAs(42)},
         None,
-        SameIndexAs({42}),
+        {SameIndexAs(42)},
         None,
     ]
     expected_index_stack_after_update.reverse()
@@ -371,14 +371,14 @@ def test_coarsen_refine_stack_3d():
     # make sure we can re-use the references again...
     first_item = coarsen_refine_stack.pop()
     inform_same_remaining_position_about_index(
-        coarsen_refine_stack, first_item, SameIndexAs({99})
+        coarsen_refine_stack, first_item, {SameIndexAs(99)}
     )
 
     expected_same_index_as = [
         None,
         None,
         None,
-        SameIndexAs({99}),
+        {SameIndexAs(99)},
         None,
         None,
         None,

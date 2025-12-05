@@ -296,17 +296,18 @@ class PlannedAdaptiveRefinement:
                 ) as e:  # almost done!
                     # yield the missing relationships
                     for key, same_missing_indices in e.missing_mapping.items():
+                        missing_indices = set()
                         for same_missing_index in same_missing_indices:
-                            missing_indices = set()
-                            for old_index in same_missing_index.old_indices:
-                                missing_indices |= self._index_mapping[old_index]
-                            for missing_index in missing_indices:
-                                yield self.Refinement(
-                                    self.Refinement.Type.TrackOnly,
-                                    key,
-                                    None,
-                                    missing_index,
-                                )
+                            missing_indices |= self._index_mapping[
+                                same_missing_index.old_index
+                            ]
+                        for missing_index in missing_indices:
+                            yield self.Refinement(
+                                self.Refinement.Type.TrackOnly,
+                                key,
+                                None,
+                                missing_index,
+                            )
                     return
 
             else:
