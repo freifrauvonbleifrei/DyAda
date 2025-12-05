@@ -266,12 +266,13 @@ class PlannedAdaptiveRefinement:
                         next_marker,
                     )
                     for p in intermediate_generation:
-                        yield self.Refinement(
-                            self.Refinement.Type.TrackOnly,
-                            p,
-                            None,
-                            ancestrybranch.ancestry[-1],
-                        )
+                        for a in self._index_mapping[ancestrybranch.ancestry[-1]]:
+                            yield self.Refinement(
+                                self.Refinement.Type.TrackOnly,
+                                p,
+                                None,
+                                a,
+                            )
                 else:
                     # this node became leaf by coarsening
                     yield self.Refinement(
@@ -281,12 +282,13 @@ class PlannedAdaptiveRefinement:
                         next_marker,
                     )
                     for p in intermediate_generation:
-                        yield self.Refinement(
-                            self.Refinement.Type.TrackOnly,
-                            p,
-                            None,
-                            current_old_index,
-                        )
+                        for a in self._index_mapping[current_old_index]:
+                            yield self.Refinement(
+                                self.Refinement.Type.TrackOnly,
+                                p,
+                                None,
+                                a,
+                            )
 
                 # only on leaves, we advance the branch
                 try:
@@ -311,18 +313,19 @@ class PlannedAdaptiveRefinement:
                     return
 
             else:
-                for p in intermediate_generation:
-                    yield self.Refinement(
-                        self.Refinement.Type.TrackOnly,
-                        p,
-                        None,
-                        current_old_index,
-                    )
                 yield self.Refinement(
                     self.Refinement.Type.CopyOver,
                     current_old_index,
                     next_refinement,
                 )
+                for p in intermediate_generation:
+                    for a in self._index_mapping[current_old_index]:
+                        yield self.Refinement(
+                            self.Refinement.Type.TrackOnly,
+                            p,
+                            None,
+                            a,
+                        )
                 # on non-leaves, we grow the branch
                 ancestrybranch.grow(next_refinement)
 

@@ -113,10 +113,6 @@ class AncestryBranch:
                 modified_dimensionwise_positions,
                 self.ancestry[-1],
             )
-            # filter intermediate generation by senior indices
-            skipped_ancestors = {
-                a for a in self.last_intermediate_generation if a < current_old_index
-            }
 
             # update old track info
             ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
@@ -126,11 +122,9 @@ class AncestryBranch:
                     inform_same_remaining_position_about_index(
                         ancestor_track_info,
                         this_item,
-                        set(
-                            SameIndexAs(a)
-                            for a in skipped_ancestors | {current_old_index}
-                        ),
+                        {SameIndexAs(current_old_index)},
                     )
+                self.last_intermediate_generation |= {current_old_index}
 
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
