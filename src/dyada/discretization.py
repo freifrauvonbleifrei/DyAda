@@ -13,7 +13,7 @@ from dyada.coordinates import (
     Coordinate,
     coordinate_from_sequence,
     CoordinateInterval,
-    deciding_bitarray_from_float,
+    location_code_from_float,
 )
 
 from dyada.descriptor import (
@@ -134,8 +134,8 @@ class Discretization:
                 current_branch.to_history()
             )
 
-            coordinate_bitarrays = [deciding_bitarray_from_float(c) for c in coordinate]
-            bitarrays_counted_levels = [0 for i in range(len(coordinate))]
+            location_code = [location_code_from_float(c) for c in coordinate]
+            found_part_of_location_code = [0 for i in range(len(coordinate))]
 
             box_index = -1
             descriptor_iterator = iter(self._descriptor)
@@ -149,7 +149,7 @@ class Discretization:
                     found_box_indices.add(box_index)
                     coordinates_found.add(tuple(coordinate))  # type: ignore
                     # assert (
-                    #     bitarrays_counted_levels
+                    #     found_part_of_location_code
                     #     == get_level_index_from_linear_index(
                     #         self._linearization, self._descriptor, box_index
                     #     ).d_level
@@ -158,14 +158,14 @@ class Discretization:
 
                 history_of_level_increments.append(current_refinement)
 
-                # increment the counted levels at these indices where refinement is 1
+                # increment the found part at these indices where refinement is 1
                 new_binary_position = ba.bitarray([0] * len(coordinate))
                 for i, bitarray_i in enumerate(current_refinement):
                     if bitarray_i:
-                        new_binary_position[i] = coordinate_bitarrays[i][
-                            bitarrays_counted_levels[i]
+                        new_binary_position[i] = location_code[i][
+                            found_part_of_location_code[i]
                         ]
-                        bitarrays_counted_levels[i] += 1
+                        found_part_of_location_code[i] += 1
 
                 child_index = self._linearization.get_index_from_binary_position(
                     new_binary_position, history_of_indices, history_of_level_increments
@@ -180,10 +180,10 @@ class Discretization:
                     )[0]
                     current_branch.advance_branch()
             # check if the coordinate could also be in another box
-            # this is the case if there are only zeros left in the coordinate_bitarrays behind the respective counted levels
+            # this is the case if there are only zeros left in the location_code behind the respective counted levels
             ambiguous_dimensions = [
-                coordinate_bitarrays[i].count() > 0
-                and coordinate_bitarrays[i][bitarrays_counted_levels[i] :].count() == 0
+                location_code[i].count() > 0
+                and location_code[i][found_part_of_location_code[i] :].count() == 0
                 for i in range(len(coordinate))
             ]
             ambiguous_indices = [i for i, a in enumerate(ambiguous_dimensions) if a]
@@ -201,6 +201,59 @@ class Discretization:
             if len(found_box_indices) > 1
             else found_box_indices.pop()
         )
+
+    class NoExactMatchError(Exception):
+        def __init__(self, closest_match: int):
+            super().__init__()
+            self.closest_match = closest_match
+
+    def get_index_from_location_code(self, location_code: list[ba.bitarray]) -> int:
+        # we avoid tracking the histories for now
+        assert self._linearization == MortonOrderLinearization()
+
+        found_part_of_location_code = [0 for _ in range(len(location_code))]
+        current_branch = Branch(self._descriptor.get_num_dimensions())
+        previous_patch_index = 0
+        patch_index = 0
+        descriptor_iterator = iter(self._descriptor)
+        while True:
+            current_refinement = next(descriptor_iterator)
+            if all(
+                bp == len(location_code[d])
+                for d, bp in enumerate(found_part_of_location_code)
+            ):
+                # found all!
+                return patch_index
+
+            assert current_refinement.count() > 0, "box should have been found here"
+            # go deeper in the branch where the coordinate is
+            current_branch.grow_branch(current_refinement)
+
+            # increment "found" at these indices where refinement is 1
+            new_binary_position = ba.bitarray([0] * len(current_refinement))
+            for i, bitarray_i in enumerate(current_refinement):
+                if bitarray_i:
+                    if len(location_code[i]) <= found_part_of_location_code[i]:
+                        raise Discretization.NoExactMatchError(previous_patch_index)
+                    new_binary_position[i] = location_code[i][
+                        found_part_of_location_code[i]
+                    ]
+                    found_part_of_location_code[i] += 1
+
+            # may raise error if not matching
+            child_index = self._linearization.get_index_from_binary_position(
+                new_binary_position, [], [current_refinement]
+            )
+
+            previous_patch_index = patch_index
+            for _ in range(child_index):
+                # skip the children where the coordinate is not in the patch
+                current_refinement = next(descriptor_iterator)
+                patch_index += self._descriptor.skip_to_next_neighbor(
+                    descriptor_iterator, current_refinement
+                )[1]
+                current_branch.advance_branch()
+            patch_index += 1
 
     def slice(
         self,
@@ -226,8 +279,8 @@ class Discretization:
         maximum_level_in_slice = [
             0 if d in fixed_dimensions else None for d in range(num_dimensions)
         ]
-        deciding_bitarrays = [
-            deciding_bitarray_from_float(c) if c is not None else None
+        location_codes = [
+            location_code_from_float(c) if c is not None else None
             for c in fixed_unit_coordinates
         ]
         # create new empty descriptor
@@ -256,7 +309,7 @@ class Discretization:
                 if level[d] == 0:
                     continue
                 # check if the bitarray is equal to the beginnig of the deciding bitarray
-                if not bitarray_index[d] == deciding_bitarrays[d][: level[d]]:  # type: ignore
+                if not bitarray_index[d] == location_codes[d][: level[d]]:  # type: ignore
                     keep = False
                     break
             if keep:
