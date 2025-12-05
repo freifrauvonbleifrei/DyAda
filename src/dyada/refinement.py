@@ -273,7 +273,7 @@ class PlannedAdaptiveRefinement:
                     next_refinement,
                 )
 
-            map_intermediate_to = self._index_mapping[current_old_index]
+            map_intermediate_to = self._index_mapping[current_old_index].copy()
             for p in intermediate_generation:
                 if p <= current_old_index:
                     map_intermediate_to |= self._index_mapping[
