@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
 from dataclasses import dataclass
-from itertools import cycle
 from typing import Sequence, TypeAlias
 
 from dyada.structure import copying_lru_cache
@@ -147,7 +146,6 @@ class DimensionSeparatedLocalPosition:
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
     same_index_as: set[SameIndexAs] | None = None
-    new_refined_location_code: LocationCode | None = None
 
     @property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
@@ -244,50 +242,11 @@ def get_initial_coarsen_refine_stack(
     assert (dimensions_to_refine & current_parent_refinement).count() == 0
 
     later_iterated_dimensions = current_parent_refinement | dimensions_to_refine
-    initial_coarsening_stack = get_initial_coarsening_stack(
+    return get_initial_coarsening_stack(
         later_iterated_dimensions,
         dimensions_to_coarsen,
         linearization,
-    )  # TODO consider dropping new_refined_location_code again!
-
-    later_refined_dimensions = (
-        current_parent_refinement & ~dimensions_to_coarsen
-    ) | dimensions_to_refine
-    later_num_children = 2 ** later_refined_dimensions.count()
-    children_positions = [
-        linearization.get_binary_position_from_index(
-            (i,),
-            (later_refined_dimensions,),
-        )
-        for i in range(later_num_children)
-    ]
-    children_positions.reverse()
-    children_locations = [
-        location_codes_from_history(
-            [pos],
-            [later_refined_dimensions],
-        )
-        for pos in children_positions
-    ]
-
-    coarsen_refine_stack: CoarseningStack = []
-
-    for entry, child_location, child_position in zip(
-        initial_coarsening_stack, cycle(children_locations), cycle(children_positions)
-    ):
-        coarsen_refine_stack.append(
-            DimensionSeparatedLocalPosition(
-                local_position=entry.local_position,
-                separated_dimensions_mask=entry.separated_dimensions_mask,
-                new_refined_location_code=child_location,
-            )
-        )
-        assert (
-            coarsen_refine_stack[-1].remaining_positions
-            == child_position[later_refined_dimensions]
-        )
-
-    return coarsen_refine_stack
+    )
 
 
 def inform_same_remaining_position_about_index(
