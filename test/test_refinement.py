@@ -611,7 +611,23 @@ def test_refine_2d_5():
     assert index_mapping == [expected_mapping[i] for i in range(len(expected_mapping))]
 
 
-def test_refine_3d():
+def test_refine_2d_6():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(
+            2,
+            ba.bitarray("01 00 10 10 00 00 10 00 00"),
+        ),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "10")
+    p.plan_refinement(1, "10")
+    p.plan_refinement(2, "10")
+    discretization, _ = p.apply_refinements()
+    validate_descriptor(discretization.descriptor)
+
+
+def test_refine_3d_1():
     prependable_string = "110001000000001000000001000000"
     for round_number in range(4):
         descriptor = RefinementDescriptor.from_binary(
@@ -643,6 +659,52 @@ def test_refine_3d():
                 assert coordinates_from_box_index(
                     new_discretization, mapped_to_index
                 ) == coordinates_from_box_index(discretization, b)
+
+
+def test_refine_3d_2():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(3, ba.bitarray("001 000 100 000 000")),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "110")
+    p.plan_refinement(1, "011")
+    p.plan_refinement(2, "011")
+    discretization, _ = p.apply_refinements()
+    # TODO check mapping
+
+
+def test_refine_3d_3():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(
+            3,
+            ba.bitarray("010 000 101 100 000 000 100 000 000 100 000 000 100 000 000"),
+        ),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "101")
+    p.plan_refinement(1, "100")
+    p.plan_refinement(2, "100")
+    discretization, _ = p.apply_refinements()
+    # TODO check mapping
+
+
+def test_refine_3d_4():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(
+            3,
+            ba.bitarray("010 000 001 000 100 000 000"),
+        ),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "101")
+    p.plan_refinement(1, "100")
+    p.plan_refinement(2, "111")
+    p.plan_refinement(3, "111")
+    discretization, _ = p.apply_refinements()
+    # TODO check mapping
 
 
 def test_refine_4d():
