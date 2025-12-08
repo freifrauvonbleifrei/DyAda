@@ -12,6 +12,7 @@ from dyada.descriptor import (
 from dyada.discretization import Discretization, branch_to_location_code
 from dyada.linearization import (
     CoarseningStack,
+    LocationCode,
     SameIndexAs,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
@@ -271,7 +272,7 @@ def is_old_index_now_at_or_containing_location_code(
     parent_of_next_refinement: int,
     parent_branch: Branch,
     old_index: int,
-) -> tuple[bool, tuple[ba.bitarray]]:
+) -> tuple[bool, LocationCode]:
     """Check whether old_index is now at or containing the next hyperrectangular location code.
     Args:
         discretization (Discretization): the old discretization we're referring to
@@ -283,7 +284,7 @@ def is_old_index_now_at_or_containing_location_code(
 
     Returns:
         bool            : whether old_index is now at or containing the location code
-        list[ba.bitarray]: the location code of the old_index
+        LocationCode    : the location code of the old_index
     """
     descriptor = discretization.descriptor
     old_index_branch, _ = descriptor.get_branch(
