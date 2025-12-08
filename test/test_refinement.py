@@ -623,8 +623,20 @@ def test_refine_2d_6():
     p.plan_refinement(0, "10")
     p.plan_refinement(1, "10")
     p.plan_refinement(2, "10")
-    discretization, _ = p.apply_refinements()
+    discretization, index_mapping = p.apply_refinements()
     validate_descriptor(discretization.descriptor)
+    expected_mapping = {
+        0: {0},
+        1: {1, 5},
+        2: {2, 6},
+        3: {2},
+        4: {3},
+        5: {4},
+        6: {6},
+        7: {7},
+        8: {8},
+    }
+    assert index_mapping == [expected_mapping[i] for i in range(len(expected_mapping))]
 
 
 def test_refine_3d_1():
