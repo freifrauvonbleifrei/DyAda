@@ -126,7 +126,7 @@ class AncestryBranch:
                     inform_same_remaining_position_about_index(
                         ancestor_track_info,
                         this_item,
-                        {SameIndexAs(current_old_index)},
+                        SameIndexAs(current_old_index),
                     )
 
         if not exact:
@@ -201,11 +201,11 @@ class AncestryBranch:
                                 self._discretization.descriptor.get_num_dimensions()
                             )
                         )
-                        map_to = {SameIndexAs(key)}
+                        map_to = SameIndexAs(key)
                     else:
                         map_to = index.same_index_as
 
-                    mapping[missed_descendant_index] = map_to
+                    mapping.setdefault(missed_descendant_index, set()).add(map_to)
 
             raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
                 mapping

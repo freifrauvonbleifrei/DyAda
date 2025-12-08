@@ -100,10 +100,9 @@ def location_code_from_history(
     history_of_binary_positions: Sequence[ba.bitarray],
     history_of_level_increments: Sequence[ba.bitarray],
 ) -> LocationCode:
-    if len(history_of_binary_positions) == 0:
-        return ()
     num_dimensions = len(history_of_binary_positions[0])
     depth = len(history_of_binary_positions)
+    assert depth > 0
     assert len(history_of_level_increments) == depth
     transposed_positions = [
         ba.bitarray([position[d] for position in history_of_binary_positions])
@@ -145,7 +144,7 @@ class SameIndexAs:
 class DimensionSeparatedLocalPosition:
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
-    same_index_as: set[SameIndexAs] | None = None
+    same_index_as: SameIndexAs | None = None
 
     @property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
@@ -252,7 +251,7 @@ def get_initial_coarsen_refine_stack(
 def inform_same_remaining_position_about_index(
     coarsening_stack: CoarseningStack,
     position_to_update: DimensionSeparatedLocalPosition,
-    mapped_to_index: set[SameIndexAs],
+    mapped_to_index: SameIndexAs,
 ) -> None:
     for i, entry in enumerate(coarsening_stack):
         if entry.remaining_positions == position_to_update.remaining_positions:
