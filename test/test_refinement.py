@@ -623,7 +623,7 @@ def test_refine_2d_6():
     p.plan_refinement(0, "10")
     p.plan_refinement(1, "10")
     p.plan_refinement(2, "10")
-    discretization, index_mapping = p.apply_refinements()
+    discretization, index_mapping = p.apply_refinements(track_mapping="patches")
     validate_descriptor(discretization.descriptor)
     expected_mapping = {
         0: {0},
