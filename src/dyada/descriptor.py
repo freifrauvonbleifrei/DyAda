@@ -188,7 +188,7 @@ class RefinementDescriptor:
 
     def get_num_boxes(self):
         # count number of d*(0) bit blocks
-        return Counter(self)[self.d_zeros]
+        return sum(x.count() == 0 for x in self)
 
     def get_data(self):
         return self._data
@@ -203,7 +203,7 @@ class RefinementDescriptor:
 
     def __iter__(self):
         if __debug__:  # slow and safe mode
-            for i in range(len(self)):
+            for i in range(start, len(self)):
                 # same as yield ba.frozenbitarray(self[i])
                 yield ba.frozenbitarray(
                     self.get_data()[
@@ -211,8 +211,9 @@ class RefinementDescriptor:
                     ]
                 )
             return
-        j = 0
-        for _ in range(len(self)):
+        # fast mode, won't work with the functions that use Counter directly
+        j = self._num_dimensions * start
+        for _ in range(start, len(self)):
             next_j = j + self._num_dimensions
             yield self.get_data()[j:next_j]
             j = next_j
@@ -230,7 +231,7 @@ class RefinementDescriptor:
             index_or_slice = operator.index(index_or_slice)
             return self.get_data()[index_or_slice * nd : (index_or_slice + 1) * nd]
 
-    def is_pow2tree(self):
+    def is_pow2tree(self) -> bool:
         """Is this a quadtree / octree / general power-of-2 tree?"""
         c = Counter(self)
         return c.keys() == {
@@ -388,9 +389,7 @@ class RefinementDescriptor:
             branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
         else:
             branch = branch_to_index.copy()
-            descriptor_iterator = iter(self)
-            for _ in range(hierarchical_index):
-                next(descriptor_iterator)
+            descriptor_iterator = self.__iter__(start=hierarchical_index)  
         if len(branch) < 2:
             # we are at the root
             return list(siblings)
