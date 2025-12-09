@@ -188,14 +188,7 @@ class RefinementDescriptor:
 
     def get_num_boxes(self):
         # count number of d*(0) bit blocks
-        dZeros = self.d_zeros
-        # todo check back if there will be such a function in bitarray
-        count = sum(
-            1
-            for i in range(0, len(self._data), self._num_dimensions)
-            if self._data[i : i + self._num_dimensions] == dZeros
-        )
-        return count
+        return Counter(self)[self.d_zeros]
 
     def get_data(self):
         return self._data
