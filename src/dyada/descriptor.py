@@ -201,7 +201,7 @@ class RefinementDescriptor:
             f"RefinementDescriptor({reprlib.repr(' '.join([b.to01() for b in self]))})"
         )
 
-    def __iter__(self):
+    def __iter__(self, start: int = 0):
         if __debug__:  # slow and safe mode
             for i in range(start, len(self)):
                 # same as yield ba.frozenbitarray(self[i])
