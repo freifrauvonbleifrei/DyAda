@@ -389,7 +389,7 @@ class RefinementDescriptor:
             branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
         else:
             branch = branch_to_index.copy()
-            descriptor_iterator = self.__iter__(start=hierarchical_index)  
+            descriptor_iterator = self.__iter__(start=hierarchical_index)  # type: ignore
         if len(branch) < 2:
             # we are at the root
             return list(siblings)
