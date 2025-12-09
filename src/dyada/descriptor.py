@@ -209,17 +209,20 @@ class RefinementDescriptor:
         )
 
     def __iter__(self):
-        for i in range(len(self)):
-            # conceptually the same as
-            # yield ba.frozenbitarray(self[i])
-            # but faster
-            yield ba.frozenbitarray(
-                self.get_data()[
-                    i * self._num_dimensions : (i + 1) * self._num_dimensions
-                ]
-            )
-            # for performance, unwrap the ba.frozenbitarray constructor
-            # (-> less iteration functionality available)
+        if __debug__:  # slow and safe mode
+            for i in range(len(self)):
+                # same as yield ba.frozenbitarray(self[i])
+                yield ba.frozenbitarray(
+                    self.get_data()[
+                        i * self._num_dimensions : (i + 1) * self._num_dimensions
+                    ]
+                )
+            return
+        j = 0
+        for _ in range(len(self)):
+            next_j = j + self._num_dimensions
+            yield self.get_data()[j:next_j]
+            j = next_j
 
     def __getitem__(self, index_or_slice):
         nd = self._num_dimensions
