@@ -164,10 +164,12 @@ class AncestryBranch:
         except IndexError as e:
             # check if all relationships from coarsening tracking are exhausted
             mapping: dict[int, set[SameIndexAs]] = {}
-            for key, track_info in self.track_info_mapping.items():
+            hint_previous_branch = None
+            for key, track_info in sorted(self.track_info_mapping.items()):
                 ancestor_branch = self._discretization.descriptor.get_branch(
-                    key, is_box_index=False
+                    key, is_box_index=False, hint_previous_branch=hint_previous_branch
                 )[0]
+                hint_previous_branch = (key, ancestor_branch)
                 ancestor_location_code = branch_to_location_code(
                     ancestor_branch, self._discretization._linearization
                 )
