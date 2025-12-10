@@ -297,9 +297,7 @@ class RefinementDescriptor:
             current_branch = current_branch.copy()
             if is_box_index:
                 box_counter = self.num_boxes_up_to(i)
-            current_iterator = iter(self)
-            for _ in range(i):
-                next(current_iterator)
+            current_iterator = self.__iter__(start=i)  # type: ignore
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
         while is_box_index or i < index:
@@ -307,7 +305,7 @@ class RefinementDescriptor:
             if current_refinement == self.d_zeros:
                 if is_box_index:
                     box_counter += 1
-                    if is_box_index and box_counter > index:
+                    if box_counter > index:
                         break
                 current_branch.advance_branch()
             else:
