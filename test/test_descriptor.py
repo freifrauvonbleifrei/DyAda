@@ -5,7 +5,6 @@ import numpy as np
 from os.path import abspath
 
 from dyada.descriptor import (
-    generalized_ruler,
     LevelCounter,
     DyadaInvalidDescriptorError,
     RefinementDescriptor,
@@ -14,17 +13,6 @@ from dyada.descriptor import (
 
 from dyada.refinement import Discretization, apply_single_refinement
 from dyada.linearization import MortonOrderLinearization
-
-
-def test_ruler():
-    one = generalized_ruler(2, 0)
-    assert np.array_equal(one, [1])
-    two = generalized_ruler(2, 1)
-    assert np.array_equal(two, [2, 1, 1, 1])
-    three = generalized_ruler(2, 2)
-    assert np.array_equal(three, [3, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1])
-    other = generalized_ruler(1, 4)
-    assert np.array_equal(other, [5, 1, 2, 1, 3, 1, 2, 1, 4, 1, 2, 1, 3, 1, 2, 1])
 
 
 def test_construct():
