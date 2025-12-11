@@ -182,6 +182,32 @@ def test_flip_3d():
     ]
 
 
+def test_coarsen_right_half_2d():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(2, ba.bitarray("11 00 00 00 00")),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(0, ba.bitarray("01"))
+    p.plan_refinement(0, "01")
+    # p.plan_refinement(2, "01") # necessary?
+    # plot_all_boxes_2d(discretization, filename="before_coarsen_right_half_one_stage_2d")
+    new_discretization, index_mapping = p.apply_refinements(track_mapping="patches")
+    new_descriptor = new_discretization.descriptor
+    # plot_all_boxes_2d(new_discretization, filename="after_coarsen_right_half_one_stage_2d")
+    assert new_descriptor._data == ba.bitarray("10 01 00 00 00")
+    expected_index_mapping = {
+        0: {0},
+        1: {1, 2},
+        2: {0, 4},
+        3: {1, 3},
+        4: {0, 4},
+    }
+    assert index_mapping == [
+        expected_index_mapping[i] for i in range(len(expected_index_mapping))
+    ]
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])
