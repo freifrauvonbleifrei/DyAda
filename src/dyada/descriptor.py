@@ -11,17 +11,7 @@ import reprlib
 from typing import Iterator, Optional, Sequence, Union
 
 
-# generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
-def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
-    assert level >= 0 and level < 256
-    current_list = np.array([1], dtype=np.uint8)
-    for i in range(0, level):
-        current_list = np.tile(current_list, 2**num_dimensions)
-        # actually, a reversed version, change the first element
-        current_list[0] += 1
-    return current_list
-
-
+# related to generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
 def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
     num_dimensions = len(added_level)
     data = ba.bitarray(num_dimensions)
