@@ -11,17 +11,7 @@ import reprlib
 from typing import Iterator, Optional, Sequence, Union
 
 
-# generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
-def generalized_ruler(num_dimensions: int, level: int) -> np.ndarray:
-    assert level >= 0 and level < 256
-    current_list = np.array([1], dtype=np.uint8)
-    for i in range(0, level):
-        current_list = np.tile(current_list, 2**num_dimensions)
-        # actually, a reversed version, change the first element
-        current_list[0] += 1
-    return current_list
-
-
+# related to generalized (2^d-ary) ruler function, e.g. https://oeis.org/A115362
 def get_regular_refined(added_level: Sequence[int]) -> ba.bitarray:
     num_dimensions = len(added_level)
     data = ba.bitarray(num_dimensions)
@@ -188,7 +178,7 @@ class RefinementDescriptor:
 
     def get_num_boxes(self):
         # count number of d*(0) bit blocks
-        return Counter(self)[self.d_zeros]
+        return sum(x.count() == 0 for x in self)
 
     def get_data(self):
         return self._data
@@ -201,9 +191,9 @@ class RefinementDescriptor:
             f"RefinementDescriptor({reprlib.repr(' '.join([b.to01() for b in self]))})"
         )
 
-    def __iter__(self):
+    def __iter__(self, start: int = 0):
         if __debug__:  # slow and safe mode
-            for i in range(len(self)):
+            for i in range(start, len(self)):
                 # same as yield ba.frozenbitarray(self[i])
                 yield ba.frozenbitarray(
                     self.get_data()[
@@ -211,8 +201,9 @@ class RefinementDescriptor:
                     ]
                 )
             return
-        j = 0
-        for _ in range(len(self)):
+        # fast mode, won't work with the functions that use Counter directly
+        j = self._num_dimensions * start
+        for _ in range(start, len(self)):
             next_j = j + self._num_dimensions
             yield self.get_data()[j:next_j]
             j = next_j
@@ -230,7 +221,7 @@ class RefinementDescriptor:
             index_or_slice = operator.index(index_or_slice)
             return self.get_data()[index_or_slice * nd : (index_or_slice + 1) * nd]
 
-    def is_pow2tree(self):
+    def is_pow2tree(self) -> bool:
         """Is this a quadtree / octree / general power-of-2 tree?"""
         c = Counter(self)
         return c.keys() == {
@@ -296,9 +287,7 @@ class RefinementDescriptor:
             current_branch = current_branch.copy()
             if is_box_index:
                 box_counter = self.num_boxes_up_to(i)
-            current_iterator = iter(self)
-            for _ in range(i):
-                next(current_iterator)
+            current_iterator = self.__iter__(start=i)  # type: ignore
         # traverse tree
         # store/stack how many boxes on this level are left to go up again
         while is_box_index or i < index:
@@ -306,7 +295,7 @@ class RefinementDescriptor:
             if current_refinement == self.d_zeros:
                 if is_box_index:
                     box_counter += 1
-                    if is_box_index and box_counter > index:
+                    if box_counter > index:
                         break
                 current_branch.advance_branch()
             else:
@@ -388,9 +377,7 @@ class RefinementDescriptor:
             branch, descriptor_iterator = self.get_branch(hierarchical_index, False)
         else:
             branch = branch_to_index.copy()
-            descriptor_iterator = iter(self)
-            for _ in range(hierarchical_index):
-                next(descriptor_iterator)
+            descriptor_iterator = self.__iter__(start=hierarchical_index)  # type: ignore
         if len(branch) < 2:
             # we are at the root
             return list(siblings)
@@ -413,7 +400,7 @@ class RefinementDescriptor:
             siblings.add(running_index)
 
         assert len(siblings) == total_num_siblings
-        return sorted(list(siblings))
+        return sorted(siblings)
 
     def get_children(
         self, parent_index: int, branch_to_parent: Optional[Branch] = None
