@@ -400,7 +400,7 @@ class RefinementDescriptor:
             siblings.add(running_index)
 
         assert len(siblings) == total_num_siblings
-        return sorted(list(siblings))
+        return sorted(siblings)
 
     def get_children(
         self, parent_index: int, branch_to_parent: Optional[Branch] = None
