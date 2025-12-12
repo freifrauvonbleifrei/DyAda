@@ -1,6 +1,7 @@
 # `DyAda`: A Code for Dyadic Adaptivity in Optimization, Simulation, and Machine Learning
 
 [![PyPI version](https://img.shields.io/pypi/v/dyada)](https://pypi.org/project/dyada/)
+[![Supported Python version](https://img.shields.io/badge/python-%E2%89%A53.10-blue.svg)](https://github.com/freifrauvonbleifrei/DyAda/blob/main/pyproject.toml)
 [![Python package CI](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/badge.svg)](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/)
 ![Coverage](coverage.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/edde9abcb3a249979e71f08e23a14112)](https://app.codacy.com/gh/freifrauvonbleifrei/DyAda/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
