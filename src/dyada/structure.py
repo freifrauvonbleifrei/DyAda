@@ -1,4 +1,5 @@
-from functools import wraps
+from copy import deepcopy
+from functools import lru_cache, wraps
 from importlib.util import find_spec
 
 
@@ -16,6 +17,20 @@ def depends_on_optional(module_name: str):
                 )
             else:
                 return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+# cf. https://stackoverflow.com/a/54909677/7272382
+def copying_lru_cache():  # TODO add args for lru_cache as needed
+    def decorator(func):
+        cached_func = lru_cache()(func)
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return deepcopy(cached_func(*args, **kwargs))
 
         return wrapper
 

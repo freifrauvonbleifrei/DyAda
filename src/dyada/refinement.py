@@ -61,6 +61,36 @@ class PlannedAdaptiveRefinement:
             )
         )
 
+    def plan_coarsening(
+        self,
+        index: int,
+        dimensions_to_coarsen: ba.bitarray,
+    ) -> None:
+        """plan to coarsen a node in the given directions (which merges its children);
+        will raise error if this is not possible
+
+        Args:
+            index (int): hierarchical index of the node to coarsen
+            dimensions_to_coarsen (ba.bitarray): 1 denotes if the node should be coarsened
+        """
+        num_dimensions = self._discretization.descriptor.get_num_dimensions()
+        assert len(dimensions_to_coarsen) == num_dimensions
+        dimensions_not_to_coarsen = ~dimensions_to_coarsen
+        # children = self._discretization.descriptor.get_siblings(index + 1) #TODO add more checks
+        parent = index
+
+        # assert that the parent refinement has a 1 where coarsening is requested
+        parent_refinement = self._discretization.descriptor[parent]
+        assert (parent_refinement | dimensions_not_to_coarsen).count() == num_dimensions
+
+        np_dimensions_to_coarsen = np.fromiter(
+            dimensions_to_coarsen,
+            dtype=np.int8,
+            count=num_dimensions,
+        )
+        # then, store planned refinements, but the inverted one for the parent node
+        self._planned_refinements.append((parent, -np_dimensions_to_coarsen))
+
     def populate_queue(self) -> None:
         assert len(self._markers) == 0 and self._upward_queue.empty()
 
@@ -218,39 +248,74 @@ class PlannedAdaptiveRefinement:
 
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
-        ancestrybranch = AncestryBranch(self._discretization, starting_index)
         proxy_markers = MappingProxyType(self._markers)
+        ancestrybranch = AncestryBranch(
+            self._discretization, starting_index, proxy_markers
+        )
 
         while True:
             current_old_index, intermediate_generation, next_refinement, next_marker = (
-                ancestrybranch.get_current_location_info(proxy_markers)
+                ancestrybranch.get_current_location_info()
             )
-            if next_refinement == descriptor.d_zeros:
+            is_leaf = next_refinement == descriptor.d_zeros
+            if is_leaf and np.min(next_marker) >= 0:
+                # will actually be expanded
                 yield self.Refinement(
                     self.Refinement.Type.ExpandLeaf,
                     current_old_index,
                     next_refinement,
                     next_marker,
                 )
-                for p in intermediate_generation:
-                    yield self.Refinement(
-                        self.Refinement.Type.TrackOnly,
-                        p,
-                        None,
-                        ancestrybranch.ancestry[-2],
-                    )
-                # only on leaves, we advance the branch
-                try:
-                    ancestrybranch.advance()
-                except IndexError:  # done!
-                    return
-
             else:
                 yield self.Refinement(
                     self.Refinement.Type.CopyOver,
                     current_old_index,
                     next_refinement,
                 )
+
+            for p in intermediate_generation:
+                map_intermediate_to = {
+                    sorted(self._index_mapping[current_old_index])[0]
+                }
+                if p <= current_old_index:
+                    map_intermediate_to |= {
+                        sorted(self._index_mapping[ancestrybranch.ancestry[-1]])[0]
+                    }
+                if p == current_old_index and len(ancestrybranch.ancestry) > 1:
+                    map_intermediate_to |= {
+                        sorted(self._index_mapping[ancestrybranch.ancestry[-2]])[0]
+                    }
+                for a in map_intermediate_to:
+                    yield self.Refinement(
+                        self.Refinement.Type.TrackOnly,
+                        p,
+                        None,
+                        a,
+                    )
+
+            if is_leaf:
+                # only on leaves, we advance the branch
+                try:
+                    ancestrybranch.advance()
+                except (
+                    AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
+                ) as e:  # almost done!
+                    # yield the missing relationships
+                    for key, same_missing_indices in e.missing_mapping.items():
+                        missing_indices = set()
+                        for same_missing_index in same_missing_indices:
+                            missing_indices |= self._index_mapping[
+                                same_missing_index.old_index
+                            ]
+                        for missing_index in missing_indices:
+                            yield self.Refinement(
+                                self.Refinement.Type.TrackOnly,
+                                key,
+                                None,
+                                missing_index,
+                            )
+                    return
+            else:
                 # on non-leaves, we grow the branch
                 ancestrybranch.grow(next_refinement)
 
