@@ -14,5 +14,5 @@ jobs:
     name: REUSE compliance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.1
-      - uses: dev-build-deploy/reuse-me@v1.0.4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: dev-build-deploy/reuse-me@52eef808270cc7ac4f5d2f321fd105d7eefe104f
