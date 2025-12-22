@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Theresa Pollinger
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import bitarray as ba
 from collections import deque, Counter
 from dataclasses import dataclass
