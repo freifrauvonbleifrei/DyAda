@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2025 Theresa Pollinger
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+name: Copyright & Licenses
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  reuse-me:
+    name: REUSE compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: dev-build-deploy/reuse-me@52eef808270cc7ac4f5d2f321fd105d7eefe104f

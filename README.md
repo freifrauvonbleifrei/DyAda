@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 Theresa Pollinger
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # `DyAda`: A Code for Dyadic Adaptivity in Optimization, Simulation, and Machine Learning
 
 [![PyPI version](https://img.shields.io/pypi/v/dyada)](https://pypi.org/project/dyada/)

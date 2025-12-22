@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Theresa Pollinger
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
