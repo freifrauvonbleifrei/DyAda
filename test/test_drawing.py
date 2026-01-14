@@ -19,11 +19,13 @@ from dyada.discretization import (
     Discretization,
 )
 from dyada.drawing import (
-    latex_write_and_compile,
     plot_boxes_2d,
     plot_all_boxes_2d,
     boxes_to_2d_ascii,
     plot_all_boxes_3d,
+)
+from dyada.drawing_tikz import (
+    latex_write_and_compile,
     plot_tree_tikz,
     plot_descriptor_tikz,
     plot_location_stack_tikz,
