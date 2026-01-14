@@ -112,12 +112,16 @@ def plot_all_boxes_3d(
 def discretization_to_2d_ascii(
     discretization: Discretization,
     resolution=(16, 8),
-    projection: Sequence[int] = [0, 1],
+    projection: Sequence[int] | None = None,
     **kwargs,
 ) -> str:
+    if projection is None:
+        projection = [0, 1]
     level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
-    return boxes_to_2d_ascii(coordinates, resolution, projection, **kwargs)
+    return boxes_to_2d_ascii(
+        coordinates, projection=projection, resolution=resolution, **kwargs
+    )
 
 
 @depends_on_optional("matplotlib.pyplot")
