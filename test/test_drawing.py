@@ -149,7 +149,7 @@ def test_boxes_to_2d_ascii():
         interval_from_sequences((0.5, 0.0), (1.0, 1.0)),
     ]
     assert (
-        boxes_to_2d_ascii(omnitree_cells, resolution=(32, 16))
+        boxes_to_2d_ascii(omnitree_cells, projection=[0, 1], resolution=(32, 16))
         == """\
 _________________________________
 |       |       |               |
@@ -170,7 +170,7 @@ _________________________________
 |_______|_______|_______________|"""
     )
     assert (
-        boxes_to_2d_ascii(omnitree_cells, resolution=(16, 8), projection=[1, 0])
+        boxes_to_2d_ascii(omnitree_cells, projection=[1, 0], resolution=(16, 8))
         == """\
 _________________
 |               |
@@ -183,7 +183,7 @@ _________________
 |_______________|"""
     )
     assert (
-        boxes_to_2d_ascii(omnitree_cells, resolution=(8, 4))
+        boxes_to_2d_ascii(omnitree_cells, projection=[0, 1], resolution=(8, 4))
         == """\
 _________
 | | |   |
