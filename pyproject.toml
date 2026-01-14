@@ -1,10 +1,14 @@
+# SPDX-FileCopyrightText: 2025 Theresa Pollinger
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "dyada"
-version = "0.0.5"
+version = "0.0.6"
 dynamic = ["authors"]
 description = "A Code for Memory-Saving Dyadic Adaptivity in Optimization and Simulation"
 readme = "README.md"

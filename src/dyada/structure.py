@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Theresa Pollinger
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 from copy import deepcopy
 from functools import lru_cache, wraps
 from importlib.util import find_spec
