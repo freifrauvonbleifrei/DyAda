@@ -703,6 +703,15 @@ def test_refine_2d_5():
     )
     assert validate_descriptor(descriptor)
     discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 4))
+        == """\
+_________
+|   |___|
+|   |___|
+|   |___|
+|___|___|"""
+    )
 
     refinement = ba.bitarray("01")
     p = PlannedAdaptiveRefinement(discretization)
@@ -720,6 +729,15 @@ def test_refine_2d_5():
 
     assert new_discretization.descriptor._data == ba.bitarray(
         "11 00 01 00 00 00 01 00 00"
+    )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 4))
+        == """\
+_________
+|   |___|
+|___|___|
+|   |___|
+|___|___|"""
     )
     expected_mapping = {
         0: {0},
@@ -743,11 +761,33 @@ def test_refine_2d_6():
             ba.bitarray("01 00 10 10 00 00 10 00 00"),
         ),
     )
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 4))
+        == """\
+_________
+| | | | |
+|_|_|_|_|
+|       |
+|_______|"""
+    )
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(0, "10")
     p.plan_refinement(1, "10")
     p.plan_refinement(2, "10")
     discretization, index_mapping = p.apply_refinements(track_mapping="patches")
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(16, 8))
+        == """\
+_________________
+| | | | |   |   |
+| | | | |   |   |
+| | | | |   |   |
+|_|_|_|_|___|___|
+|       |       |
+|       |       |
+|       |       |
+|_______|_______|"""
+    )
     validate_descriptor(discretization.descriptor)
     expected_mapping = {
         0: {0},
