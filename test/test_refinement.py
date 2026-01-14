@@ -18,6 +18,7 @@ from dyada.discretization import (
     coordinates_from_box_index,
     coordinates_from_index,
 )
+from dyada.drawing import discretization_to_2d_ascii
 from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
@@ -245,17 +246,41 @@ def test_refine_grandchild_split():
     p.plan_refinement(0, ba.bitarray("01"))
     p.plan_refinement(2, ba.bitarray("10"))
     discretization, _ = p.apply_refinements()
-
     new_discretization, _ = apply_single_refinement(discretization, 1)
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
+        == """\
+_________________
+|   |   |       |
+|   |   |       |
+|   |   |       |
+|___|___|_______|
+|___|___|       |
+|___|___|       |
+|       |       |
+|_______|_______|"""
+    )
     new_descriptor = new_discretization.descriptor
     four_branch = new_descriptor.get_branch(4, False)[0]
     assert new_descriptor.get_ancestry(four_branch) == [0, 1, 3]
-
     p = PlannedAdaptiveRefinement(new_discretization)
 
     # the actual test
     p.plan_refinement(0, ba.bitarray("10"))
     new_discretization, box_mapping = p.apply_refinements(track_mapping="boxes")
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
+        == """\
+_________________
+|   |   |       |
+|   |   |       |
+|   |   |       |
+|___|___|_______|
+|___|___|       |
+|___|___|       |
+|   |   |       |
+|___|___|_______|"""
+    )
     new_descriptor = new_discretization.descriptor
     assert validate_descriptor(new_descriptor)
     assert new_descriptor._data == ba.bitarray("111100000100000100000010000000")
@@ -337,6 +362,19 @@ def test_refine_2d_1():
 
     num_boxes_before = descriptor.get_num_boxes()
     discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(16, 8))
+        == """\
+_________________
+|       | | |   |
+|       | | |   |
+|       | | |   |
+|_______|_|_|   |
+|       | | |   |
+|       | | |   |
+|       | | |   |
+|_______|_|_|___|"""
+    )
 
     new_discretization, index_mapping = apply_single_refinement(
         discretization, len(discretization) - 1, ba.bitarray("01"), "patches"
@@ -345,6 +383,19 @@ def test_refine_2d_1():
         discretization, len(discretization) - 1, ba.bitarray("01")
     )
     assert new_discretization == new_discretization_
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
+        == """\
+_________________
+|       | | |   |
+|       | | |   |
+|       | | |   |
+|_______|_|_|___|
+|       | | |   |
+|       | | |   |
+|       | | |   |
+|_______|_|_|___|"""
+    )
 
     new_descriptor = new_discretization.descriptor
     validate_descriptor(new_descriptor)
@@ -378,7 +429,6 @@ def test_refine_2d_1():
 
 
 def test_refine_2d_2():
-    # round 2 with new descriptor
     descriptor = RefinementDescriptor.from_binary(
         2,
         ba.bitarray("11 00 00 10 00 00 10 00 11 00 00 00 00"),
@@ -387,6 +437,19 @@ def test_refine_2d_2():
     num_boxes_before = descriptor.get_num_boxes()
     assert num_boxes_before == 9
     discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(16, 8))
+        == """\
+_________________
+|   |   |   | | |
+|   |   |   |_|_|
+|   |   |   | | |
+|___|___|___|_|_|
+|       |       |
+|       |       |
+|       |       |
+|_______|_______|"""
+    )
 
     p = PlannedAdaptiveRefinement(discretization)
     refinements = [
@@ -412,6 +475,19 @@ def test_refine_2d_2():
     new_discretization, index_mapping = p.create_new_discretization(
         track_mapping="boxes"
     )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
+        == """\
+_________________
+|   | | |   | | |
+|   |_|_|___|_|_|
+|   | | |   | | |
+|___|_|_|___|_|_|
+|       |       |
+|       |       |
+|       |       |
+|_______|_______|"""
+    )
     validate_descriptor(new_discretization.descriptor)
 
     descriptor_expected = RefinementDescriptor.from_binary(
@@ -435,6 +511,20 @@ def test_refine_2d_3():
     p.plan_refinement(2, "01")
     p.plan_refinement(4, "02")
     non_normalized_discretization, _ = p.apply_refinements()
+    ascii_before_and_after = """\
+_________________
+|       |   |   |
+|       |   |___|
+|       |   |   |
+|_______|___|___|
+|       |   |   |
+|       |___|___|
+|       |   |   |
+|_______|___|___|"""
+    assert (
+        discretization_to_2d_ascii(non_normalized_discretization, resolution=(16, 8))
+        == ascii_before_and_after
+    )
     non_normalized_descriptor = non_normalized_discretization.descriptor
     assert non_normalized_descriptor._data == ba.bitarray(
         "11 00 10 01 00 00 01 00 00 00 10 00 01 00 00"
@@ -451,6 +541,10 @@ def test_refine_2d_3():
     p._markers[6] = np.array([0, -1], dtype=np.int8)
 
     new_discretization, _ = p.create_new_discretization(track_mapping="patches")
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
+        == ascii_before_and_after
+    )
     new_descriptor = new_discretization.descriptor
     assert new_descriptor._data == ba.bitarray("11 00 11 00 00 00 00 00 10 00 01 00 00")
     assert find_uniqueness_violations(new_descriptor) == []
@@ -488,6 +582,24 @@ def test_refine_2d_4():
         ),
     )
     assert find_uniqueness_violations(non_normalized_descriptor) == [{11, 12, 19}]
+    ascii_before_and_after = """\
+_________________________________
+|       |   |   |               |
+|       |   |   |               |
+|       |   |   |               |
+|       |   |   |               |
+|       |   |   |               |
+|       |   |   |               |
+|       |   |   |               |
+|_______|___|___|_______________|
+|       |   |   |               |
+|       |   |   |               |
+|       |   |   |               |
+|_______|___|___|               |
+|   |   |   |   |               |
+|___|___|___|___|               |
+|   |   |   |   |               |
+|___|___|___|___|_______________|"""
 
     non_normalized_discretization = Discretization(
         MortonOrderLinearization(), non_normalized_descriptor
@@ -496,6 +608,10 @@ def test_refine_2d_4():
         non_normalized_discretization,
         track_mapping="patches",
         max_normalization_rounds=1,
+    )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(32, 16))
+        == ascii_before_and_after
     )
     assert num_rounds == 1
     assert new_discretization.descriptor == RefinementDescriptor.from_binary(
@@ -508,6 +624,10 @@ def test_refine_2d_4():
     new_discretization, mapping, num_rounds = normalize_discretization(
         non_normalized_discretization,
         track_mapping="boxes",
+    )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(32, 16))
+        == ascii_before_and_after
     )
     assert num_rounds == 5
     assert new_discretization.descriptor == RefinementDescriptor.from_binary(
