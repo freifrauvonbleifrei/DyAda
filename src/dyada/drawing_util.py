@@ -10,12 +10,11 @@ except ImportError:
     warnings.warn("cmap not found, some plotting functions will not work")
 from itertools import product
 from string import ascii_uppercase
-from typing import Sequence, Union, Mapping, Optional
+from typing import Sequence, Union, Mapping
 
 from dyada.coordinates import (
     Coordinate,
     CoordinateInterval,
-    get_coordinates_from_level_index,
 )
 from dyada.discretization import (
     Discretization,

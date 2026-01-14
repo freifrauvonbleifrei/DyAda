@@ -21,12 +21,10 @@ except ImportError:
 from io import StringIO
 from itertools import pairwise
 from pathlib import Path
-from string import ascii_uppercase
 from typing import Sequence, Union, Mapping, Optional
 import subprocess
 
 from dyada.coordinates import (
-    Coordinate,
     CoordinateInterval,
     get_coordinates_from_level_index,
 )
