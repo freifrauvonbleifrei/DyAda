@@ -50,27 +50,31 @@ from dyada.structure import depends_on_optional
 def plot_boxes_2d(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]] = None,
-    projection: Sequence[int] = [0, 1],
+    projection: Sequence[int] | None = None,
     backend="matplotlib",
     **kwargs,
 ) -> None:
+    if projection is None:
+        projection = [0, 1]
     assert len(projection) == 2
     if backend == "matplotlib":
         return plot_boxes_2d_matplotlib(intervals, labels, projection, **kwargs)
     elif backend == "tikz":
         return plot_boxes_2d_tikz(intervals, labels, projection, **kwargs)
     elif backend == "ascii":
-        print(boxes_to_2d_ascii(intervals, **kwargs))
+        print(boxes_to_2d_ascii(intervals, projection=projection, **kwargs))
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
 
 def plot_all_boxes_2d(
     discretization: Discretization,
-    projection: Sequence[int] = [0, 1],
+    projection: Sequence[int] | None = None,
     labels: Union[None, str, Sequence[str]] = "patches",
     **kwargs,
 ) -> None:
+    if projection is None:
+        projection = [0, 1]
     level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
     labels = labels_from_discretization(discretization, labels)
@@ -80,10 +84,12 @@ def plot_all_boxes_2d(
 def plot_boxes_3d(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Union[None, str, Sequence[str]] = None,
-    projection: Sequence[int] = [0, 1, 2],
+    projection: Sequence[int] | None = None,
     backend: str = "tikz",
     **kwargs,
 ) -> None:
+    if projection is None:
+        projection = [0, 1, 2]
     assert len(projection) == 3
     if backend == "matplotlib":
         return plot_boxes_3d_matplotlib(intervals, labels, projection, **kwargs)
@@ -99,10 +105,12 @@ def plot_boxes_3d(
 
 def plot_all_boxes_3d(
     discretization: Discretization,
-    projection: Sequence[int] = [0, 1, 2],
+    projection: Sequence[int] | None = None,
     labels: Union[None, str, Sequence[str]] = "patches",
     **kwargs,
 ) -> None:
+    if projection is None:
+        projection = [0, 1, 2]
     level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
     labels = labels_from_discretization(discretization, labels)
@@ -128,7 +136,7 @@ def discretization_to_2d_ascii(
 def get_figure_2d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
-    projection: Sequence[int] = [0, 1],
+    projection: Sequence[int],
     **kwargs,
 ) -> tuple:
     prop_cycle = plt.rcParams["axes.prop_cycle"]
@@ -189,7 +197,7 @@ def plot_boxes_2d_matplotlib(
 def draw_cuboid_on_axis(
     ax: plt.Axes,
     interval: CoordinateInterval,
-    projection: Sequence[int] = [0, 1, 2],
+    projection: Sequence[int],
     color="skyblue",
     wireframe: bool = False,
     **kwargs,
@@ -236,7 +244,7 @@ def draw_cuboid_on_axis(
 def get_figure_3d_matplotlib(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     labels: Optional[Sequence[str]],
-    projection: Sequence[int] = [0, 1, 2],
+    projection: Sequence[int],
     wireframe: bool = False,
     **kwargs,
 ) -> tuple:
@@ -651,7 +659,7 @@ def plot_location_stack_tikz(discretization: Discretization, filename="location_
 @depends_on_optional("OpenGL")
 def draw_cuboid_opengl(
     interval: CoordinateInterval,
-    projection: Sequence[int] = [0, 1, 2],
+    projection: Sequence[int],
     wireframe: bool = False,
     alpha: float = 0.1,
     linewidth: float = 1.0,
@@ -708,8 +716,8 @@ def gl_save_file(filename: str, width=1024, height=1024) -> None:
 @depends_on_optional("OpenGL")
 def plot_boxes_3d_pyopengl(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
-    labels: Optional[Sequence[str]] = None,
-    projection: Sequence[int] = [0, 1, 2],
+    labels: Optional[Sequence[str]],
+    projection: Sequence[int],
     wireframe: bool = False,
     filename: str = "omnitree",
     width: int = 1024,
@@ -774,7 +782,7 @@ def add_cuboid_to_buffer(
     buffer: StringIO,
     vertex_offset: int,
     interval: CoordinateInterval,
-    projection: Sequence[int] = [0, 1, 2],
+    projection: Sequence[int],
     wireframe: bool = False,
 ):
     verts, faces, edges = cuboid_from_interval(interval, projection)
@@ -806,7 +814,7 @@ def write_obj_file(buffer: StringIO, filename: str):
 
 def export_boxes_3d_to_obj(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
-    projection: Sequence[int] = [0, 1, 2],
+    projection: Sequence[int],
     wireframe: bool = False,
     filename: str = "omnitree",
     **kwargs,
