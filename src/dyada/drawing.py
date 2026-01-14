@@ -69,6 +69,8 @@ def plot_boxes_2d(
         return plot_boxes_2d_matplotlib(intervals, labels, projection, **kwargs)
     elif backend == "tikz":
         return plot_boxes_2d_tikz(intervals, labels, projection, **kwargs)
+    elif backend == "ascii":
+        print(boxes_to_2d_ascii(intervals, **kwargs))
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
@@ -153,6 +155,71 @@ def side_corners_generator(
             assert len(side_corners) == 4
             # correct the order
             yield side_corners[0], side_corners[1], side_corners[3], side_corners[2]
+
+
+def boxes_to_2d_ascii(
+    intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
+    resolution=(16, 8),
+    projection: Sequence[int] = [0, 1],
+    **kwargs,
+) -> str:
+    """
+    returns an ASCII string visualization of a 2-D omnitree discretization
+    using | and _ characters for cell boundaries.
+
+    cells: list of ((x0, x1), (y0, y1)) dyadic rectangles
+    resolution: grid resolution in (width, height) (must be power-of-two compatible)
+    """
+
+    # unit coordinates -> grid indices
+    def to_idx_vertical(x):
+        return int(round(x * resolution[1]))
+
+    def to_idx_horizontal(x):
+        return int(round(x * resolution[0]))
+
+    # canvas with boundary slots
+    W = resolution[0] + 1
+    H = resolution[1] + 1
+    canvas = [[" " for _ in range(W)] for _ in range(H)]
+    for x in range(W):
+        canvas[0][x] = "_"
+        canvas[H - 1][x] = "_"
+    for y in range(H):
+        canvas[y][0] = "|"
+        canvas[y][W - 1] = "|"
+
+    # draw cell boundaries
+    for interval in intervals:
+        lower = interval[0][projection]
+        upper = interval[1][projection]
+        ix0 = to_idx_horizontal(lower[0])
+        ix1 = to_idx_horizontal(upper[0])
+        iy0 = to_idx_vertical(lower[1])
+        iy1 = to_idx_vertical(upper[1])
+
+        # Horizontal edges
+        for x in range(ix0, ix1 + 1):
+            canvas[H - iy0 - 1][x] = "_"
+            canvas[H - iy1 - 1][x] = "_"
+
+        # Vertical edges
+        for y in range(iy0, iy1):
+            canvas[H - y - 1][ix0] = "|"
+            canvas[H - y - 1][ix1] = "|"
+
+    return "\n".join("".join(row) for row in canvas)
+
+
+def discretization_to_2d_ascii(
+    discretization: Discretization,
+    resolution=(16, 8),
+    projection: Sequence[int] = [0, 1],
+    **kwargs,
+) -> str:
+    level_indices = list(discretization.get_all_boxes_level_indices())
+    coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
+    return boxes_to_2d_ascii(coordinates, resolution, projection, **kwargs)
 
 
 @depends_on_optional("matplotlib.pyplot")

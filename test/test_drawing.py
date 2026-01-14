@@ -11,6 +11,7 @@ import pytest
 
 from dyada.coordinates import (
     get_coordinates_from_level_index,
+    interval_from_sequences,
     level_index_from_sequence,
 )
 from dyada.descriptor import RefinementDescriptor, validate_descriptor
@@ -21,6 +22,7 @@ from dyada.drawing import (
     latex_write_and_compile,
     plot_boxes_2d,
     plot_all_boxes_2d,
+    boxes_to_2d_ascii,
     plot_all_boxes_3d,
     plot_tree_tikz,
     plot_descriptor_tikz,
@@ -55,7 +57,7 @@ def test_no_latex_error():
 # todo consider comparing images: https://github.com/matplotlib/pytest-mpl
 def test_plot_boxes_2d():
     with plt.ion():  # turns off blocking figures for test
-        for backend in ["matplotlib", "tikz"]:
+        for backend in ["matplotlib", "tikz", "ascii"]:
             level_index = level_index_from_sequence([0, 0], [0, 0])
             coordinates = get_coordinates_from_level_index(level_index)
             plot_boxes_2d([coordinates], labels=[str(level_index)], backend=backend)
@@ -86,7 +88,7 @@ def test_plot_boxes_2d_from_descriptor():
     descriptor = RefinementDescriptor(4, [0, 1, 2, 3])
     r = Discretization(MortonOrderLinearization(), descriptor)
     with plt.ion():  # turns off blocking figures for test
-        for backend in ["matplotlib", "tikz"]:
+        for backend in ["matplotlib", "tikz", "ascii"]:
             # try all combinations of projections
             for projection in permutations(range(4), 2):
                 # the transparency should give murky colors for the lower projections
@@ -136,6 +138,58 @@ def test_plot_complex_2d_with_stack():
     plot_tree_tikz(non_normalized_descriptor, filename="complex_2d_tree_after")
     plot_location_stack_tikz(
         non_normalized_discretization, filename="complex_2d_location_stack_after"
+    )
+
+
+def test_boxes_to_2d_ascii():
+    omnitree_cells = [
+        interval_from_sequences((0.0, 0.0), (0.25, 1.0)),
+        interval_from_sequences((0.25, 0.0), (0.5, 0.5)),
+        interval_from_sequences((0.25, 0.5), (0.5, 1.0)),
+        interval_from_sequences((0.5, 0.0), (1.0, 1.0)),
+    ]
+    assert (
+        boxes_to_2d_ascii(omnitree_cells, resolution=(32, 16))
+        == """\
+_________________________________
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |_______|               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|       |       |               |
+|_______|_______|_______________|"""
+    )
+    assert (
+        boxes_to_2d_ascii(omnitree_cells, resolution=(16, 8), projection=[1, 0])
+        == """\
+_________________
+|               |
+|               |
+|               |
+|_______________|
+|       |       |
+|_______|_______|
+|               |
+|_______________|"""
+    )
+    assert (
+        boxes_to_2d_ascii(omnitree_cells, resolution=(8, 4))
+        == """\
+_________
+| | |   |
+| |_|   |
+| | |   |
+|_|_|___|"""
     )
 
 
