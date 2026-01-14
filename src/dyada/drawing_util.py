@@ -38,7 +38,7 @@ def labels_from_discretization(
 
 
 def cuboid_from_interval(
-    interval: CoordinateInterval, projection: Sequence[int] = [0, 1, 2]
+    interval: CoordinateInterval, projection: Sequence[int]
 ) -> tuple:
     lower = interval[0][projection]
     upper = interval[1][projection]
