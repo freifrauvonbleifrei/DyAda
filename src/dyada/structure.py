@@ -2,9 +2,12 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from collections import defaultdict
 from copy import deepcopy
 from functools import lru_cache, wraps
 from importlib.util import find_spec
+import numpy as np
+import numpy.typing as npt
 
 
 def module_is_available(module_name: str) -> bool:
@@ -39,3 +42,12 @@ def copying_lru_cache():  # TODO add args for lru_cache as needed
         return wrapper
 
     return decorator
+
+
+def get_defaultdict_for_markers(
+    num_dimensions: int,
+) -> defaultdict[int, npt.NDArray[np.int8]]:
+    def get_d_zeros_as_array():
+        return np.zeros(num_dimensions, dtype=np.int8)
+
+    return defaultdict(get_d_zeros_as_array)

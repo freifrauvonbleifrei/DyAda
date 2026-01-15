@@ -37,14 +37,10 @@ class PlannedAdaptiveRefinement:
         self._discretization = discretization
         # initialize planned refinement list and data structures used later
         self._planned_refinements: list[tuple[int, npt.NDArray[np.int8]]] = []
-
-        def get_d_zeros_as_array():
-            return np.zeros(
-                self._discretization.descriptor.get_num_dimensions(), dtype=np.int8
+        self._markers: defaultdict[int, npt.NDArray[np.int8]] = (
+            get_defaultdict_for_markers(
+                self._discretization.descriptor.get_num_dimensions()
             )
-
-        self._markers: defaultdict[int, npt.NDArray[np.int8]] = defaultdict(
-            get_d_zeros_as_array
         )
         self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
 

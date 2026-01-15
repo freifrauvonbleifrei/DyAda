@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import bitarray as ba
-from collections import defaultdict
 import pytest
 import numpy as np
 from os.path import abspath
@@ -13,7 +12,7 @@ from dyada.descriptor import RefinementDescriptor
 from dyada.discretization import Discretization
 from dyada.drawing import discretization_to_2d_ascii
 from dyada.linearization import MortonOrderLinearization
-from dyada.refinement import PlannedAdaptiveRefinement
+from dyada.refinement import PlannedAdaptiveRefinement, get_defaultdict_for_markers
 
 
 def advance_or_grow(
@@ -47,10 +46,9 @@ _________
 |_______|"""
     )
 
-    def get_d_zeros_as_array():
-        return np.zeros(discretization.descriptor.get_num_dimensions(), dtype=np.int8)
-
-    markers: defaultdict = defaultdict(get_d_zeros_as_array)
+    markers = get_defaultdict_for_markers(
+        discretization.descriptor.get_num_dimensions()
+    )
     markers[0] = np.array([1, 0], dtype=np.int8)
     markers[6] = np.array([-1, 0], dtype=np.int8)
 

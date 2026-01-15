@@ -23,6 +23,7 @@ from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
     apply_single_refinement,
+    get_defaultdict_for_markers,
     normalize_discretization,
 )
 from dyada.linearization import MortonOrderLinearization, single_bit_set_gen
@@ -533,10 +534,9 @@ _________________
     assert find_uniqueness_violations(non_normalized_descriptor) == [{2, 3, 6}]
     p = PlannedAdaptiveRefinement(non_normalized_discretization)
 
-    def get_d_zeros_as_array():
-        return np.zeros(descriptor.get_num_dimensions(), dtype=np.int8)
-
-    p._markers = defaultdict(get_d_zeros_as_array)
+    p._markers = get_defaultdict_for_markers(
+        descriptor.get_num_dimensions()
+    )
     p._markers[2] = np.array([0, 1], dtype=np.int8)
     p._markers[3] = np.array([0, -1], dtype=np.int8)
     p._markers[6] = np.array([0, -1], dtype=np.int8)
