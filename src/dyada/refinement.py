@@ -174,28 +174,34 @@ class PlannedAdaptiveRefinement:
         descriptor = self._discretization.descriptor
         if len(self._markers) == 0:
             return
+
+        def get_unresolvable_marker(
+            current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
+        ) -> npt.NDArray[np.int8]:
+            marker_to_push_down = marker.copy()
+
+            # 1st case: negative but cannot be used to coarsen here
+            marker_negative = marker_to_push_down < 0
+            can_be_coarsened = int8_ndarray_from_iterable(
+                current_refinement,
+            )
+            marker_to_push_down[marker_negative] += can_be_coarsened[marker_negative]
+
+            # 2nd case: positive but cannot be used to refine here
+            marker_positive = marker_to_push_down > 0
+            can_be_refined = int8_ndarray_from_iterable(
+                ~current_refinement,
+            )
+            marker_to_push_down[marker_positive] -= can_be_refined[marker_positive]
+            return marker_to_push_down
+
         current_index = min(self._markers.keys())
         while True:
             if not descriptor.is_box(current_index):
                 # check if (parts of) the marker need pushing down
-                marker_to_push_down = self._markers[current_index].copy()
-
-                # 1st case: negative but cannot be used to coarsen here
-                marker_negative = marker_to_push_down < 0
-                can_be_coarsened = int8_ndarray_from_iterable(
-                    descriptor[current_index],
+                marker_to_push_down = get_unresolvable_marker(
+                    descriptor[current_index], self._markers[current_index]
                 )
-                marker_to_push_down[marker_negative] += can_be_coarsened[
-                    marker_negative
-                ]
-
-                # 2nd case: positive but cannot be used to refine here
-                marker_positive = marker_to_push_down > 0
-                can_be_refined = int8_ndarray_from_iterable(
-                    ~descriptor[current_index],
-                )
-                marker_to_push_down[marker_positive] -= can_be_refined[marker_positive]
-
                 self.move_marker_to_descendants(current_index, marker_to_push_down)
 
             filtered_markers = {
