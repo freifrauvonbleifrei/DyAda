@@ -277,7 +277,7 @@ class PlannedAdaptiveRefinement:
                 map_intermediate_to = {
                     sorted(self._index_mapping[current_old_index])[0]
                 }
-                if p <= current_old_index:
+                if p <= current_old_index and len(ancestrybranch.ancestry) > 0:
                     map_intermediate_to |= {
                         sorted(self._index_mapping[ancestrybranch.ancestry[-1]])[0]
                     }
