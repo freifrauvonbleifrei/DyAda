@@ -63,7 +63,7 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 0
-    assert intermediate_generation == set()
+    assert intermediate_generation == {0}
     assert next_refinement == ba.frozenbitarray("11")
     assert np.array_equal(next_marker, np.array([1, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -93,7 +93,7 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 2
-    assert intermediate_generation == {2}
+    assert intermediate_generation == {2, 3}
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -103,7 +103,7 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 3
-    assert intermediate_generation == {3}
+    assert intermediate_generation == {3, 4}
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -133,7 +133,7 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 3
-    assert intermediate_generation == {3}
+    assert intermediate_generation == {3, 5}
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -163,7 +163,7 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 2
-    assert intermediate_generation == {2}
+    assert intermediate_generation == {2, 6}
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -173,7 +173,7 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 7
-    assert intermediate_generation == {6}
+    assert intermediate_generation == {7}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -183,7 +183,7 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 8
-    assert intermediate_generation == {6}
+    assert intermediate_generation == {8}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     with pytest.raises(AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships):
