@@ -16,7 +16,7 @@ from dyada.refinement import PlannedAdaptiveRefinement, get_defaultdict_for_mark
 
 
 def advance_or_grow(
-    ancestrybranch: AncestryBranch, next_refinement: ba.bitarray
+    ancestrybranch: AncestryBranch, next_refinement: ba.frozenbitarray
 ) -> AncestryBranch:
     is_leaf = next_refinement.count() == 0
     if is_leaf:
