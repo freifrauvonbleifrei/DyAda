@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from collections import Counter, defaultdict
+from collections import Counter
 import pytest
 import bitarray as ba
 import numpy as np
@@ -534,9 +534,7 @@ _________________
     assert find_uniqueness_violations(non_normalized_descriptor) == [{2, 3, 6}]
     p = PlannedAdaptiveRefinement(non_normalized_discretization)
 
-    p._markers = get_defaultdict_for_markers(
-        descriptor.get_num_dimensions()
-    )
+    p._markers = get_defaultdict_for_markers(descriptor.get_num_dimensions())
     p._markers[2] = np.array([0, 1], dtype=np.int8)
     p._markers[3] = np.array([0, -1], dtype=np.int8)
     p._markers[6] = np.array([0, -1], dtype=np.int8)
