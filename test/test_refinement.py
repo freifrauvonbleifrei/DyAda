@@ -774,7 +774,7 @@ _________
     p.plan_refinement(0, "10")
     p.plan_refinement(1, "10")
     p.plan_refinement(2, "10")
-    discretization, index_mapping = p.apply_refinements(track_mapping="patches")
+    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
     assert (
         discretization_to_2d_ascii(discretization, resolution=(16, 8))
         == """\
@@ -789,18 +789,20 @@ _________________
 |_______|_______|"""
     )
     validate_descriptor(discretization.descriptor)
-    expected_mapping = {
+    expected_patch_mapping = {
         0: {0},
-        1: {1, 5},
-        2: {2, 6},
-        3: {2},
-        4: {3},
-        5: {4},
-        6: {6},
-        7: {7},
-        8: {8},
+        1: {0, 1, 2},
+        2: {0, 3, 10},
+        3: {3, 4, 7},
+        4: {4, 5, 6},
+        5: {7, 8, 9},
+        6: {10},
+        7: {11},
+        8: {12},
     }
-    assert index_mapping == [expected_mapping[i] for i in range(len(expected_mapping))]
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
 
 
 def test_refine_3d_1():
