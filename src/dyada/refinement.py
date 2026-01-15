@@ -275,17 +275,17 @@ class PlannedAdaptiveRefinement:
     def extend_descriptor_and_track_indices(
         self,
         new_descriptor: RefinementDescriptor,
-        range_to_extend: Union[int, tuple[int, int]],
+        old_range_to_extend: Union[int, tuple[int, int]],
         extension: ba.bitarray,
     ) -> None:
         previous_length = len(new_descriptor)
         new_descriptor._data.extend(extension)
-        if isinstance(range_to_extend, int):
+        if isinstance(old_range_to_extend, int):
             for new_index in range(previous_length, len(new_descriptor)):
-                self.track_indices(range_to_extend, new_index)
+                self.track_indices(old_range_to_extend, new_index)
         else:
             for old_index, new_index in zip(
-                range(range_to_extend[0], range_to_extend[1]),
+                range(old_range_to_extend[0], old_range_to_extend[1]),
                 range(previous_length, len(new_descriptor)),
             ):
                 self.track_indices(old_index, new_index)
