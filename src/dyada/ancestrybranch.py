@@ -109,6 +109,8 @@ class AncestryBranch:
         # get the currently desired location info
         current_old_index = 0
         exact = True
+        best_match_in_old_discretization = 0
+        self.last_intermediate_generation = {0}
         if len(self._history_of_binary_positions) > 0:  # if not at root
             modified_dimensionwise_positions = location_code_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
@@ -151,7 +153,7 @@ class AncestryBranch:
                 self.track_info_mapping[current_old_index] = most_recent_track_info
 
         return (
-            current_old_index,
+            best_match_in_old_discretization,
             self.last_intermediate_generation,
             next_refinement,
             next_marker,
