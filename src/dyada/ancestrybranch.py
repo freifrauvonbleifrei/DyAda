@@ -44,12 +44,20 @@ class AncestryBranch:
     TrackInfo: TypeAlias = CoarseningStack
 
     def get_initial_track_info(
-        self, current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
+        self,
+        current_refinement: ba.frozenbitarray,
+        markers: list[npt.NDArray[np.int8]],
     ) -> Union["AncestryBranch.TrackInfo", None]:
+        marker = markers[0].copy()
+        for multiplier in markers[1:]:
+            marker += np.array(multiplier, dtype=np.int8)
         if marker.min() < 0:
             dimensions_to_coarsen = ba.frozenbitarray(
-                1 if marker[i] < 0 else 0 for i in range(len(marker))
+                ba.bitarray(1 if marker[i] < 0 else 0 for i in range(len(marker)))
+                & current_refinement
             )
+            if dimensions_to_coarsen.count() == 0:
+                return None
             if marker.max() <= 0:
                 # only coarsened
                 coarsening_stack = get_initial_coarsening_stack(
@@ -142,16 +150,20 @@ class AncestryBranch:
             self._discretization.descriptor[current_old_index],
             next_marker := self.markers[current_old_index],
         )
-        if next_refinement.count() > 0:
-            self.ancestry.append(current_old_index)
         # process new track info
         if current_old_index not in self.track_info_mapping:
+            markers = [next_marker]
+            for ancestor_index in self.ancestry:
+                markers.append(self.markers[ancestor_index])
             most_recent_track_info = self.get_initial_track_info(
-                self._discretization.descriptor[current_old_index], next_marker
+                self._discretization.descriptor[current_old_index],
+                markers,
             )
             if most_recent_track_info is not None:
                 self.track_info_mapping[current_old_index] = most_recent_track_info
 
+        if next_refinement.count() > 0:
+            self.ancestry.append(current_old_index)
         return (
             best_match_in_old_discretization,
             self.last_intermediate_generation,
