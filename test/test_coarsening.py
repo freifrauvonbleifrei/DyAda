@@ -67,12 +67,6 @@ _____
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_coarsening(0, ba.bitarray("10"))
     new_discretization, index_mapping = p.apply_refinements(track_mapping="patches")
-    new_descriptor = new_discretization.descriptor
-    assert new_descriptor._data == ba.bitarray("01 00 00")
-    expected_index_mapping = {0: {0}, 1: {0, 1}, 2: {0, 1}, 3: {0, 2}, 4: {0, 2}}
-    assert index_mapping == [
-        expected_index_mapping[i] for i in range(len(expected_index_mapping))
-    ]
     assert (
         discretization_to_2d_ascii(new_discretization, resolution=(4, 2))
         == """\
@@ -80,12 +74,16 @@ _____
 |___|
 |___|"""
     )
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor._data == ba.bitarray("01 00 00")
+    expected_index_mapping = {0: {0}, 1: {0, 1}, 2: {0, 1}, 3: {0, 2}, 4: {0, 2}}
+    assert index_mapping == [
+        expected_index_mapping[i] for i in range(len(expected_index_mapping))
+    ]
 
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_coarsening(0, ba.bitarray("01"))
     new_discretization, index_mapping = p.apply_refinements(track_mapping="patches")
-    new_descriptor = new_discretization.descriptor
-    assert new_descriptor._data == ba.bitarray("10 00 00")
     assert (
         discretization_to_2d_ascii(new_discretization, resolution=(4, 2))
         == """\
@@ -93,6 +91,9 @@ _____
 | | |
 |_|_|"""
     )
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor._data == ba.bitarray("10 00 00")
+
     expected_index_mapping = {0: {0}, 1: {0, 1}, 2: {0, 2}, 3: {0, 1}, 4: {0, 2}}
     assert index_mapping == [
         expected_index_mapping[i] for i in range(len(expected_index_mapping))
