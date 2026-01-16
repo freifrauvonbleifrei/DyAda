@@ -11,7 +11,7 @@ from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import RefinementDescriptor
 from dyada.discretization import Discretization
 from dyada.drawing import discretization_to_2d_ascii
-from dyada.linearization import MortonOrderLinearization
+from dyada.linearization import MortonOrderLinearization, SameIndexAs
 from dyada.refinement import PlannedAdaptiveRefinement, get_defaultdict_for_markers
 
 
@@ -61,7 +61,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 0
-    assert intermediate_generation == {0}
     assert next_refinement == ba.frozenbitarray("11")
     assert np.array_equal(next_marker, np.array([1, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -71,7 +70,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 1
-    assert intermediate_generation == {1}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -81,7 +79,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 1
-    assert intermediate_generation == {1}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -90,8 +87,7 @@ _________
     current_old_index, intermediate_generation, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
-    assert current_old_index == 2
-    assert intermediate_generation == {2, 3}
+    assert current_old_index == 3
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -100,8 +96,7 @@ _________
     current_old_index, intermediate_generation, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
-    assert current_old_index == 3
-    assert intermediate_generation == {3, 4}
+    assert current_old_index == 4
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -111,7 +106,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 4
-    assert intermediate_generation == {4}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -121,7 +115,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 4
-    assert intermediate_generation == {4}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -130,8 +123,7 @@ _________
     current_old_index, intermediate_generation, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
-    assert current_old_index == 3
-    assert intermediate_generation == {3, 5}
+    assert current_old_index == 5
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -141,7 +133,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 5
-    assert intermediate_generation == {5}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -151,7 +142,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 5
-    assert intermediate_generation == {5}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -160,8 +150,7 @@ _________
     current_old_index, intermediate_generation, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
-    assert current_old_index == 2
-    assert intermediate_generation == {2, 6}
+    assert current_old_index == 6
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -171,7 +160,6 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 7
-    assert intermediate_generation == {7}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
@@ -181,11 +169,18 @@ _________
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 8
-    assert intermediate_generation == {8}
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
-    with pytest.raises(AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships):
+    try:
         ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+        assert False, "Expected WeAreDoneAndHereAreTheMissingRelationships"
+    except AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships as e:
+        pass
+        assert e.missing_mapping == {
+            1: {SameIndexAs(0)},
+            2: {SameIndexAs(0), SameIndexAs(3), SameIndexAs(6)},
+            3: {SameIndexAs(4), SameIndexAs(5)},
+        }
 
 
 def test_modified_branch_generator():
@@ -225,16 +220,6 @@ _________
         *(set(), set(), set(), set(), set(), set(), set(), set()),
     ]
 
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 0, None, 0)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        *(set(), set(), set(), set(), set(), set(), set(), set()),
-    ]
-
     first_refinement = next(generator)
     assert first_refinement.type == p.Refinement.Type.ExpandLeaf
     assert first_refinement.old_index == 1
@@ -253,17 +238,6 @@ _________
         *(set(), set(), set(), set(), set(), set(), set()),
     ]
 
-
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 1, None, 1)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        {1},
-        *(set(), set(), set(), set(), set(), set(), set()),
-    ]
     second_refinement = next(generator)
     assert second_refinement.type == p.Refinement.Type.ExpandLeaf
     assert second_refinement.old_index == 1
@@ -277,54 +251,19 @@ _________
         ba.bitarray("00"),
     )
 
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 1, None, 1)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        {1, 2},
-        *(set(), set(), set(), set(), set(), set(), set()),
-    ]
-
     third_refinement = next(generator)
     assert third_refinement == p.Refinement(
-        p.Refinement.Type.CopyOver, 2, ba.bitarray("10"), None
+        p.Refinement.Type.CopyOver, 3, ba.bitarray("10"), None
     )
     p.extend_descriptor_and_track_indices(
         new_descriptor,
         third_refinement.old_index,
         third_refinement.new_refinement,
     )
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 2, None, 3)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        {1, 2},
-        {3},
-        *(set(), set(), set(), set(), set(), set()),
-    ]
-
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 3, None, 3)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        {1, 2},
-        {3},
-        {3},
-        *(set(), set(), set(), set(), set()),
-    ]
 
     fourth_refinement = next(generator)
     assert fourth_refinement == p.Refinement(
-        p.Refinement.Type.CopyOver, 3, ba.bitarray("10"), None
+        p.Refinement.Type.CopyOver, 4, ba.bitarray("10"), None
     )
     p.extend_descriptor_and_track_indices(
         new_descriptor,
@@ -333,18 +272,7 @@ _________
     )
     assert new_descriptor._data == ba.bitarray("11 00 00 10 10")
 
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 3, None, 3)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        {1, 2},
-        {3},
-        {3, 4},
-        *(set(), set(), set(), set(), set()),
-    ]
+    # [...]
 
 
 if __name__ == "__main__":

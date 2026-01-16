@@ -280,18 +280,6 @@ class PlannedAdaptiveRefinement:
                     next_refinement,
                 )
 
-            for p in intermediate_generation:
-                map_intermediate_to = {
-                    sorted(self._index_mapping[current_old_index])[0]
-                }
-                for a in map_intermediate_to:
-                    yield self.Refinement(
-                        self.Refinement.Type.TrackOnly,
-                        p,
-                        None,
-                        a,
-                    )
-
             if is_leaf:
                 # only on leaves, we advance the branch
                 try:
@@ -299,13 +287,15 @@ class PlannedAdaptiveRefinement:
                 except (
                     AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
                 ) as e:  # almost done!
-                    # yield the missing relationships
-                    for key, same_missing_indices in e.missing_mapping.items():
+                    # yield the still missing relationships
+                    for key, same_missing_indices in sorted(e.missing_mapping.items()):
                         missing_indices = set()
                         for same_missing_index in same_missing_indices:
-                            missing_indices |= self._index_mapping[
-                                same_missing_index.old_index
-                            ]
+                            missing_indices |= {
+                                sorted(
+                                    self._index_mapping[same_missing_index.old_index]
+                                )[0]
+                            }
                         for missing_index in missing_indices:
                             yield self.Refinement(
                                 self.Refinement.Type.TrackOnly,
@@ -388,6 +378,7 @@ class PlannedAdaptiveRefinement:
                         ba.bitarray() as new_refinement,
                         np.ndarray() as new_marker,
                     ):
+                        assert new_refinement.count() == 0
                         self.extend_descriptor_and_track_indices(
                             new_descriptor,
                             old_index,

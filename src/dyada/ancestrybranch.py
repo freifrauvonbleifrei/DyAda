@@ -106,9 +106,10 @@ class AncestryBranch:
 
         # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
+        self.ancestry_without_markers = self.ancestry.copy()
         assert len(self.ancestry) == self._initial_branch_depth - 1
-        self.last_intermediate_generation: set[int] = set()
 
+        self.missed_mapping: dict[int, set[SameIndexAs]] = {}
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
     def get_current_location_info(
@@ -116,9 +117,10 @@ class AncestryBranch:
     ) -> tuple[int, set[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
         # get the currently desired location info
         current_old_index = 0
-        exact = True
+        exact_without_markers = True
+        exact_with_markers = True
         best_match_in_old_discretization = 0
-        self.last_intermediate_generation = {0}
+        intermediate_generation: set[int] = set()
         if len(self._history_of_binary_positions) > 0:  # if not at root
             modified_dimensionwise_positions = location_code_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
@@ -128,7 +130,7 @@ class AncestryBranch:
                 exact_with_markers,
                 best_match_in_old_discretization,
                 exact_without_markers,
-                self.last_intermediate_generation,
+                intermediate_generation,
             ) = find_next_twig(
                 self._discretization,
                 self.markers,
@@ -162,11 +164,47 @@ class AncestryBranch:
             if most_recent_track_info is not None:
                 self.track_info_mapping[current_old_index] = most_recent_track_info
 
+        for potentially_skipped in intermediate_generation:
+            if potentially_skipped not in self.ancestry_without_markers:
+                self.missed_mapping.setdefault(potentially_skipped, set()).add(
+                    SameIndexAs(best_match_in_old_discretization)
+                )
+        tracked = False
+        if current_old_index != best_match_in_old_discretization:
+            self.missed_mapping.setdefault(current_old_index, set()).add(
+                SameIndexAs(best_match_in_old_discretization)
+            )
+            tracked = True
+        if tracked or not exact_without_markers:
+            # find the last ancestor where not none
+            for ancestor_index in reversed(self.ancestry_without_markers):
+                if ancestor_index is not None:
+                    break
+            if current_old_index != ancestor_index:
+                # map ourselves upward
+                self.missed_mapping.setdefault(current_old_index, set()).add(
+                    SameIndexAs(ancestor_index)
+                )
+        for i, ancestor_index in reversed(
+            list(enumerate(self.ancestry_without_markers))
+        ):
+            if ancestor_index is not None:
+                break
+            # map downward
+            if self.ancestry[i] != best_match_in_old_discretization:
+                self.missed_mapping.setdefault(self.ancestry[i], set()).add(
+                    SameIndexAs(best_match_in_old_discretization)
+                )
+
         if next_refinement.count() > 0:
             self.ancestry.append(current_old_index)
+            if exact_without_markers:
+                self.ancestry_without_markers.append(best_match_in_old_discretization)
+            else:
+                self.ancestry_without_markers.append(None)
         return (
             best_match_in_old_discretization,
-            self.last_intermediate_generation,
+            intermediate_generation,
             next_refinement,
             next_marker,
         )
@@ -224,8 +262,11 @@ class AncestryBranch:
                         map_to = SameIndexAs(key)
                     else:
                         map_to = index.same_index_as
-
                     mapping.setdefault(missed_descendant_index, set()).add(map_to)
+
+            # add all the not yet adequately tracked results too
+            for key, map_to_same_as in self.missed_mapping.items():
+                mapping.setdefault(key, set()).update(map_to_same_as)
 
             raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
                 mapping
@@ -245,6 +286,9 @@ class AncestryBranch:
             : current_modified_branch_depth - 1
         ]
         self.ancestry = self.ancestry[: current_modified_branch_depth - 1]
+        self.ancestry_without_markers = self.ancestry_without_markers[
+            : current_modified_branch_depth - 1
+        ]
 
         # update history of binary positions
         latest_binary_position = (
@@ -453,19 +497,8 @@ def find_next_twig(
             location_code_matches = (
                 child_dimensionwise_positions == desired_dimensionwise_positions
             )
+
             if old_node_will_be_contained_in_new_descriptor(descriptor, child, markers):
-                if not location_code_matches:
-                    best_match_for_intermediate, location_code_matches = (
-                        look_for_better_matching_descendant(
-                            discretization,
-                            desired_dimensionwise_positions,
-                            parent_of_next_refinement,
-                            parent_branch,
-                            child,
-                        )
-                    )
-                    intermediate_generation.add(child)
-                    intermediate_generation.add(best_match_for_intermediate)
                 return (
                     child,
                     location_code_matches,
