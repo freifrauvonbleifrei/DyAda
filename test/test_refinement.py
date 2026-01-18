@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from collections import Counter, defaultdict
+from collections import Counter
 import pytest
 import bitarray as ba
 import numpy as np
