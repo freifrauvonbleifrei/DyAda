@@ -117,8 +117,6 @@ class AncestryBranch:
         # get the currently desired location info
         current_old_index = 0
         exact = True
-        best_match_in_old_discretization = 0
-        self.last_intermediate_generation = {0}
         if len(self._history_of_binary_positions) > 0:  # if not at root
             modified_dimensionwise_positions = location_code_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
@@ -165,7 +163,7 @@ class AncestryBranch:
         if next_refinement.count() > 0:
             self.ancestry.append(current_old_index)
         return (
-            best_match_in_old_discretization,
+            current_old_index,
             self.last_intermediate_generation,
             next_refinement,
             next_marker,
