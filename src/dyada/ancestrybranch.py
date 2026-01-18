@@ -141,6 +141,9 @@ class AncestryBranch:
                         SameIndexAs(current_old_index),
                     )
 
+        if not exact:
+            self.last_intermediate_generation |= {current_old_index}
+
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
             next_marker := self.markers[current_old_index],
@@ -349,53 +352,6 @@ def old_node_will_be_contained_in_new_descriptor(
     return np.min(marker) >= 0 or future_refinement != descriptor.d_zeros  # type: ignore
 
 
-def look_for_better_matching_descendant(
-    discretization: Discretization,
-    desired_dimensionwise_positions: Sequence[ba.frozenbitarray],
-    ancestor_of_looking_for: int,
-    ancestor_of_looking_for_branch: Branch,
-    current_match: int,
-) -> tuple[int, bool]:
-    descriptor = discretization.descriptor
-    children = descriptor.get_children(current_match)
-    for child in children:
-        child_branch, _ = descriptor.get_branch(
-            child,
-            is_box_index=False,
-            hint_previous_branch=(
-                ancestor_of_looking_for,
-                ancestor_of_looking_for_branch,
-            ),
-        )
-        child_dimensionwise_positions = location_code_from_branch(
-            child_branch, discretization._linearization
-        )
-        part_of_history = all(
-            bitarray_startswith(
-                desired_dimensionwise_positions[d],
-                child_dimensionwise_positions[d],
-            )
-            for d in range(descriptor.get_num_dimensions())
-        )
-
-        if part_of_history:
-            exact_match = all(
-                child_dimensionwise_positions[d] == desired_dimensionwise_positions[d]
-                for d in range(descriptor.get_num_dimensions())
-            )
-            if exact_match:
-                return child, True
-            else:
-                return look_for_better_matching_descendant(
-                    discretization,
-                    desired_dimensionwise_positions,
-                    child,
-                    child_branch,
-                    child,
-                )
-    return current_match, False
-
-
 def find_next_twig(
     discretization: Discretization,
     markers: MappingProxyType[int, npt.NDArray[np.int8]],
@@ -439,18 +395,6 @@ def find_next_twig(
                 child_dimensionwise_positions == desired_dimensionwise_positions
             )
             if old_node_will_be_contained_in_new_descriptor(descriptor, child, markers):
-                if not location_code_matches:
-                    best_match_for_intermediate, location_code_matches = (
-                        look_for_better_matching_descendant(
-                            discretization,
-                            desired_dimensionwise_positions,
-                            parent_of_next_refinement,
-                            parent_branch,
-                            child,
-                        )
-                    )
-                    intermediate_generation.add(child)
-                    intermediate_generation.add(best_match_for_intermediate)
                 return (
                     child,
                     intermediate_generation,
