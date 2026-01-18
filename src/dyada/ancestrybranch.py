@@ -121,18 +121,15 @@ class AncestryBranch:
             modified_dimensionwise_positions = location_code_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
             )
-            (
-                current_old_index,
-                exact_with_markers,
-                best_match_in_old_discretization,
-                exact_without_markers,
-                self.last_intermediate_generation,
-            ) = find_next_twig(
-                self._discretization,
-                self.markers,
-                modified_dimensionwise_positions,
-                self.ancestry[-1],
+            current_old_index, self.last_intermediate_generation, exact = (
+                find_next_twig(
+                    self._discretization,
+                    self.markers,
+                    modified_dimensionwise_positions,
+                    self.ancestry[-1],
+                )
             )
+
             # update old track info
             ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
             if ancestor_track_info is not None:
@@ -404,7 +401,7 @@ def find_next_twig(
     markers: MappingProxyType[int, npt.NDArray[np.int8]],
     desired_dimensionwise_positions: Sequence[ba.frozenbitarray],
     parent_of_next_refinement: int,
-) -> tuple[int, bool, int, bool, set[int]]:
+) -> tuple[int, set[int], bool]:
     """Get the (old) tree node corresponding to the location code, and any nodes encountered on the way.
     Args:
         discretization (Discretization): the old discretization we're referring to
@@ -421,16 +418,6 @@ def find_next_twig(
     parent_branch, _ = descriptor.get_branch(
         parent_of_next_refinement, is_box_index=False
     )
-    best_match_unmarkered, unmarkered_location_code_exact = (
-        look_for_better_matching_descendant(
-            discretization,
-            desired_dimensionwise_positions,
-            parent_of_next_refinement,
-            parent_branch,
-            parent_of_next_refinement,
-        )
-    )
-
     children = descriptor.get_children(parent_of_next_refinement, parent_branch)
     intermediate_generation: set[int] = set()
     while True:
@@ -466,10 +453,8 @@ def find_next_twig(
                     intermediate_generation.add(best_match_for_intermediate)
                 return (
                     child,
-                    location_code_matches,
-                    best_match_unmarkered,
-                    unmarkered_location_code_exact,
                     intermediate_generation,
+                    location_code_matches,
                 )  # we found the next twig
 
             # else it's a coarsened node and we can see if there is a matching child
@@ -483,13 +468,7 @@ def find_next_twig(
                     ):  # this would need proper linearization
                         raise NotImplementedError("Refinement tracking")
                     intermediate_generation.add(child_of_coarsened)
-                return (
-                    child,
-                    location_code_matches,
-                    best_match_unmarkered,
-                    unmarkered_location_code_exact,
-                    intermediate_generation,
-                )
+                return child, intermediate_generation, True
             else:
                 # else, it's an ancestor node that's going to disappear
                 # -> restart loop with new children and remember this one
