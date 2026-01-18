@@ -22,7 +22,6 @@ from dyada.descriptor import (
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
-from dyada.structure import get_defaultdict_for_markers
 
 
 def is_lru_cached(func):
