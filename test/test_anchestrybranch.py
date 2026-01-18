@@ -224,17 +224,6 @@ _________
         {0},
         *(set(), set(), set(), set(), set(), set(), set(), set()),
     ]
-
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 0, None, 0)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        *(set(), set(), set(), set(), set(), set(), set(), set()),
-    ]
-
     first_refinement = next(generator)
     assert first_refinement.type == p.Refinement.Type.ExpandLeaf
     assert first_refinement.old_index == 1
@@ -253,6 +242,16 @@ _________
         *(set(), set(), set(), set(), set(), set(), set()),
     ]
 
+    tracking_refinement = next(generator)
+    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 1, None, 0)
+    p.track_indices(
+        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
+    )
+    assert p._index_mapping == [
+        {0},
+        {0, 1},
+        *(set(), set(), set(), set(), set(), set(), set()),
+    ]
 
     tracking_refinement = next(generator)
     assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 1, None, 1)
@@ -261,7 +260,7 @@ _________
     )
     assert p._index_mapping == [
         {0},
-        {1},
+        {0, 1},
         *(set(), set(), set(), set(), set(), set(), set()),
     ]
     second_refinement = next(generator)
@@ -278,13 +277,13 @@ _________
     )
 
     tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 1, None, 1)
+    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 1, None, 0)
     p.track_indices(
         tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
     )
     assert p._index_mapping == [
         {0},
-        {1, 2},
+        {0, 1, 2},
         *(set(), set(), set(), set(), set(), set(), set()),
     ]
 
@@ -298,28 +297,26 @@ _________
         third_refinement.new_refinement,
     )
     tracking_refinement = next(generator)
+    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 2, None, 0)
+    p.track_indices(
+        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
+    )
+    assert p._index_mapping == [
+        {0},
+        {0, 1, 2},
+        {0, 3},
+        *(set(), set(), set(), set(), set(), set()),
+    ]
+    tracking_refinement = next(generator)
     assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 2, None, 3)
     p.track_indices(
         tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
     )
     assert p._index_mapping == [
         {0},
-        {1, 2},
-        {3},
+        {0, 1, 2},
+        {0, 3},
         *(set(), set(), set(), set(), set(), set()),
-    ]
-
-    tracking_refinement = next(generator)
-    assert tracking_refinement == p.Refinement(p.Refinement.Type.TrackOnly, 3, None, 3)
-    p.track_indices(
-        tracking_refinement.old_index, tracking_refinement.marker_or_ancestor
-    )
-    assert p._index_mapping == [
-        {0},
-        {1, 2},
-        {3},
-        {3},
-        *(set(), set(), set(), set(), set()),
     ]
 
     fourth_refinement = next(generator)
@@ -340,8 +337,8 @@ _________
     )
     assert p._index_mapping == [
         {0},
-        {1, 2},
-        {3},
+        {0, 1, 2},
+        {0, 3},
         {3, 4},
         *(set(), set(), set(), set(), set()),
     ]
