@@ -107,8 +107,6 @@ class AncestryBranch:
         # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
         assert len(self.ancestry) == self._initial_branch_depth - 1
-        self.last_intermediate_generation: set[int] = set()
-
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
     def get_current_location_info(
@@ -116,20 +114,18 @@ class AncestryBranch:
     ) -> tuple[int, set[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
         # get the currently desired location info
         current_old_index = 0
+        intermediate_generation: set[int] = set()
         exact = True
         if len(self._history_of_binary_positions) > 0:  # if not at root
             modified_dimensionwise_positions = location_code_from_history(
                 self._history_of_binary_positions, self._history_of_level_increments
             )
-            current_old_index, self.last_intermediate_generation, exact = (
-                find_next_twig(
-                    self._discretization,
-                    self.markers,
-                    modified_dimensionwise_positions,
-                    self.ancestry[-1],
-                )
+            current_old_index, intermediate_generation, exact = find_next_twig(
+                self._discretization,
+                self.markers,
+                modified_dimensionwise_positions,
+                self.ancestry[-1],
             )
-
             # update old track info
             ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
             if ancestor_track_info is not None:
@@ -142,7 +138,7 @@ class AncestryBranch:
                     )
 
         if not exact:
-            self.last_intermediate_generation |= {current_old_index}
+            intermediate_generation |= {current_old_index}
 
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
@@ -164,7 +160,7 @@ class AncestryBranch:
             self.ancestry.append(current_old_index)
         return (
             current_old_index,
-            self.last_intermediate_generation,
+            intermediate_generation,
             next_refinement,
             next_marker,
         )
