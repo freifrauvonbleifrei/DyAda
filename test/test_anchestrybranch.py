@@ -188,14 +188,12 @@ _________
         ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
 
-def test_modified_branch_generator():
-    discretization = Discretization(
-        MortonOrderLinearization(),
-        RefinementDescriptor.from_binary(
-            2,
-            ba.bitarray("01 00 10 10 00 00 10 00 00"),
-        ),
+def test_modified_branch_generator_2d_6():
+    descriptor = RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray("01 00 10 10 00 00 10 00 00"),
     )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
     assert (
         discretization_to_2d_ascii(discretization, resolution=(8, 4))
         == """\
@@ -212,7 +210,9 @@ _________
     new_descriptor._data = ba.bitarray()
     p._index_mapping = [set() for _ in range(len(discretization.descriptor))]
     # call like in add_refined_data
-    generator = p.modified_branch_generator(starting_index=0)
+    generator = p.modified_branch_generator(
+        starting_index=0, new_descriptor=new_descriptor
+    )
     zeroth_refinement = next(generator)
     assert zeroth_refinement == p.Refinement(
         p.Refinement.Type.CopyOver, 0, ba.frozenbitarray("11"), None

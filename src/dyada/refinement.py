@@ -253,7 +253,18 @@ class PlannedAdaptiveRefinement:
         new_refinement: ba.bitarray | None = None
         marker_or_ancestor: npt.NDArray[np.int8] | int | None = None
 
-    def modified_branch_generator(self, starting_index: int):
+    def modified_branch_generator(
+        self, starting_index: int, new_descriptor: RefinementDescriptor
+    ) -> Generator[Refinement, None, None]:
+        """Yields what every new entry in the new descriptor should be, and how to track
+
+        Args:
+            starting_index (int): where to start the branch
+            new_descriptor (RefinementDescriptor): read-only access to the new descriptor
+
+        Yields:
+            Generator[Refinement, None, None]: sequence of refinement actions
+        """
         descriptor = self._discretization.descriptor
         proxy_markers = MappingProxyType(self._markers)
         ancestrybranch = AncestryBranch(
@@ -261,6 +272,7 @@ class PlannedAdaptiveRefinement:
         )
 
         while True:
+            current_new_index = len(new_descriptor)
             current_old_index, intermediate_generation, next_refinement, next_marker = (
                 ancestrybranch.get_current_location_info()
             )
@@ -281,9 +293,11 @@ class PlannedAdaptiveRefinement:
                 )
 
             for p in intermediate_generation:
-                map_intermediate_to = {
-                    sorted(self._index_mapping[current_old_index])[0]
-                }
+                # maps to the same as current index
+                # (downward in case of skipped ancestors,
+                # upward in case of coarsened current index / skipped descendants)
+                # should be the current new descriptor length (without expanded leaves)
+                map_intermediate_to = {current_new_index}
                 if p <= current_old_index:
                     map_intermediate_to |= {
                         sorted(self._index_mapping[ancestrybranch.ancestry[-1]])[0]
@@ -380,7 +394,9 @@ class PlannedAdaptiveRefinement:
                 old_descriptor[one_after_last_extended_index:index_to_refine],
             )
             # only refine where there are markers
-            for requested_refinement in self.modified_branch_generator(index_to_refine):
+            for requested_refinement in self.modified_branch_generator(
+                index_to_refine, new_descriptor
+            ):
                 match requested_refinement:
                     case self.Refinement(
                         self.Refinement.Type.TrackOnly,
