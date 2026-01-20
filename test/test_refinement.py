@@ -883,6 +883,30 @@ def test_refine_3d_4():
     # TODO check mapping
 
 
+def test_refine_3d_5():
+    # almost same beginning as 3d_4
+    descriptor = RefinementDescriptor.from_binary(
+        3, ba.bitarray("001 010 100 000 000 000 000")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(2, "100")
+    p.plan_refinement(3, "110")
+    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2, 3, 4},
+        2: {0, 1, 2},
+        3: {1},
+        4: {2},
+        5: {0, 3, 4},
+        6: {0, 5, 6, 7, 8},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
+
+
 def test_refine_4d():
     descriptor = RefinementDescriptor(4, 0)
     discretization = Discretization(MortonOrderLinearization(), descriptor)
