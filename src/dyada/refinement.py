@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
 from types import MappingProxyType
-from typing import Optional, Union
+from typing import Generator, Optional, Union
 
 from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import (
