@@ -11,7 +11,7 @@ from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import RefinementDescriptor
 from dyada.discretization import Discretization
 from dyada.drawing import discretization_to_2d_ascii
-from dyada.linearization import MortonOrderLinearization
+from dyada.linearization import MortonOrderLinearization, SameIndexAs
 from dyada.refinement import PlannedAdaptiveRefinement, get_defaultdict_for_markers
 
 
