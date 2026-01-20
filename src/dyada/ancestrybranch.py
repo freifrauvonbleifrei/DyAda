@@ -154,7 +154,6 @@ class AncestryBranch:
             self.missed_mappings.setdefault(current_old_index, set()).add(
                 SameIndexAs(self.ancestry[-1])
             )
-            intermediate_generation |= {current_old_index}
 
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],

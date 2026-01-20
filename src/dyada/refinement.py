@@ -294,21 +294,15 @@ class PlannedAdaptiveRefinement:
 
             for p in intermediate_generation:
                 # maps to the same as current index
+                # => the current new descriptor length (without expanded leaves)
                 # (downward in case of skipped ancestors,
                 # upward in case of coarsened current index / skipped descendants)
-                # should be the current new descriptor length (without expanded leaves)
-                map_intermediate_to = {current_new_index}
-                if p <= current_old_index:
-                    map_intermediate_to |= {
-                        min(self._index_mapping[ancestrybranch.ancestry[-1]])
-                    }
-                for a in map_intermediate_to:
-                    yield self.Refinement(
-                        self.Refinement.Type.TrackOnly,
-                        p,
-                        None,
-                        a,
-                    )
+                yield self.Refinement(
+                    self.Refinement.Type.TrackOnly,
+                    p,
+                    None,
+                    current_new_index,
+                )
 
             if is_leaf:
                 # only on leaves, we advance the branch
@@ -318,7 +312,7 @@ class PlannedAdaptiveRefinement:
                     AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
                 ) as e:  # almost done!
                     # yield the missing relationships
-                    for key, same_missing_indices in e.missing_mapping.items():
+                    for key, same_missing_indices in sorted(e.missing_mapping.items()):
                         missing_indices = set()
                         for same_missing_index in same_missing_indices:
                             missing_indices |= self._index_mapping[
