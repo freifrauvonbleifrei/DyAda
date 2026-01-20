@@ -107,6 +107,7 @@ class AncestryBranch:
         # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
         assert len(self.ancestry) == self._initial_branch_depth - 1
+        self.missed_mappings: dict[int, set[SameIndexAs]] = {}
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
     def get_current_location_info(
@@ -137,7 +138,22 @@ class AncestryBranch:
                         SameIndexAs(current_old_index),
                     )
 
+        for skipped_index in intermediate_generation:
+            is_ancestor = skipped_index < current_old_index
+            if is_ancestor:  # ancestor, map upward to parent
+                self.missed_mappings.setdefault(skipped_index, set()).add(
+                    SameIndexAs(self.ancestry[-1])
+                )
+
+            else:  # descendant, map upward to current
+                self.missed_mappings.setdefault(skipped_index, set()).add(
+                    SameIndexAs(current_old_index)
+                )
+
         if not exact:
+            self.missed_mappings.setdefault(current_old_index, set()).add(
+                SameIndexAs(self.ancestry[-1])
+            )
             intermediate_generation |= {current_old_index}
 
         next_refinement = refinement_with_marker_applied(
@@ -220,6 +236,10 @@ class AncestryBranch:
                         map_to = index.same_index_as
 
                     mapping.setdefault(missed_descendant_index, set()).add(map_to)
+
+            # add all the not yet adequately tracked results too
+            for key, map_to_same_as in self.missed_mappings.items():
+                mapping.setdefault(key, set()).update(map_to_same_as)
 
             raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
                 mapping

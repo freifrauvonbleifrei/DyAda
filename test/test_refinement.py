@@ -420,12 +420,12 @@ _________________
         2: {1},
         3: {7},
         4: {0, 2, 8},
-        5: {0, 3, 9},
+        5: {0, 2, 3, 8, 9},
         6: {4},
         7: {5},
         8: {10},
         9: {11},
-        10: {0, 6, 12},
+        10: {0, 2, 8, 6, 12},
     }
     assert index_mapping == list(expected_index_mapping.values())
 
@@ -534,9 +534,7 @@ _________________
     assert find_uniqueness_violations(non_normalized_descriptor) == [{2, 3, 6}]
     p = PlannedAdaptiveRefinement(non_normalized_discretization)
 
-    p._markers = get_defaultdict_for_markers(
-        descriptor.get_num_dimensions()
-    )
+    p._markers = get_defaultdict_for_markers(descriptor.get_num_dimensions())
     p._markers[2] = np.array([0, 1], dtype=np.int8)
     p._markers[3] = np.array([0, -1], dtype=np.int8)
     p._markers[6] = np.array([0, -1], dtype=np.int8)
@@ -742,7 +740,7 @@ _________
     expected_mapping = {
         0: {0},
         1: {0, 1, 5},
-        2: {2, 6},  # TODO shouldn't there be a 0 too?
+        2: {0, 2, 6},
         3: {2},
         4: {3},
         5: {4},
