@@ -333,6 +333,7 @@ _________________
         {9},
     ]
     assert box_mapping == former_to_now
+    helper_check_mapping(box_mapping, discretization, new_discretization)
 
 
 def test_refine_multi_grandchild_split():
@@ -460,6 +461,8 @@ _________________
         10: {0, 2, 8, 6, 12},
     }
     assert index_mapping == list(expected_index_mapping.values())
+    helper_check_mapping(box_mapping, discretization, new_discretization)
+    helper_check_mapping(index_mapping, discretization, new_discretization, False)
 
 
 def test_refine_2d_2():
@@ -804,9 +807,9 @@ _________
     p.plan_refinement(0, "10")
     p.plan_refinement(1, "10")
     p.plan_refinement(2, "10")
-    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
     assert (
-        discretization_to_2d_ascii(discretization, resolution=(16, 8))
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
         == """\
 _________________
 | | | | |   |   |
@@ -818,7 +821,7 @@ _________________
 |       |       |
 |_______|_______|"""
     )
-    validate_descriptor(discretization.descriptor)
+    validate_descriptor(new_discretization.descriptor)
     expected_patch_mapping = {
         0: {0},
         1: {0, 1, 2},
@@ -833,6 +836,12 @@ _________________
     assert patch_mapping == [
         expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
     ]
+    helper_check_mapping(
+        patch_mapping,
+        discretization,
+        new_discretization,
+        mapping_indices_are_boxes=False,
+    )
 
 
 def test_refine_3d_1():
@@ -873,7 +882,7 @@ def test_refine_3d_2():
     p.plan_refinement(0, "110")
     p.plan_refinement(1, "011")
     p.plan_refinement(2, "011")
-    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
     expected_patch_mapping = {
         0: {0},
         1: {0, 1, 2, 3, 4},
@@ -884,6 +893,7 @@ def test_refine_3d_2():
     assert patch_mapping == [
         expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
     ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
 
 
 def test_refine_3d_3():
@@ -895,7 +905,7 @@ def test_refine_3d_3():
     p.plan_refinement(0, "101")
     p.plan_refinement(1, "100")
     p.plan_refinement(2, "100")
-    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
     expected_patch_mapping = {
         0: {0},
         1: {0, 1, 2, 13, 14},
@@ -916,6 +926,7 @@ def test_refine_3d_3():
     assert patch_mapping == [
         expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
     ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
 
 
 def test_refine_3d_4():
@@ -928,7 +939,7 @@ def test_refine_3d_4():
     p.plan_refinement(1, "100")
     p.plan_refinement(2, "111")
     p.plan_refinement(3, "111")
-    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
     expected_patch_mapping = {
         0: {0},
         1: {0, 1, 2, 5, 6},
@@ -941,6 +952,7 @@ def test_refine_3d_4():
     assert patch_mapping == [
         expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
     ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
 
 
 def test_refine_3d_5():
@@ -952,7 +964,7 @@ def test_refine_3d_5():
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(2, "100")
     p.plan_refinement(3, "110")
-    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
     expected_patch_mapping = {
         0: {0},
         1: {0, 1, 2, 3, 4},
@@ -965,6 +977,7 @@ def test_refine_3d_5():
     assert patch_mapping == [
         expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
     ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
 
 
 def test_refine_4d():
