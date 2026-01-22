@@ -95,11 +95,12 @@ def helper_check_box_mapping(
             assert old_coordinates == new_coordinates
         else:
             # assert that the new boxes cover the old box
-            new_coordinates = [
-                coordinates_from_index(new_discretization, new_index, is_box_index=True)
-                for new_index in mapped_to_indices
-            ]
-            # needs recursive line-sweep #TODO
+            # new_coordinates_list = [
+            #     coordinates_from_index(new_discretization, new_index, is_box_index=True)
+            #     for new_index in mapped_to_indices
+            # ]
+            # # needs recursive line-sweep #TODO
+            pass
 
 
 def helper_check_mapping(
