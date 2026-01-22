@@ -22,7 +22,7 @@ from dyada.descriptor import (
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
-from dyada.linearization import location_code_from_branch, TrackToken
+from dyada.linearization import TrackToken
 from dyada.structure import get_defaultdict_for_markers
 
 
