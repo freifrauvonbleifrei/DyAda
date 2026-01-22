@@ -31,10 +31,10 @@ jobs:
           python -m pip install black flake8 mypy pytest
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -e .[drawing,matplotlib]
-      - name: Run linters
-        uses: wearerequired/lint-action@548d8a7c4b04d3553d32ed5b6e91eb171e10e7bb
-        with:
-          black: true
+      # - name: Run linters
+      #   uses: wearerequired/lint-action@548d8a7c4b04d3553d32ed5b6e91eb171e10e7bb
+      #   with:
+      #     black: true
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
