@@ -281,7 +281,7 @@ def test_refine_grandchild_split():
     p.plan_refinement(0, ba.bitarray("01"))
     p.plan_refinement(2, ba.bitarray("10"))
     discretization, _ = p.apply_refinements()
-    new_discretization, _ = apply_single_refinement(discretization, 1)
+    new_discretization, patch_mapping = apply_single_refinement(discretization, 1)
     assert (
         discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
         == """\
@@ -298,6 +298,8 @@ _________________
     new_descriptor = new_discretization.descriptor
     four_branch = new_descriptor.get_branch(4, False)[0]
     assert new_descriptor.get_ancestry(four_branch) == [0, 1, 3]
+    helper_check_mapping(patch_mapping, discretization, new_discretization)
+
     p = PlannedAdaptiveRefinement(new_discretization)
 
     # the actual test
@@ -333,7 +335,6 @@ _________________
         {9},
     ]
     assert box_mapping == former_to_now
-    helper_check_mapping(box_mapping, discretization, new_discretization)
 
 
 def test_refine_multi_grandchild_split():
