@@ -63,6 +63,45 @@ def test_refine_3d_only_leaves():
     assert validate_descriptor(new_descriptor)
 
 
+def helper_check_box_mapping(
+    index_mapping: list[set[int]],
+    old_discretization: Discretization,
+    new_discretization: Discretization,
+    tested_refinement=None,
+):
+    old_descriptor = old_discretization.descriptor
+    new_descriptor = new_discretization.descriptor
+    assert len(index_mapping) == old_descriptor.get_num_boxes()
+    assert set() not in index_mapping
+    count_new_indices: Counter = Counter()
+    for value in index_mapping:
+        count_new_indices.update(value)
+    # check that each is there once
+    for e in count_new_indices.most_common():
+        assert e[1] == 1
+    assert sorted(count_new_indices.elements()) == list(
+        range(new_descriptor.get_num_boxes())
+    )
+    for mapped_from_index, mapped_to_indices in enumerate(index_mapping):
+        old_coordinates = coordinates_from_box_index(
+            old_discretization, mapped_from_index
+        )
+        if len(mapped_to_indices) == 1:
+            (mapped_to_index,) = mapped_to_indices
+            new_coordinates = coordinates_from_box_index(
+                new_discretization, mapped_to_index
+            )
+            # make sure the coordinates are correct
+            assert old_coordinates == new_coordinates
+        else:
+            # assert that the new boxes cover the old box
+            new_coordinates = [
+                coordinates_from_index(new_discretization, new_index, is_box_index=True)
+                for new_index in mapped_to_indices
+            ]
+            # needs recursive line-sweep #TODO
+
+
 def helper_check_mapping(
     index_mapping: list[set[int]],
     old_discretization: Discretization,
@@ -70,69 +109,61 @@ def helper_check_mapping(
     mapping_indices_are_boxes=True,
     tested_refinement=None,
 ):
+    if mapping_indices_are_boxes:
+        return helper_check_box_mapping(
+            index_mapping, old_discretization, new_discretization, tested_refinement
+        )
+    else:
+        # get box mapping from index mapping
+        box_mapping = hierarchical_to_box_index_mapping(
+            index_mapping,
+            old_discretization.descriptor,
+            new_discretization.descriptor,
+        )
+        helper_check_box_mapping(box_mapping, old_discretization, new_discretization)
+
     old_descriptor = old_discretization.descriptor
     new_descriptor = new_discretization.descriptor
     count_new_indices: Counter = Counter()
     for value in index_mapping:
         count_new_indices.update(value)
-    if mapping_indices_are_boxes:
-        assert len(index_mapping) == old_descriptor.get_num_boxes()
-        assert set() not in index_mapping
-        assert sorted(count_new_indices.elements()) == list(
-            range(new_descriptor.get_num_boxes())
-        )
-    else:
-        assert len(index_mapping) == len(old_descriptor)
-        assert set() not in index_mapping
-        assert set(count_new_indices.elements()) == set(range(len(new_descriptor)))
+    assert len(index_mapping) == len(old_descriptor)
+    assert set() not in index_mapping
+    assert set(count_new_indices.elements()) == set(range(len(new_descriptor)))
     for b, mapped_to_indices in enumerate(index_mapping):
+        old_coordinates = coordinates_from_index(
+            old_discretization, b, mapping_indices_are_boxes
+        )
         if len(mapped_to_indices) == 1:
             # make sure the coordinates are correct
             (mapped_to_index,) = mapped_to_indices
-            if not (
+            assert (
                 coordinates_from_index(
                     new_discretization, mapped_to_index, mapping_indices_are_boxes
                 )
-                == coordinates_from_index(
-                    old_discretization, b, mapping_indices_are_boxes
-                )
-            ):
-                print(
-                    f"mapping failed for box {b} with index {mapped_to_index}"
-                    " and coordinates {coordinates_from_box_index(old_discretization, b)} "
-                    "-> {coordinates_from_box_index(new_discretization, mapped_to_index)}"
-                )
-                print(f"old descriptor: {old_descriptor}")
-                print(f"new descriptor: {new_descriptor}")
-                if tested_refinement is not None:
-                    print(f"tested refinement: {tested_refinement}")
-            if mapping_indices_are_boxes:
-                # otherwise, there may be smaller, now-deleted patches as well
-                assert coordinates_from_index(
-                    new_discretization, mapped_to_index, mapping_indices_are_boxes
-                ) == coordinates_from_index(
-                    old_discretization, b, mapping_indices_are_boxes
-                )
+                == old_coordinates
+            )
         else:
-            pass
-            # TODO: what are the correct assumptions?
-            # old_interval = coordinates_from_index(
-            #     old_discretization, b, mapping_indices_are_boxes
-            # )
-            # for new_index in mapped_to_indices:
-            #     new_interval = coordinates_from_index(
-            #         new_discretization, new_index, mapping_indices_are_boxes
-            #     )
-            #     assert np.all(
-            #         old_interval.lower_bound <= new_interval.lower_bound
-            #     ) and np.all(
-            #         new_interval.lower_bound <= old_interval.upper_bound
-            #     )  # type: ignore
-            #     assert np.all(
-            #         old_interval.lower_bound <= new_interval.upper_bound
-            #     ) and np.all(
-            #         new_interval.upper_bound <= old_interval.upper_bound
-            #     )  # type: ignore
+            # the smallest of the mapped_to_indices' interval should cover the old interval
+            most_senior_mapped_to = min(mapped_to_indices)
+            new_coordinates = coordinates_from_index(
+                new_discretization,
+                most_senior_mapped_to,
+                mapping_indices_are_boxes,
+            )
+            assert np.all(new_coordinates.lower_bound <= old_coordinates.lower_bound)
+            assert np.all(old_coordinates.upper_bound <= new_coordinates.upper_bound)
+            # and this should not be true for the second
+            second_most_senior_mapped_to = sorted(mapped_to_indices)[1]
+            new_coordinates = coordinates_from_index(
+                new_discretization,
+                second_most_senior_mapped_to,
+                mapping_indices_are_boxes,
+            )
+            assert not (
+                np.all(new_coordinates.lower_bound <= old_coordinates.lower_bound)
+                and np.all(old_coordinates.upper_bound <= new_coordinates.upper_bound)
+            )
 
 
 def test_refine_simplest_not_only_leaves():
@@ -825,16 +856,11 @@ def test_refine_3d_1():
         validate_descriptor(new_descriptor)
         assert new_descriptor.get_num_boxes() == num_boxes_before + 1
         helper_check_mapping(index_mapping, discretization, new_discretization)
+        # make sure only the last box maps to two new boxes
         for b in range(descriptor.get_num_boxes()):
             assert len(index_mapping[b]) == 1 or (
                 b == (len(discretization) - 1) and len(index_mapping[b]) == 2
             )
-            if len(index_mapping[b]) == 1:
-                # make sure the coordinates are correct
-                (mapped_to_index,) = index_mapping[b]
-                assert coordinates_from_box_index(
-                    new_discretization, mapped_to_index
-                ) == coordinates_from_box_index(discretization, b)
 
 
 def test_refine_3d_2():
