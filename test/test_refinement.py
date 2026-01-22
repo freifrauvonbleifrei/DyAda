@@ -860,36 +860,60 @@ def test_refine_3d_2():
 
 
 def test_refine_3d_3():
-    discretization = Discretization(
-        MortonOrderLinearization(),
-        RefinementDescriptor.from_binary(
-            3,
-            ba.bitarray("010 000 101 100 000 000 100 000 000 100 000 000 100 000 000"),
-        ),
+    descriptor = RefinementDescriptor.from_binary(
+        3, ba.bitarray("010 000 101 100 000 000 100 000 000 100 000 000 100 000 000")
     )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(0, "101")
     p.plan_refinement(1, "100")
     p.plan_refinement(2, "100")
-    discretization, _ = p.apply_refinements()
-    # TODO check mapping
+    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2, 13, 14},
+        2: {0, 3, 10, 15, 18},
+        3: {3},
+        4: {4, 5, 6},
+        5: {7, 8, 9},
+        6: {10},
+        7: {11},
+        8: {12},
+        9: {15},
+        10: {16},
+        11: {17},
+        12: {18},
+        13: {19},
+        14: {20},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
 
 
 def test_refine_3d_4():
-    discretization = Discretization(
-        MortonOrderLinearization(),
-        RefinementDescriptor.from_binary(
-            3,
-            ba.bitarray("010 000 001 000 100 000 000"),
-        ),
+    descriptor = RefinementDescriptor.from_binary(
+        3, ba.bitarray("010 000 001 000 100 000 000")
     )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(0, "101")
     p.plan_refinement(1, "100")
     p.plan_refinement(2, "111")
     p.plan_refinement(3, "111")
-    discretization, _ = p.apply_refinements()
-    # TODO check mapping
+    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2, 5, 6},
+        2: {0, 3, 4, 7, 16},
+        3: {0, 3, 4},  # TODO not sure about all of these 0s from here on
+        4: {0, 7, 16},
+        5: {0, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+        6: {0, 16, 17, 18, 19, 20, 21, 22, 23, 24},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
 
 
 def test_refine_3d_5():
