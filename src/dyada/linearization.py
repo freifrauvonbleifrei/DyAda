@@ -53,7 +53,8 @@ class MortonOrderLinearization(Linearization):
         assert len(history_of_indices) == len(history_of_level_increments)
 
         this_level_increment = history_of_level_increments[-1]
-        assert this_level_increment.count() > 0
+        if this_level_increment.count() == 0:
+            assert history_of_indices[-1] == 0
         index_in_box = history_of_indices[-1]
         if not index_in_box < 2 ** this_level_increment.count() or index_in_box < 0:
             raise IndexError("Index " + str(index_in_box) + " out of bounds")
@@ -149,7 +150,7 @@ class SameIndexAs:
 class DimensionSeparatedLocalPosition:
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
-    same_index_as: SameIndexAs | None = None
+    same_index_as: set[SameIndexAs | int] | None = None
 
     @property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
@@ -278,8 +279,8 @@ def get_initial_coarsen_refine_stack(
 def inform_same_remaining_position_about_index(
     coarsening_stack: CoarseningStack,
     position_to_update: DimensionSeparatedLocalPosition,
-    mapped_to_index: SameIndexAs,
+    mapped_to_indices: set[SameIndexAs | int],
 ) -> None:
     for i, entry in enumerate(coarsening_stack):
         if entry.remaining_positions == position_to_update.remaining_positions:
-            coarsening_stack[i].same_index_as = mapped_to_index
+            coarsening_stack[i].same_index_as = mapped_to_indices

@@ -846,8 +846,17 @@ def test_refine_3d_2():
     p.plan_refinement(0, "110")
     p.plan_refinement(1, "011")
     p.plan_refinement(2, "011")
-    discretization, _ = p.apply_refinements()
-    # TODO check mapping
+    discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2, 3, 4},
+        2: {0, 5, 8, 11, 14},
+        3: {0, 5, 6, 7, 11, 12, 13},
+        4: {0, 8, 9, 10, 14, 15, 16},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
 
 
 def test_refine_3d_3():

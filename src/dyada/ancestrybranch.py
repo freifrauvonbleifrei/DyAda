@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import bitarray as ba
+from collections import defaultdict
 import numpy as np
 import numpy.typing as npt
 from types import MappingProxyType
@@ -42,6 +43,7 @@ class AncestryBranch:
     """
 
     TrackInfo: TypeAlias = CoarseningStack
+    TrackToken: TypeAlias = int
 
     def get_initial_track_info(
         self,
@@ -64,7 +66,7 @@ class AncestryBranch:
                     ba.frozenbitarray(current_refinement), dimensions_to_coarsen
                 )
                 return coarsening_stack
-            elif marker.max() > 0:
+            else:
                 # coarsened and refined
                 dimensions_to_refine = ba.frozenbitarray(
                     1 if marker[i] > 0 else 0 for i in range(len(marker))
@@ -106,13 +108,22 @@ class AncestryBranch:
 
         # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
+        self.old_indices_map_track_tokens: defaultdict[int, list[int]] = defaultdict(
+            list
+        )
+        self.current_track_token: AncestryBranch.TrackToken = -1
         assert len(self.ancestry) == self._initial_branch_depth - 1
-        self.missed_mappings: dict[int, set[SameIndexAs]] = {}
+        self.missed_mappings: defaultdict[
+            int, set[SameIndexAs | AncestryBranch.TrackToken]
+        ] = defaultdict(set)
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
     def get_current_location_info(
         self,
-    ) -> tuple[int, set[int], ba.frozenbitarray, npt.NDArray[np.int8]]:
+    ) -> tuple[
+        int, "AncestryBranch.TrackToken", ba.frozenbitarray, npt.NDArray[np.int8]
+    ]:
+        self.current_track_token += 1
         # get the currently desired location info
         current_old_index = 0
         intermediate_generation: set[int] = set()
@@ -127,33 +138,47 @@ class AncestryBranch:
                 modified_dimensionwise_positions,
                 self.ancestry[-1],
             )
+            for skipped_index in intermediate_generation:
+                is_ancestor = skipped_index < current_old_index
+                if is_ancestor:  # ancestor
+                    # map upward to parent
+                    self.missed_mappings[skipped_index].add(
+                        self.old_indices_map_track_tokens[self.ancestry[-1]][-1]
+                    )
+                    # map downward to current
+                    self.missed_mappings[skipped_index].add(self.current_track_token)
+                else:  # descendant, map upward to current
+                    self.missed_mappings[skipped_index].add(self.current_track_token)
+
+            if not exact:
+                # no exact match, map current_old_index upward
+                self.missed_mappings[current_old_index].add(
+                    self.old_indices_map_track_tokens[self.ancestry[-1]][-1]
+                )
+                for ancestor_index, ancestor in reversed(
+                    list(enumerate(self.ancestry))
+                ):
+                    ancestor_exact = len(self.missed_mappings.get(ancestor, [])) == 0
+                    if ancestor_exact:
+                        break
+                    older_ancestor = self.ancestry[ancestor_index - 1]
+                    older_ancestor_token = min(
+                        self.old_indices_map_track_tokens[older_ancestor]
+                    )
+                    self.missed_mappings[current_old_index].add(older_ancestor_token)
             # update old track info
             ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
             if ancestor_track_info is not None:
                 this_item = ancestor_track_info.pop()
                 if this_item.same_index_as is None:
+                    inform_about = {self.current_track_token}
+                    if not exact:
+                        inform_about.add(
+                            self.old_indices_map_track_tokens[self.ancestry[-1]][-1]
+                        )
                     inform_same_remaining_position_about_index(
-                        ancestor_track_info,
-                        this_item,
-                        SameIndexAs(current_old_index),
+                        ancestor_track_info, this_item, inform_about
                     )
-
-        for skipped_index in intermediate_generation:
-            is_ancestor = skipped_index < current_old_index
-            if is_ancestor:  # ancestor, map upward to parent
-                self.missed_mappings.setdefault(skipped_index, set()).add(
-                    SameIndexAs(self.ancestry[-1])
-                )
-
-            else:  # descendant, map upward to current
-                self.missed_mappings.setdefault(skipped_index, set()).add(
-                    SameIndexAs(current_old_index)
-                )
-
-        if not exact:
-            self.missed_mappings.setdefault(current_old_index, set()).add(
-                SameIndexAs(self.ancestry[-1])
-            )
 
         next_refinement = refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
@@ -173,15 +198,21 @@ class AncestryBranch:
 
         if next_refinement.count() > 0:
             self.ancestry.append(current_old_index)
+        self.old_indices_map_track_tokens[current_old_index].append(
+            self.current_track_token
+        )
         return (
             current_old_index,
-            intermediate_generation,
+            self.current_track_token,
             next_refinement,
             next_marker,
         )
 
     class WeAreDoneAndHereAreTheMissingRelationships(Exception):
-        def __init__(self, mapping: dict[int, set[SameIndexAs]]):
+        def __init__(
+            self,
+            mapping: dict[int, set[Union[SameIndexAs, "AncestryBranch.TrackToken"]]],
+        ):
             self.missing_mapping = mapping
             super().__init__()
 
@@ -190,7 +221,9 @@ class AncestryBranch:
             self._current_modified_branch.advance_branch(self._initial_branch_depth)
         except IndexError as e:
             # check if all relationships from coarsening tracking are exhausted
-            mapping: dict[int, set[SameIndexAs]] = {}
+            mapping: dict[int, set[Union[SameIndexAs, "AncestryBranch.TrackToken"]]] = (
+                {}
+            )
             hint_previous_branch = None
             for key, track_info in sorted(self.track_info_mapping.items()):
                 ancestor_branch = self._discretization.descriptor.get_branch(
@@ -230,11 +263,11 @@ class AncestryBranch:
                                 self._discretization.descriptor.get_num_dimensions()
                             )
                         )
-                        map_to = SameIndexAs(key)
+                        map_to = set(self.old_indices_map_track_tokens[key])
                     else:
                         map_to = index.same_index_as
 
-                    mapping.setdefault(missed_descendant_index, set()).add(map_to)
+                    mapping.setdefault(missed_descendant_index, set()).update(map_to)
 
             # add all the not yet adequately tracked results too
             for key, map_to_same_as in self.missed_mappings.items():

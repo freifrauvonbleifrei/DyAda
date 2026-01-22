@@ -270,12 +270,14 @@ class PlannedAdaptiveRefinement:
         ancestrybranch = AncestryBranch(
             self._discretization, starting_index, proxy_markers
         )
+        map_tracking_tokens_to_new_indices: dict[int, int] = {}
 
         while True:
             current_new_index = len(new_descriptor)
-            current_old_index, intermediate_generation, next_refinement, next_marker = (
+            current_old_index, tracking_token, next_refinement, next_marker = (
                 ancestrybranch.get_current_location_info()
             )
+            map_tracking_tokens_to_new_indices[tracking_token] = current_new_index
             is_leaf = next_refinement == descriptor.d_zeros
             if is_leaf and np.min(next_marker) >= 0:
                 # will actually be expanded
@@ -292,18 +294,6 @@ class PlannedAdaptiveRefinement:
                     next_refinement,
                 )
 
-            for p in intermediate_generation:
-                # maps to the same as current index
-                # => the current new descriptor length (without expanded leaves)
-                # (downward in case of skipped ancestors,
-                # upward in case of coarsened current index / skipped descendants)
-                yield self.Refinement(
-                    self.Refinement.Type.TrackOnly,
-                    p,
-                    None,
-                    current_new_index,
-                )
-
             if is_leaf:
                 # only on leaves, we advance the branch
                 try:
@@ -312,18 +302,23 @@ class PlannedAdaptiveRefinement:
                     AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
                 ) as e:  # almost done!
                     # yield the missing relationships
+                    missing_mappings: dict[int, set[int]] = {}
                     for key, same_missing_indices in sorted(e.missing_mapping.items()):
-                        missing_indices = set()
+                        missing_mappings[key] = set()
                         for same_missing_index in same_missing_indices:
-                            missing_indices |= self._index_mapping[
-                                same_missing_index.old_index
-                            ]
-                        for missing_index in missing_indices:
+                            assert isinstance(
+                                same_missing_index, AncestryBranch.TrackToken
+                            )
+                            missing_mappings[key].add(
+                                map_tracking_tokens_to_new_indices[same_missing_index]
+                            )
+                    for old_index, new_indices in missing_mappings.items():
+                        for new_index in new_indices:
                             yield self.Refinement(
                                 self.Refinement.Type.TrackOnly,
-                                key,
+                                old_index,
                                 None,
-                                missing_index,
+                                new_index,
                             )
                     return
             else:

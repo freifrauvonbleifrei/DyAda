@@ -57,143 +57,259 @@ _________
     )
     # step through ancestry branch
     # new index 0
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 0
-    assert intermediate_generation == set()
+    assert track_token == 0
     assert next_refinement == ba.frozenbitarray("11")
     assert np.array_equal(next_marker, np.array([1, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 1
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 1
-    assert intermediate_generation == set()
+    assert track_token == 1
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 2
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 1
-    assert intermediate_generation == set()
+    assert track_token == 2
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 3
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 2
-    assert intermediate_generation == set()
+    assert track_token == 3
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 4
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 3
-    assert intermediate_generation == set()
+    assert track_token == 4
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 5
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 4
-    assert intermediate_generation == set()
+    assert track_token == 5
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 6
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 4
-    assert intermediate_generation == set()
+    assert track_token == 6
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 7
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 3
-    assert intermediate_generation == set()
+    assert track_token == 7
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 8
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 5
-    assert intermediate_generation == set()
+    assert track_token == 8
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 9
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 5
-    assert intermediate_generation == set()
+    assert track_token == 9
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 10
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 2
-    assert intermediate_generation == set()
+    assert track_token == 10
     assert next_refinement == ba.frozenbitarray("10")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 11
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 7
-    assert intermediate_generation == {6}
+    assert track_token == 11
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
 
     # new index 12
-    current_old_index, intermediate_generation, next_refinement, next_marker = (
+    current_old_index, track_token, next_refinement, next_marker = (
         ancestrybranch.get_current_location_info()
     )
     assert current_old_index == 8
-    assert intermediate_generation == {6}
+    assert track_token == 12
     assert next_refinement == ba.frozenbitarray("00")
     assert np.array_equal(next_marker, np.array([0, 0], dtype=np.int8))
     try:
         ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
     except AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships as e:
         assert e.missing_mapping == {
-            1: {SameIndexAs(0)},
-            2: {SameIndexAs(0)},
-            3: {SameIndexAs(2)},
-            4: {SameIndexAs(3)},
-            5: {SameIndexAs(3)},
-            6: {SameIndexAs(2)},
+            1: {0},
+            2: {0},
+            3: {0, 3},
+            4: {0, 3, 4},
+            5: {0, 3, 7},
+            6: {10, 11, 12},
+        }
+
+
+def test_ancestrybranch_3d_5():
+    descriptor = RefinementDescriptor.from_binary(
+        3, ba.bitarray("001 010 100 000 000 000 000")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+
+    markers = get_defaultdict_for_markers(
+        discretization.descriptor.get_num_dimensions()
+    )
+    markers[0] = np.array([1, 1, 0], dtype=np.int8)
+    markers[1] = np.array([0, -1, 0], dtype=np.int8)
+    markers[2] = np.array([-1, 0, 0], dtype=np.int8)
+    ancestrybranch = AncestryBranch(
+        discretization=discretization, starting_index=0, markers=markers
+    )
+
+    # step through ancestry branch
+    # new index 0
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 0
+    assert track_token == 0
+    assert next_refinement == ba.frozenbitarray("111")
+    assert np.array_equal(next_marker, np.array([1, 1, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+    # new index 1
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 3
+    assert track_token == 1
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+
+    # new index 2
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 4
+    assert track_token == 2
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+
+    # new index 3
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 5
+    assert track_token == 3
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+
+    # new index 4
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 5
+    assert track_token == 4
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+
+    # new index 5
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 6
+    assert track_token == 5
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+
+    # new index 6
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 6
+    assert track_token == 6
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+
+    # new index 7
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 6
+    assert track_token == 7
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+    ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+
+    # new index 8
+    current_old_index, track_token, next_refinement, next_marker = (
+        ancestrybranch.get_current_location_info()
+    )
+    assert current_old_index == 6
+    assert track_token == 8
+    assert next_refinement == ba.frozenbitarray("000")
+    assert np.array_equal(next_marker, np.array([0, 0, 0], dtype=np.int8))
+
+    try:
+        ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+    except AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships as e:
+        assert e.missing_mapping == {
+            1: {0, 1, 2, 3, 4},
+            2: {0, 1, 2},
+            5: {0},
+            6: {0},
         }
 
 
