@@ -10,7 +10,6 @@ import pytest
 from dyada.linearization import (
     DimensionSeparatedLocalPosition,
     MortonOrderLinearization,
-    SameIndexAs,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     inform_same_remaining_position_about_index,
@@ -326,7 +325,7 @@ def test_coarsening_stack_3d():
     assert first_item.separated_positions == ba.frozenbitarray("00")
     assert first_item.remaining_positions == ba.frozenbitarray("0")
 
-    first_item_update_index = SameIndexAs(42)
+    first_item_update_index = 42
     inform_same_remaining_position_about_index(
         coarsening_stack=current_coarsening_stack,
         position_to_update=first_item,
@@ -334,11 +333,11 @@ def test_coarsening_stack_3d():
     )
     expected_index_stack_after_update = [
         None,
-        {SameIndexAs(42)},
+        {42},
         None,
-        {SameIndexAs(42)},
+        {42},
         None,
-        {SameIndexAs(42)},
+        {42},
         None,
     ]
     expected_index_stack_after_update.reverse()

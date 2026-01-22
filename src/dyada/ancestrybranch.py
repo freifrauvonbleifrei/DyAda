@@ -18,7 +18,6 @@ from dyada.discretization import Discretization, branch_to_location_code
 from dyada.linearization import (
     CoarseningStack,
     LocationCode,
-    SameIndexAs,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     MortonOrderLinearization,
@@ -114,7 +113,7 @@ class AncestryBranch:
         self.current_track_token: AncestryBranch.TrackToken = -1
         assert len(self.ancestry) == self._initial_branch_depth - 1
         self.missed_mappings: defaultdict[
-            int, set[SameIndexAs | AncestryBranch.TrackToken]
+            int, set[AncestryBranch.TrackToken]
         ] = defaultdict(set)
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
@@ -211,7 +210,7 @@ class AncestryBranch:
     class WeAreDoneAndHereAreTheMissingRelationships(Exception):
         def __init__(
             self,
-            mapping: dict[int, set[Union[SameIndexAs, "AncestryBranch.TrackToken"]]],
+            mapping: dict[int, set[Union["AncestryBranch.TrackToken"]]],
         ):
             self.missing_mapping = mapping
             super().__init__()
@@ -221,7 +220,7 @@ class AncestryBranch:
             self._current_modified_branch.advance_branch(self._initial_branch_depth)
         except IndexError as e:
             # check if all relationships from coarsening tracking are exhausted
-            mapping: dict[int, set[Union[SameIndexAs, "AncestryBranch.TrackToken"]]] = (
+            mapping: dict[int, set[Union["AncestryBranch.TrackToken"]]] = (
                 {}
             )
             hint_previous_branch = None

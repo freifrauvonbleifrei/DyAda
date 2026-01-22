@@ -141,16 +141,11 @@ def location_code_from_branch(branch, linearization: Linearization) -> LocationC
     )
 
 
-@dataclass(frozen=True)
-class SameIndexAs:
-    old_index: int
-
-
 @dataclass
 class DimensionSeparatedLocalPosition:
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
-    same_index_as: set[SameIndexAs | int] | None = None
+    same_index_as: set[int] | None = None
 
     @property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
@@ -279,7 +274,7 @@ def get_initial_coarsen_refine_stack(
 def inform_same_remaining_position_about_index(
     coarsening_stack: CoarseningStack,
     position_to_update: DimensionSeparatedLocalPosition,
-    mapped_to_indices: set[SameIndexAs | int],
+    mapped_to_indices: set[int],
 ) -> None:
     for i, entry in enumerate(coarsening_stack):
         if entry.remaining_positions == position_to_update.remaining_positions:
