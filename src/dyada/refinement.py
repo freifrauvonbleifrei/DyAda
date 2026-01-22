@@ -22,6 +22,7 @@ from dyada.descriptor import (
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
+from dyada.linearization import location_code_from_branch, TrackToken
 from dyada.structure import get_defaultdict_for_markers
 
 
@@ -270,7 +271,7 @@ class PlannedAdaptiveRefinement:
         ancestrybranch = AncestryBranch(
             self._discretization, starting_index, proxy_markers
         )
-        map_tracking_tokens_to_new_indices: dict[int, int] = {}
+        map_tracking_tokens_to_new_indices: dict[TrackToken, int] = {}
 
         while True:
             current_new_index = len(new_descriptor)
@@ -306,9 +307,7 @@ class PlannedAdaptiveRefinement:
                     for key, same_missing_indices in sorted(e.missing_mapping.items()):
                         missing_mappings[key] = set()
                         for same_missing_index in same_missing_indices:
-                            assert isinstance(
-                                same_missing_index, AncestryBranch.TrackToken
-                            )
+                            assert isinstance(same_missing_index, TrackToken)
                             missing_mappings[key].add(
                                 map_tracking_tokens_to_new_indices[same_missing_index]
                             )

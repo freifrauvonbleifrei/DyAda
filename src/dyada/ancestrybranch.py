@@ -17,6 +17,7 @@ from dyada.descriptor import (
 from dyada.discretization import Discretization, branch_to_location_code
 from dyada.linearization import (
     CoarseningStack,
+    TrackToken,
     LocationCode,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
@@ -42,7 +43,6 @@ class AncestryBranch:
     """
 
     TrackInfo: TypeAlias = CoarseningStack
-    TrackToken: TypeAlias = int
 
     def get_initial_track_info(
         self,
@@ -107,22 +107,20 @@ class AncestryBranch:
 
         # the ancestry, in old indices but new relationships
         self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
-        self.old_indices_map_track_tokens: defaultdict[int, list[int]] = defaultdict(
-            list
+        self.old_indices_map_track_tokens: defaultdict[int, list[TrackToken]] = (
+            defaultdict(list)
         )
-        self.current_track_token: AncestryBranch.TrackToken = -1
+        self.current_track_token: TrackToken = TrackToken(-1)
         assert len(self.ancestry) == self._initial_branch_depth - 1
-        self.missed_mappings: defaultdict[
-            int, set[AncestryBranch.TrackToken]
-        ] = defaultdict(set)
+        self.missed_mappings: defaultdict[int, set[TrackToken]] = (
+            defaultdict(set)
+        )
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
     def get_current_location_info(
         self,
-    ) -> tuple[
-        int, "AncestryBranch.TrackToken", ba.frozenbitarray, npt.NDArray[np.int8]
-    ]:
-        self.current_track_token += 1
+    ) -> tuple[int, TrackToken, ba.frozenbitarray, npt.NDArray[np.int8]]:
+        self.current_track_token = TrackToken(self.current_track_token.t + 1)
         # get the currently desired location info
         current_old_index = 0
         intermediate_generation: set[int] = set()
@@ -210,7 +208,7 @@ class AncestryBranch:
     class WeAreDoneAndHereAreTheMissingRelationships(Exception):
         def __init__(
             self,
-            mapping: dict[int, set[Union["AncestryBranch.TrackToken"]]],
+            mapping: dict[int, set[TrackToken]],
         ):
             self.missing_mapping = mapping
             super().__init__()
@@ -220,9 +218,7 @@ class AncestryBranch:
             self._current_modified_branch.advance_branch(self._initial_branch_depth)
         except IndexError as e:
             # check if all relationships from coarsening tracking are exhausted
-            mapping: dict[int, set[Union["AncestryBranch.TrackToken"]]] = (
-                {}
-            )
+            mapping: dict[int, set[TrackToken]] = {}
             hint_previous_branch = None
             for key, track_info in sorted(self.track_info_mapping.items()):
                 ancestor_branch = self._discretization.descriptor.get_branch(
