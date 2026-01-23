@@ -18,6 +18,7 @@ from dyada.coordinates import (
     coordinate_from_sequence,
     CoordinateInterval,
     location_code_from_float,
+    location_code_from_coordinate,
 )
 
 from dyada.descriptor import (
@@ -29,6 +30,7 @@ from dyada.descriptor import (
 from dyada.linearization import (
     Linearization,
     MortonOrderLinearization,
+    LocationCode,
 )
 
 
@@ -131,60 +133,16 @@ class Discretization:
 
         while len(coordinates_to_find - coordinates_found) > 0:
             coordinate = (coordinates_to_find - coordinates_found).pop()
-            # traverse the tree
-            # start at the root, coordinate has to be in the patch
-            current_branch = Branch(self._descriptor.get_num_dimensions())
-            history_of_indices, history_of_level_increments = (
-                current_branch.to_history()
+            location_code = location_code_from_coordinate(coordinate)
+            found_index, found_part_of_location_code = (
+                self.get_box_index_from_location_code(location_code)
             )
+            found_box_indices.add(found_index)
+            coordinates_found.add(coordinate)
 
-            location_code = [location_code_from_float(c) for c in coordinate]
-            found_part_of_location_code = [0 for i in range(len(coordinate))]
-
-            box_index = -1
-            descriptor_iterator = iter(self._descriptor)
-            while True:
-                current_refinement = next(descriptor_iterator)
-                # go deeper in the branch where the coordinate is
-                current_branch.grow_branch(current_refinement)
-                if current_refinement == self._descriptor.d_zeros:
-                    # found!
-                    box_index += 1
-                    found_box_indices.add(box_index)
-                    coordinates_found.add(tuple(coordinate))  # type: ignore
-                    # assert (
-                    #     found_part_of_location_code
-                    #     == get_level_index_from_linear_index(
-                    #         self._linearization, self._descriptor, box_index
-                    #     ).d_level
-                    # ).all()  # removed, as it may be costly (but should be true nonetheless)
-                    break
-
-                history_of_level_increments.append(current_refinement)
-
-                # increment the found part at these indices where refinement is 1
-                new_binary_position = ba.bitarray([0] * len(coordinate))
-                for i, bitarray_i in enumerate(current_refinement):
-                    if bitarray_i:
-                        new_binary_position[i] = location_code[i][
-                            found_part_of_location_code[i]
-                        ]
-                        found_part_of_location_code[i] += 1
-
-                child_index = self._linearization.get_index_from_binary_position(
-                    new_binary_position, history_of_indices, history_of_level_increments
-                )
-                history_of_indices.append(child_index)
-
-                for _ in range(child_index):
-                    # skip the children where the coordinate is not in the patch
-                    current_refinement = next(descriptor_iterator)
-                    box_index += self._descriptor.skip_to_next_neighbor(
-                        descriptor_iterator, current_refinement
-                    )[0]
-                    current_branch.advance_branch()
             # check if the coordinate could also be in another box
-            # this is the case if there are only zeros left in the location_code behind the respective counted levels
+            # this is the case if there are only zeros left
+            # in the location_code behind the respective counted levels
             ambiguous_dimensions = [
                 location_code[i].count() > 0
                 and location_code[i][found_part_of_location_code[i] :].count() == 0
@@ -205,6 +163,55 @@ class Discretization:
             if len(found_box_indices) > 1
             else found_box_indices.pop()
         )
+
+    def get_box_index_from_location_code(
+        self, location_code: LocationCode
+    ) -> tuple[int, list[int]]:
+        # traverse the tree
+        # start at the root, coordinate has to be in the patch
+        current_branch = Branch(self._descriptor.get_num_dimensions())
+        history_of_indices, history_of_level_increments = current_branch.to_history()
+
+        found_part_of_location_code = [0 for _ in location_code]
+        box_index = -1
+        descriptor_iterator = iter(self._descriptor)
+        while True:
+            current_refinement = next(descriptor_iterator)
+            # go deeper in the branch where the coordinate is
+            current_branch.grow_branch(current_refinement)
+            if current_refinement == self._descriptor.d_zeros:
+                # found box!
+                box_index += 1
+                # assert (
+                #     found_part_of_location_code
+                #     == get_level_index_from_linear_index(
+                #         self._linearization, self._descriptor, box_index
+                #     ).d_level
+                # ).all()  # removed, as it may be costly (but should be true nonetheless)
+                return box_index, found_part_of_location_code
+            history_of_level_increments.append(current_refinement)
+
+            # increment the found part at these indices where refinement is 1
+            new_binary_position = ba.bitarray([0] * len(location_code))
+            for i, bitarray_i in enumerate(current_refinement):
+                if bitarray_i:
+                    new_binary_position[i] = location_code[i][
+                        found_part_of_location_code[i]
+                    ]
+                    found_part_of_location_code[i] += 1
+
+            child_index = self._linearization.get_index_from_binary_position(
+                new_binary_position, history_of_indices, history_of_level_increments
+            )
+            history_of_indices.append(child_index)
+
+            for _ in range(child_index):
+                # skip the children where the coordinate is not in the patch
+                current_refinement = next(descriptor_iterator)
+                box_index += self._descriptor.skip_to_next_neighbor(
+                    descriptor_iterator, current_refinement
+                )[0]
+                current_branch.advance_branch()
 
     class NoExactMatchError(Exception):
         def __init__(self, closest_match: int):
