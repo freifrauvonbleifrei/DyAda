@@ -4,6 +4,7 @@
 
 import bitarray as ba
 import bitarray.util
+import struct
 import dataclasses
 from functools import lru_cache
 import numpy as np
@@ -125,12 +126,12 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
 
 
 def location_code_from_coordinate(coordinate: Coordinate) -> LocationCode:
-    return LocationCode(location_code_from_float(c) for c in coordinate)
+    return LocationCode(location_code_from_float(co) for co in coordinate)
 
 
 def coordinate_from_location_code(location_code: LocationCode) -> Coordinate:
     return coordinate_from_sequence(
-        [float_from_location_code(l) for l in location_code]
+        [float_from_location_code(lc) for lc in location_code]
     )
 
 
@@ -155,14 +156,6 @@ def location_code_from_level_index(level_index: LevelIndex) -> list[ba.bitarray]
             bits = ba.bitarray("")  # level 0 has empty location code
         else:
             bits = bitarray.util.int2ba(int(d_index), length=int(d_level))
-        location_code.append(bits)
-    return location_code
-
-
-def location_code_from_coordinate(coordinate: Coordinate) -> list[ba.bitarray]:
-    location_code = []
-    for c in coordinate:
-        bits = location_code_from_float(c)
         location_code.append(bits)
     return location_code
 
