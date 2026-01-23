@@ -4,7 +4,6 @@
 
 import bitarray as ba
 import bitarray.util
-import struct
 import dataclasses
 from functools import lru_cache
 import numpy as np
@@ -129,12 +128,6 @@ def location_code_from_coordinate(coordinate: Coordinate) -> LocationCode:
     return LocationCode(location_code_from_float(co) for co in coordinate)
 
 
-def coordinate_from_location_code(location_code: LocationCode) -> Coordinate:
-    return coordinate_from_sequence(
-        [float_from_location_code(lc) for lc in location_code]
-    )
-
-
 def level_index_from_location_code(location_code: list[ba.bitarray]) -> LevelIndex:
     d_level = []
     d_index = []
@@ -194,21 +187,6 @@ def location_code_from_float(value):
     # exponent represented as 2-complement
     assert bitarray.util.ba2int(exponent) == 2 ** (len(exponent) - 1) - 1
     return mantissa
-
-
-def float_from_location_code(one_d_location_code: ba.frozenbitarray) -> float:
-    if len(one_d_location_code) > 22:
-        raise ValueError("location code longer than 22 bits!")
-
-    def bin_to_float(b: ba.bitarray):
-        """Convert bitarray to a float."""
-        # cf. https://stackoverflow.com/a/8762541/7272382
-        bf = int.from_bytes(b.tobytes()).to_bytes(8)  # 8 bytes needed for IEEE float32
-        return struct.unpack(">d", bf)[0]
-
-    raw_bits = ba.frozenbitarray("001111111111") + one_d_location_code
-
-    return bin_to_float(raw_bits)
 
 
 def bitarray_startswith(
