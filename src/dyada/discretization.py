@@ -181,7 +181,6 @@ class Discretization:
         if get_box:
             box_index = -1
         else:
-            # return self.get_index_from_location_code_(location_code)
             previous_patch_index = 0
             patch_index = 0
         descriptor_iterator = iter(self._descriptor)

@@ -246,7 +246,7 @@ class AncestryBranch:
 
                     missed_descendant_index = (
                         self._discretization.get_index_from_location_code(
-                            missed_descendant_location_code
+                            missed_descendant_location_code, get_box=False
                         )
                     )
                     if index.same_index_as is None:
