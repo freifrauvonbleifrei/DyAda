@@ -244,10 +244,8 @@ class AncestryBranch:
                             index.local_position[d]
                         )
 
-                    missed_descendant_index = (
-                        self._discretization.get_index_from_location_code(
-                            missed_descendant_location_code, get_box=False
-                        )
+                    missed_descendant_index = self._discretization.get_index_from_location_code(
+                        missed_descendant_location_code, get_box=False  # type: ignore
                     )
                     if index.same_index_as is None:
                         assert self._discretization.descriptor[  # TODO drop this assert
@@ -258,10 +256,11 @@ class AncestryBranch:
                                 self._discretization.descriptor.get_num_dimensions()
                             )
                         )
-                        map_to = set(self.old_indices_map_track_tokens[key])
+                        map_to = set(self.old_indices_map_track_tokens[key])  # TODO!
                     else:
                         map_to = index.same_index_as
 
+                    assert isinstance(missed_descendant_index, int)
                     mapping.setdefault(missed_descendant_index, set()).update(map_to)
 
             # add all the not yet adequately tracked results too
