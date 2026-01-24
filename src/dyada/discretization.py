@@ -135,7 +135,7 @@ class Discretization:
             coordinate = (coordinates_to_find - coordinates_found).pop()
             location_code = location_code_from_coordinate(coordinate)
             found_index, found_part_of_location_code = (
-                self.get_box_index_from_location_code(location_code)
+                self.get_index_from_location_code(location_code, get_box=True)  # type: ignore
             )
             found_box_indices.add(found_index)
             coordinates_found.add(coordinate)
@@ -164,40 +164,68 @@ class Discretization:
             else found_box_indices.pop()
         )
 
-    def get_box_index_from_location_code(
-        self, location_code: LocationCode
-    ) -> tuple[int, list[int]]:
+    class NoExactMatchError(Exception):
+        def __init__(self, closest_match: int):
+            super().__init__()
+            self.closest_match = closest_match
+
+    def get_index_from_location_code(
+        self, location_code: LocationCode, get_box: bool
+    ) -> int | tuple[int, list[int]]:
         # traverse the tree
         # start at the root, coordinate has to be in the patch
         current_branch = Branch(self._descriptor.get_num_dimensions())
         history_of_indices, history_of_level_increments = current_branch.to_history()
 
         found_part_of_location_code = [0 for _ in location_code]
-        box_index = -1
+        if get_box:
+            box_index = -1
+        else:
+            # return self.get_index_from_location_code_(location_code)
+            previous_patch_index = 0
+            patch_index = 0
         descriptor_iterator = iter(self._descriptor)
         while True:
             current_refinement = next(descriptor_iterator)
+            if not get_box:
+                if all(
+                    num_found_bits >= len(location_code[d])
+                    for d, num_found_bits in enumerate(found_part_of_location_code)
+                ):
+                    # found all!
+                    return patch_index
             # go deeper in the branch where the coordinate is
             current_branch.grow_branch(current_refinement)
+
             if current_refinement == self._descriptor.d_zeros:
-                # found box!
-                box_index += 1
-                # assert (
-                #     found_part_of_location_code
-                #     == get_level_index_from_linear_index(
-                #         self._linearization, self._descriptor, box_index
-                #     ).d_level
-                # ).all()  # removed, as it may be costly (but should be true nonetheless)
-                return box_index, found_part_of_location_code
+                if get_box:
+                    # found box!
+                    box_index += 1
+                    # assert (
+                    #     found_part_of_location_code
+                    #     == get_level_index_from_linear_index(
+                    #         self._linearization, self._descriptor, box_index
+                    #     ).d_level
+                    # ).all()  # removed, as it may be costly (but should be true nonetheless)
+                    return box_index, found_part_of_location_code
+                else:
+                    assert False, "box should have been found here"
             history_of_level_increments.append(current_refinement)
 
             # increment the found part at these indices where refinement is 1
             new_binary_position = ba.bitarray([0] * len(location_code))
             for i, bitarray_i in enumerate(current_refinement):
                 if bitarray_i:
-                    new_binary_position[i] = location_code[i][
-                        found_part_of_location_code[i]
-                    ]
+                    actually_too_short = (
+                        len(location_code[i]) <= found_part_of_location_code[i]
+                    )
+                    if actually_too_short and not get_box:
+                        raise Discretization.NoExactMatchError(previous_patch_index)
+                    new_binary_position[i] = (
+                        0
+                        if actually_too_short
+                        else location_code[i][found_part_of_location_code[i]]
+                    )
                     found_part_of_location_code[i] += 1
 
             child_index = self._linearization.get_index_from_binary_position(
@@ -205,66 +233,22 @@ class Discretization:
             )
             history_of_indices.append(child_index)
 
+            if not get_box:
+                previous_patch_index = patch_index
             for _ in range(child_index):
                 # skip the children where the coordinate is not in the patch
                 current_refinement = next(descriptor_iterator)
-                box_index += self._descriptor.skip_to_next_neighbor(
-                    descriptor_iterator, current_refinement
-                )[0]
+                if get_box:
+                    box_index += self._descriptor.skip_to_next_neighbor(
+                        descriptor_iterator, current_refinement
+                    )[0]
+                else:
+                    patch_index += self._descriptor.skip_to_next_neighbor(
+                        descriptor_iterator, current_refinement
+                    )[1]
                 current_branch.advance_branch()
-
-    class NoExactMatchError(Exception):
-        def __init__(self, closest_match: int):
-            super().__init__()
-            self.closest_match = closest_match
-
-    def get_index_from_location_code(self, location_code: list[ba.bitarray]) -> int:
-        # we avoid tracking the histories for now
-        assert self._linearization == MortonOrderLinearization()
-
-        found_part_of_location_code = [0 for _ in range(len(location_code))]
-        current_branch = Branch(self._descriptor.get_num_dimensions())
-        previous_patch_index = 0
-        patch_index = 0
-        descriptor_iterator = iter(self._descriptor)
-        while True:
-            current_refinement = next(descriptor_iterator)
-            if all(
-                bp == len(location_code[d])
-                for d, bp in enumerate(found_part_of_location_code)
-            ):
-                # found all!
-                return patch_index
-
-            assert current_refinement.count() > 0, "box should have been found here"
-            # go deeper in the branch where the coordinate is
-            current_branch.grow_branch(current_refinement)
-
-            # increment "found" at these indices where refinement is 1
-            new_binary_position = ba.bitarray([0] * len(current_refinement))
-            for i, bitarray_i in enumerate(current_refinement):
-                if bitarray_i:
-                    if len(location_code[i]) <= found_part_of_location_code[i]:
-                        raise Discretization.NoExactMatchError(previous_patch_index)
-                    new_binary_position[i] = location_code[i][
-                        found_part_of_location_code[i]
-                    ]
-                    found_part_of_location_code[i] += 1
-
-            # may raise error if not matching
-            child_index = self._linearization.get_index_from_binary_position(
-                new_binary_position, [], [current_refinement]
-            )
-
-            previous_patch_index = patch_index
-            for _ in range(child_index):
-                # skip the children where the coordinate is not in the patch
-                current_refinement = next(descriptor_iterator)
-                patch_index += self._descriptor.skip_to_next_neighbor(
-                    descriptor_iterator, current_refinement
-                )[1]
-                current_branch.advance_branch()
-            patch_index += 1
+            if not get_box:
+                patch_index += 1
 
     def slice(
         self,
