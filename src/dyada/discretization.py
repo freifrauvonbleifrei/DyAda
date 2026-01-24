@@ -181,7 +181,6 @@ class Discretization:
         if get_box:
             box_index = -1
         else:
-            previous_patch_index = 0
             patch_index = 0
         descriptor_iterator = iter(self._descriptor)
         while True:
@@ -208,7 +207,7 @@ class Discretization:
                     # ).all()  # removed, as it may be costly (but should be true nonetheless)
                     return box_index, found_part_of_location_code
                 else:
-                    assert False, "box should have been found here"
+                    raise Discretization.NoExactMatchError(patch_index)
             history_of_level_increments.append(current_refinement)
 
             # increment the found part at these indices where refinement is 1
@@ -219,7 +218,7 @@ class Discretization:
                         len(location_code[i]) <= found_part_of_location_code[i]
                     )
                     if actually_too_short and not get_box:
-                        raise Discretization.NoExactMatchError(previous_patch_index)
+                        raise Discretization.NoExactMatchError(patch_index)
                     new_binary_position[i] = (
                         0
                         if actually_too_short
@@ -232,8 +231,6 @@ class Discretization:
             )
             history_of_indices.append(child_index)
 
-            if not get_box:
-                previous_patch_index = patch_index
             for _ in range(child_index):
                 # skip the children where the coordinate is not in the patch
                 current_refinement = next(descriptor_iterator)
