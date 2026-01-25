@@ -493,7 +493,7 @@ class PlannedAdaptiveRefinement:
         index_mapping: list[set[int]],
         old_discretization: Discretization,
         new_discretization: Discretization,
-    ):  # -> list[set[int]]:
+    ) -> None:
         # in case there were refinements at non-leaves, it might be that some mappings are not accurate
         # -> we check out all the location codes in the part of the old descriptor that were changed
         # and see if there's a better match in the new descriptor
@@ -536,17 +536,17 @@ class PlannedAdaptiveRefinement:
                                     oldest_that_influences = depth
                                     break
                             youngest_that_influences = len(unmodified_branch) - 1
-                            for depth in range(to_modify_depth + 1, len(unmodified_branch)):
+                            for depth in range(
+                                to_modify_depth + 1, len(unmodified_branch)
+                            ):
                                 if old_ancestry_exact[depth]:
                                     youngest_that_influences = depth - 1
                                     break
 
-                        influencing = list(
-                            filter(  # TODO rm list
-                                lambda k: k >= oldest_that_influences
-                                and k <= youngest_that_influences,
-                                index_reverse_replace_map.keys(),
-                            )
+                        influencing = filter(
+                            lambda k: k >= oldest_that_influences
+                            and k <= youngest_that_influences,
+                            index_reverse_replace_map.keys(),
                         )
                         for depth in influencing:
                             assert initial_branch_depth - 1 <= depth

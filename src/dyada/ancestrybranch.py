@@ -112,9 +112,7 @@ class AncestryBranch:
         )
         self.current_track_token: TrackToken = TrackToken(-1)
         assert len(self.ancestry) == self._initial_branch_depth - 1
-        self.missed_mappings: defaultdict[int, set[TrackToken]] = (
-            defaultdict(set)
-        )
+        self.missed_mappings: defaultdict[int, set[TrackToken]] = defaultdict(set)
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
     def get_current_location_info(
