@@ -526,16 +526,20 @@ class PlannedAdaptiveRefinement:
                     ):
                         assert len(old_ancestry) == len(unmodified_branch)
                         to_modify_index = old_ancestry[to_modify_depth]
-                        oldest_that_influences = initial_branch_depth - 1
-                        for depth in range(to_modify_depth, -1, -1):
-                            if old_ancestry_exact[depth]:
-                                oldest_that_influences = depth
-                                break
-                        youngest_that_influences = len(unmodified_branch) - 1
-                        for depth in range(to_modify_depth + 1, len(unmodified_branch)):
-                            if old_ancestry_exact[depth]:
-                                youngest_that_influences = depth - 1
-                                break
+                        if old_ancestry_exact[to_modify_depth]:
+                            youngest_that_influences = to_modify_depth
+                            oldest_that_influences = to_modify_depth
+                        else:
+                            oldest_that_influences = initial_branch_depth - 1
+                            for depth in range(to_modify_depth, -1, -1):
+                                if old_ancestry_exact[depth]:
+                                    oldest_that_influences = depth
+                                    break
+                            youngest_that_influences = len(unmodified_branch) - 1
+                            for depth in range(to_modify_depth + 1, len(unmodified_branch)):
+                                if old_ancestry_exact[depth]:
+                                    youngest_that_influences = depth - 1
+                                    break
 
                         influencing = list(
                             filter(  # TODO rm list
