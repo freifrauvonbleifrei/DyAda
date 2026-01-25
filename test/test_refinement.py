@@ -109,7 +109,7 @@ def helper_check_mapping(
     new_discretization: Discretization,
     mapping_indices_are_boxes=True,
     tested_refinement=None,
-):
+) -> None:
     if mapping_indices_are_boxes:
         return helper_check_box_mapping(
             index_mapping, old_discretization, new_discretization, tested_refinement
@@ -135,25 +135,16 @@ def helper_check_mapping(
         old_coordinates = coordinates_from_index(
             old_discretization, b, mapping_indices_are_boxes
         )
-        if len(mapped_to_indices) == 1:
-            # make sure the coordinates are correct
-            (mapped_to_index,) = mapped_to_indices
-            assert (
-                coordinates_from_index(
-                    new_discretization, mapped_to_index, mapping_indices_are_boxes
-                )
-                == old_coordinates
-            )
-        else:
-            # the smallest of the mapped_to_indices' interval should cover the old interval
-            most_senior_mapped_to = min(mapped_to_indices)
-            new_coordinates = coordinates_from_index(
-                new_discretization,
-                most_senior_mapped_to,
-                mapping_indices_are_boxes,
-            )
-            assert np.all(new_coordinates.lower_bound <= old_coordinates.lower_bound)
-            assert np.all(old_coordinates.upper_bound <= new_coordinates.upper_bound)
+        # the smallest of the mapped_to_indices' interval should cover the old interval
+        most_senior_mapped_to = min(mapped_to_indices)
+        new_coordinates = coordinates_from_index(
+            new_discretization,
+            most_senior_mapped_to,
+            mapping_indices_are_boxes,
+        )
+        assert np.all(new_coordinates.lower_bound <= old_coordinates.lower_bound)
+        assert np.all(old_coordinates.upper_bound <= new_coordinates.upper_bound)
+        if len(mapped_to_indices) > 1:
             # and this should not be true for the second
             second_most_senior_mapped_to = sorted(mapped_to_indices)[1]
             new_coordinates = coordinates_from_index(
@@ -235,6 +226,15 @@ def test_refine_simplest_grandchild_split():
     new_discretization, index_mapping = p.create_new_discretization(
         track_mapping="boxes"
     )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 4))
+        == """\
+_________
+|   | | |
+|___| | |
+|   | | |
+|___|_|_|"""
+    )
     new_descriptor = new_discretization.descriptor
     assert new_descriptor._data == ba.bitarray("10010000100000")
     assert validate_descriptor(new_descriptor)
@@ -262,8 +262,17 @@ def test_refine_simplest_grandchild_split():
     new_discretization_2, index_mapping_2 = p.create_new_discretization(
         track_mapping="patches"
     )
+    assert (
+        discretization_to_2d_ascii(new_discretization_2, resolution=(8, 4))
+        == """\
+_________
+|   | | |
+|___|_|_|
+|   | | |
+|___|_|_|"""
+    )
     new_descriptor_2 = new_discretization_2.descriptor
-    assert new_descriptor_2._data == ba.bitarray("110010000000100000")
+    assert new_descriptor_2._data == ba.bitarray("11 00 10 00 00 00 10 00 00")
     assert validate_descriptor(new_descriptor_2)
     helper_check_mapping(
         index_mapping_2,
@@ -271,6 +280,18 @@ def test_refine_simplest_grandchild_split():
         new_discretization_2,
         mapping_indices_are_boxes=False,
     )
+    expected_index_mapping_2 = {
+        0: {0},
+        1: {0},
+        2: {1},
+        3: {5},
+        4: {0, 2, 6},
+        5: {0, 2, 6, 3, 7},
+        6: {0, 2, 4, 6, 8},
+    }
+    assert index_mapping_2 == [
+        expected_index_mapping_2[i] for i in range(len(expected_index_mapping_2))
+    ]
 
 
 def test_refine_grandchild_split():
@@ -450,7 +471,7 @@ _________________
     assert box_mapping == list(expected_box_mapping.values())
     expected_index_mapping = {
         0: {0},
-        1: {0, 1, 7},
+        1: {0},
         2: {1},
         3: {7},
         4: {0, 2, 8},
@@ -592,10 +613,10 @@ _________________
         {0},
         {1},
         {2},
-        {2, 3, 5},
+        {2},
         {3},
         {5},
-        {2, 4, 6},
+        {2},
         {4},
         {6},
         {7},
@@ -698,8 +719,8 @@ _________________________________
     expected_patch_mapping = {
         0: {0},
         1: {0, 1, 17},
-        2: {0, 1, 2, 12, 17, 18},
-        3: {1, 2, 12},
+        2: {0, 1, 2, 17},
+        3: {1, 2},
         4: {2},
         5: {3},
         6: {4},
@@ -708,21 +729,21 @@ _________________________________
         9: {12},
         10: {18},
         11: {0, 1, 7, 13, 17, 19},
-        12: {0, 1, 7, 8, 10, 13, 14, 17, 19, 20},
-        13: {1, 7, 8, 10, 13, 14},
-        14: {7, 8, 10},
+        12: {0, 1, 7, 13, 17, 19},
+        13: {1, 7, 13},
+        14: {7},
         15: {8},
         16: {10},
         17: {14},
         18: {20},
-        19: {0, 1, 7, 9, 11, 13, 15, 17, 19, 21},
-        20: {1, 7, 9, 11, 13, 15},
-        21: {7, 9, 11},
+        19: {0, 1, 7, 13, 17, 19},
+        20: {1, 7, 13},
+        21: {7},
         22: {9},
         23: {11},
         24: {15},
         25: {21},
-        26: {0, 16, 22},
+        26: {0},
         27: {16},
         28: {22},
     }
@@ -911,7 +932,7 @@ def test_refine_3d_3():
         0: {0},
         1: {0, 1, 2, 13, 14},
         2: {0, 3, 10, 15, 18},
-        3: {3},
+        3: {3, 4, 7},
         4: {4, 5, 6},
         5: {7, 8, 9},
         6: {10},
@@ -968,8 +989,8 @@ def test_refine_3d_5():
     new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
     expected_patch_mapping = {
         0: {0},
-        1: {0, 1, 2, 3, 4},
-        2: {0, 1, 2},
+        1: {0, 3, 4},
+        2: {0},
         3: {1},
         4: {2},
         5: {0, 3, 4},

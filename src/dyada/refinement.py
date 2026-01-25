@@ -466,7 +466,6 @@ class PlannedAdaptiveRefinement:
             self.correct_index_mapping(
                 self._index_mapping, self._discretization, new_discretization
             )
-            pass
         else:
             raise ValueError(
                 "track_mapping must be either 'boxes' or 'patches', got "
@@ -517,6 +516,7 @@ class PlannedAdaptiveRefinement:
             old_ancestry_exact = list(True for _ in old_ancestry)
             index_reverse_replace_map: dict[int, dict[int, set[int]]] = {}
             index_to_consider = marked_ancestor_index
+            leaves_to_forget_except: dict[int, int] = {}
             while True:
                 # immediately move to next index to consider (first will be OK)
                 if old_descriptor.is_box(index_to_consider):
@@ -607,12 +607,21 @@ class PlannedAdaptiveRefinement:
                     index_reverse_replace_map[len(unmodified_branch) - 1] = {
                         matching_index: should_be_replaced
                     }
+                    if old_descriptor.is_box(
+                        index_to_consider
+                    ) and new_discretization.descriptor.is_box(matching_index):
+                        leaves_to_forget_except[matching_index] = index_to_consider
                 else:
                     # replace only here
                     index_mapping[index_to_consider].add(matching_index)
                     index_mapping[index_to_consider].difference_update(
                         should_be_replaced
                     )
+            # forget the leaves that can remember themselves
+            for index in range(marked_ancestor_index, one_after_last_considered_index):
+                for new_leaf_index, old_leaf_index in leaves_to_forget_except.items():
+                    if index != old_leaf_index:
+                        index_mapping[index].discard(new_leaf_index)
 
 
 def apply_single_refinement(
