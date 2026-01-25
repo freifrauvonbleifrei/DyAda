@@ -9,8 +9,6 @@ from os.path import abspath
 
 from dyada.coordinates import (
     location_code_from_level_index,
-    # location_code_from_coordinate,
-    # coordinate_from_location_code,
 )
 
 from dyada.descriptor import (
