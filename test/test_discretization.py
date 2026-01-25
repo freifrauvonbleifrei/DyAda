@@ -24,8 +24,6 @@ from dyada.discretization import (
 )
 from dyada.linearization import MortonOrderLinearization
 
-from icecream import ic
-
 
 def test_get_level_index():
     r = Discretization(MortonOrderLinearization(), RefinementDescriptor(2, [1, 2]))
