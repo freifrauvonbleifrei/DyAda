@@ -6,7 +6,6 @@ import bitarray as ba
 from collections import defaultdict
 import numpy as np
 import numpy.typing as npt
-from types import MappingProxyType
 from typing import Sequence, TypeAlias, Union
 
 from dyada.coordinates import bitarray_startswith
@@ -26,6 +25,7 @@ from dyada.linearization import (
     location_code_from_branch,
     inform_same_remaining_position_about_index,
 )
+from dyada.markers import MarkersMapProxyType
 
 
 class AncestryBranch:
@@ -82,7 +82,7 @@ class AncestryBranch:
         self,
         discretization: Discretization,
         starting_index: int,
-        markers: MappingProxyType[int, npt.NDArray[np.int8]],
+        markers: MarkersMapProxyType,
     ):
         self.markers = markers
         self._discretization = discretization
@@ -325,7 +325,7 @@ def refinement_with_marker_applied(
 
 def is_old_index_now_at_or_containing_location_code(
     discretization: Discretization,
-    markers: MappingProxyType[int, npt.NDArray[np.int8]],
+    markers: MarkersMapProxyType,
     desired_dimensionwise_positions: Sequence[ba.bitarray],
     parent_of_next_refinement: int,
     parent_branch: Branch,
@@ -334,7 +334,7 @@ def is_old_index_now_at_or_containing_location_code(
     """Check whether old_index is now at or containing the next hyperrectangular location code.
     Args:
         discretization (Discretization): the old discretization we're referring to
-        markers (MappingProxyType[int, npt.NDArray[np.int8]]): markers that should be applied to the old discretization
+        markers (MarkersMapProxyType): markers that should be applied to the old discretization
         desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
         parent_of_next_refinement (int): the current parent or other ancestor of the index we're looking for
         parent_branch (Branch): the branch corresponding to the parent_of_next_refinement
@@ -379,7 +379,7 @@ def is_old_index_now_at_or_containing_location_code(
 def old_node_will_be_contained_in_new_descriptor(
     descriptor: RefinementDescriptor,
     old_index: int,
-    markers: MappingProxyType[int, npt.NDArray[np.int8]],
+    markers: MarkersMapProxyType,
 ) -> bool:
     """Check whether the node at old_index will be contained in the new descriptor after applying markers.
 
@@ -394,14 +394,14 @@ def old_node_will_be_contained_in_new_descriptor(
 
 def find_next_twig(
     discretization: Discretization,
-    markers: MappingProxyType[int, npt.NDArray[np.int8]],
+    markers: MarkersMapProxyType,
     desired_dimensionwise_positions: Sequence[ba.frozenbitarray],
     parent_of_next_refinement: int,
 ) -> tuple[int, set[int], bool]:
     """Get the (old) tree node corresponding to the location code, and any nodes encountered on the way.
     Args:
         discretization (Discretization): the old discretization we're referring to
-        markers (MappingProxyType[int, npt.NDArray[np.int8]]): refinement markers that should be applied to the discretization
+        markers (MarkersMapProxyType): refinement markers that should be applied to the discretization
         desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
         parent_of_next_refinement (int): parent or other ancestor of the index we're looking for
     Returns:
