@@ -2,9 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from collections import Counter
 import bitarray as ba
-from math import prod
 import pytest
 
 from dyada.linearization import (
@@ -13,7 +11,6 @@ from dyada.linearization import (
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     inform_same_remaining_position_about_index,
-    sequence_repeater,
 )
 
 
@@ -157,40 +154,6 @@ def test_get_index_morton_order():
         ba.bitarray("111"), [], [level_increment]
     )
     assert position == 7
-
-
-def test_sequence_repeater():
-    sequence = [0, 1, 2, 3]
-    multipliers_exponents = [0, 1, 2]
-    multipliers = [2**exp for exp in multipliers_exponents]
-    expected_repeated_sequence = [
-        *(*(0, 1), *(0, 1), *(2, 3), *(2, 3)),
-        *(*(0, 1), *(0, 1), *(2, 3), *(2, 3)),
-        *(*(0, 1), *(0, 1), *(2, 3), *(2, 3)),
-        *(*(0, 1), *(0, 1), *(2, 3), *(2, 3)),
-    ]
-    repeated_sequence = sequence_repeater(sequence, multipliers)
-    count = Counter(repeated_sequence)
-    for key in count:
-        assert count[key] == prod(multipliers)
-    assert repeated_sequence == expected_repeated_sequence
-
-    other_multipliers_exponents = [2, 0, 1]
-    other_multipliers = [2**exp for exp in other_multipliers_exponents]
-    expected_other_repeated_sequence = [
-        *(0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3),
-        *(0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3),
-    ]
-    other_repeated_sequence = sequence_repeater(sequence, other_multipliers)
-    count = Counter(other_repeated_sequence)
-    for key in count:
-        assert count[key] == prod(other_multipliers)
-    assert other_repeated_sequence == expected_other_repeated_sequence
-
-    shrink_multipliers_exponents = [0, 1, -1]
-    shrink_multipliers = [2.0**exp for exp in shrink_multipliers_exponents]
-    repeated_sequence = sequence_repeater(sequence, shrink_multipliers)
-    assert repeated_sequence == [0, 1, 0, 1]
 
 
 def test_empty_coarsening_stack_initialization():

@@ -5,7 +5,6 @@
 from abc import ABC, abstractmethod
 import bitarray as ba
 from dataclasses import dataclass
-from more_itertools import grouper
 from typing import Sequence, TypeAlias
 
 from dyada.structure import copying_lru_cache
@@ -172,28 +171,6 @@ def indices_to_bitmask(
     indices: Sequence[int], num_dimensions: int
 ) -> ba.frozenbitarray:
     return ba.frozenbitarray(1 if i in indices else 0 for i in range(num_dimensions))
-
-
-def sequence_repeater(
-    sequence: Sequence, multipliers: Sequence[float] | Sequence[int]
-) -> list:
-    result = list(sequence)
-    block_size = 1
-    for m in multipliers:
-        assert m > 0.0
-        new_result: list = []
-        for block in grouper(result, block_size, incomplete="strict"):
-            if m >= 1.0:
-                assert m == int(m)
-                m = int(m)
-                new_result.extend(block * m)
-            else:
-                chunk_size = int(len(block) * m)
-                assert len(block) * m == chunk_size
-                new_result.extend(block[:chunk_size])
-        result = new_result
-        block_size = int(block_size * 2 * m)
-    return result
 
 
 @copying_lru_cache()
