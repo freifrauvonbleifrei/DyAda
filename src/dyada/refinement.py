@@ -532,9 +532,9 @@ class PlannedAdaptiveRefinement:
                                 oldest_that_influences = depth
                                 break
                         youngest_that_influences = len(unmodified_branch) - 1
-                        for depth in range(to_modify_depth, len(unmodified_branch)):
+                        for depth in range(to_modify_depth + 1, len(unmodified_branch)):
                             if old_ancestry_exact[depth]:
-                                youngest_that_influences = depth
+                                youngest_that_influences = depth - 1
                                 break
 
                         influencing = list(
