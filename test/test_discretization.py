@@ -5,9 +5,12 @@
 import pytest
 import bitarray as ba
 import numpy as np
+from os.path import abspath
 
 from dyada.coordinates import (
     location_code_from_level_index,
+    # location_code_from_coordinate,
+    # coordinate_from_location_code,
 )
 
 from dyada.descriptor import (
@@ -20,6 +23,8 @@ from dyada.discretization import (
     discretization_to_location_stack_strings,
 )
 from dyada.linearization import MortonOrderLinearization
+
+from icecream import ic
 
 
 def test_get_level_index():
@@ -161,7 +166,6 @@ def test_get_index_from_location_code_from_level_index_2d():
             location_code[0],
             location_code[1] + ba.bitarray("1"),
         )
-        ic(i, location_code, extended_location_code, other_extended_location_code)
         try:
             index = discretization.get_index_from_location_code(
                 other_extended_location_code, get_box=False
@@ -429,3 +433,8 @@ def test_stack():
         ("10", ""),
         ("11", ""),
     ]
+
+
+if __name__ == "__main__":
+    here = abspath(__file__)
+    pytest.main([here, "-s"])
