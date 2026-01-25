@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import bitarray as ba
-from collections import defaultdict
 import dataclasses
 from enum import auto, Enum
 from functools import lru_cache
