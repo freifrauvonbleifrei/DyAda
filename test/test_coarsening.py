@@ -76,7 +76,7 @@ _____
     )
     new_descriptor = new_discretization.descriptor
     assert new_descriptor._data == ba.bitarray("01 00 00")
-    expected_index_mapping = {0: {0}, 1: {0, 1}, 2: {0, 1}, 3: {0, 2}, 4: {0, 2}}
+    expected_index_mapping = {0: {0}, 1: {1}, 2: {1}, 3: {2}, 4: {2}}
     assert index_mapping == [
         expected_index_mapping[i] for i in range(len(expected_index_mapping))
     ]
@@ -94,7 +94,7 @@ _____
     new_descriptor = new_discretization.descriptor
     assert new_descriptor._data == ba.bitarray("10 00 00")
 
-    expected_index_mapping = {0: {0}, 1: {0, 1}, 2: {0, 2}, 3: {0, 1}, 4: {0, 2}}
+    expected_index_mapping = {0: {0}, 1: {1}, 2: {2}, 3: {1}, 4: {2}}
     assert index_mapping == [
         expected_index_mapping[i] for i in range(len(expected_index_mapping))
     ]
@@ -282,10 +282,10 @@ _____
     assert new_descriptor._data == ba.bitarray("10 01 00 00 00")
     expected_index_mapping = {
         0: {0},
-        1: {1, 2},
-        2: {0, 4},
-        3: {1, 3},
-        4: {0, 4},
+        1: {2},
+        2: {4},
+        3: {3},
+        4: {4},
     }
     assert index_mapping == [
         expected_index_mapping[i] for i in range(len(expected_index_mapping))

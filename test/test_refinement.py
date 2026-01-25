@@ -945,10 +945,10 @@ def test_refine_3d_4():
         0: {0},
         1: {0, 1, 2, 5, 6},
         2: {0, 3, 4, 7, 16},
-        3: {0, 3, 4},  # TODO not sure about all of these 0s from here on
-        4: {0, 7, 16},
-        5: {0, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-        6: {0, 16, 17, 18, 19, 20, 21, 22, 23, 24},
+        3: {3, 4},
+        4: {7, 16},
+        5: {7, 8, 9, 10, 11, 12, 13, 14, 15},
+        6: {16, 17, 18, 19, 20, 21, 22, 23, 24},
     }
     assert patch_mapping == [
         expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
