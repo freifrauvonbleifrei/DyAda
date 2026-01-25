@@ -54,7 +54,7 @@ def correct_index_mapping(
         old_ancestry_exact = list(True for _ in old_ancestry)
         index_reverse_replace_map: dict[int, dict[int, set[int]]] = {}
         index_to_consider = marked_ancestor_index
-        leaves_to_forget_except: dict[int, int] = {}
+        leaves_to_forget_except: list[tuple[int, int]] = []
         while True:
             # immediately move to next index to consider (first will be OK)
             if old_descriptor.is_box(index_to_consider):
@@ -64,10 +64,9 @@ def correct_index_mapping(
                 ):
                     assert len(old_ancestry) == len(unmodified_branch)
                     to_modify_index = old_ancestry[to_modify_depth]
-                    if old_ancestry_exact[to_modify_depth]:
-                        youngest_that_influences = to_modify_depth
-                        oldest_that_influences = to_modify_depth
-                    else:
+                    youngest_that_influences = to_modify_depth
+                    oldest_that_influences = to_modify_depth
+                    if not old_ancestry_exact[to_modify_depth]:
                         oldest_that_influences = initial_branch_depth - 1
                         for depth in range(to_modify_depth, -1, -1):
                             if old_ancestry_exact[depth]:
@@ -146,13 +145,13 @@ def correct_index_mapping(
                 if old_descriptor.is_box(
                     index_to_consider
                 ) and new_discretization.descriptor.is_box(matching_index):
-                    leaves_to_forget_except[matching_index] = index_to_consider
+                    leaves_to_forget_except.append((index_to_consider, matching_index))
             else:
                 # replace only here
                 index_mapping[index_to_consider].add(matching_index)
                 index_mapping[index_to_consider].difference_update(should_be_replaced)
         # forget the leaves that can remember themselves
         for index in range(marked_ancestor_index, one_after_last_considered_index):
-            for new_leaf_index, old_leaf_index in leaves_to_forget_except.items():
+            for old_leaf_index, new_leaf_index in leaves_to_forget_except:
                 if index != old_leaf_index:
                     index_mapping[index].discard(new_leaf_index)

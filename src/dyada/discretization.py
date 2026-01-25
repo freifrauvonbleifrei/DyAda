@@ -180,6 +180,7 @@ class Discretization:
         found_part_of_location_code = [0 for _ in location_code]
         if get_box:
             box_index = -1
+            patch_index = -1000  # unused
         else:
             patch_index = 0
         descriptor_iterator = iter(self._descriptor)
