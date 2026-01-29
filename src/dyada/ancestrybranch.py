@@ -20,7 +20,6 @@ from dyada.linearization import (
     LocationCode,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
-    MortonOrderLinearization,
     location_code_from_history,
     location_code_from_branch,
     inform_same_remaining_position_about_index,
