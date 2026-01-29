@@ -6,7 +6,6 @@ import bitarray as ba
 from collections import defaultdict
 from dataclasses import dataclass
 import numpy as np
-import numpy.typing as npt
 from typing import Sequence, TypeAlias, Union
 
 from dyada.coordinates import bitarray_startswith
@@ -26,7 +25,7 @@ from dyada.linearization import (
     location_code_from_branch,
     inform_same_remaining_position_about_index,
 )
-from dyada.markers import MarkersMapProxyType
+from dyada.markers import MarkerType, MarkersMapProxyType
 
 
 class AncestryBranch:
@@ -48,7 +47,7 @@ class AncestryBranch:
     def get_initial_track_info(
         self,
         current_refinement: ba.frozenbitarray,
-        markers: list[npt.NDArray[np.int8]],
+        markers: list[MarkerType],
     ) -> Union["AncestryBranch.TrackInfo", None]:
         marker = markers[0].copy()
         for marker_to_add in markers[1:]:
@@ -178,7 +177,7 @@ class AncestryBranch:
 
     def get_current_location_info(
         self,
-    ) -> tuple[int, TrackToken, ba.frozenbitarray, npt.NDArray[np.int8]]:
+    ) -> tuple[int, TrackToken, ba.frozenbitarray, MarkerType]:
         self.current_track_token = TrackToken(self.current_track_token.t + 1)
         # get the currently desired location info
         current_old_index = 0
@@ -336,7 +335,7 @@ class AncestryBranch:
 
 def _refinement_with_marker_applied(
     refinement: ba.frozenbitarray,
-    marker: npt.NDArray[np.int8],
+    marker: MarkerType,
 ) -> ba.frozenbitarray:
     if refinement.count() == 0:
         assert np.all(marker > -1)

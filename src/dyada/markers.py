@@ -8,6 +8,7 @@ import numpy.typing as npt
 from types import MappingProxyType
 from typing import TypeAlias
 
+MarkerType: TypeAlias = npt.NDArray[np.int8]
 MarkersType: TypeAlias = defaultdict[int, npt.NDArray[np.int8]]
 MarkersMapProxyType: TypeAlias = MappingProxyType[int, npt.NDArray[np.int8]]
 

@@ -22,6 +22,7 @@ from dyada.descriptor import (
 from dyada.discretization import Discretization
 from dyada.linearization import TrackToken
 from dyada.markers import (
+    MarkerType,
     MarkersType,
     MarkersMapProxyType,
     get_next_largest_markered_index,
@@ -113,9 +114,7 @@ class PlannedAdaptiveRefinement:
 
         self._planned_refinements = []  # clear the planned refinements
 
-    def move_marker_to_parent(
-        self, marker: npt.NDArray[np.int8], sibling_indices
-    ) -> None:
+    def move_marker_to_parent(self, marker: MarkerType, sibling_indices) -> None:
         assert len(sibling_indices) > 1 and len(sibling_indices).bit_count() == 1
         sibling_indices = sorted(sibling_indices)
         # subtract from the current sibling markers
@@ -129,7 +128,7 @@ class PlannedAdaptiveRefinement:
         self._markers[parent] += marker
 
     def move_marker_to_descendants(
-        self, ancestor_index, marker: npt.NDArray[np.int8], descendants_indices=None
+        self, ancestor_index, marker: MarkerType, descendants_indices=None
     ):
         if np.all(marker == np.zeros(marker.shape, dtype=np.int8)):
             return
@@ -202,8 +201,8 @@ class PlannedAdaptiveRefinement:
             return
 
         def get_unresolvable_marker(
-            current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
-        ) -> npt.NDArray[np.int8]:
+            current_refinement: ba.frozenbitarray, marker: MarkerType
+        ) -> MarkerType:
             marker_to_push_down = marker.copy()
 
             # 1st case: negative but cannot be used to coarsen here
@@ -254,7 +253,7 @@ class PlannedAdaptiveRefinement:
         type: "Type"
         old_index: int
         new_refinement: ba.bitarray | None = None
-        marker_or_ancestor: npt.NDArray[np.int8] | int | None = None
+        marker_or_ancestor: MarkerType | int | None = None
 
     def modified_branch_generator(
         self, starting_index: int, new_descriptor: RefinementDescriptor
