@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from dataclasses import dataclass, field
 
-from dyada.descriptor import Branch
+from dyada.descriptor import RefinementDescriptor, Branch
 from dyada.discretization import Discretization
 from dyada.linearization import location_code_from_branch
 from dyada.markers import (
@@ -72,7 +72,6 @@ def correct_index_mapping(
 
         one_after_last_considered_index = _walk_branch(
             state=state,
-            old_descriptor=old_descriptor,
             old_discretization=old_discretization,
             new_discretization=new_discretization,
         )
@@ -86,8 +85,8 @@ def correct_index_mapping(
 
 
 def _initialize_branch_state_with_dataclass(
-    index_mapping,
-    old_descriptor,
+    index_mapping: list[set[int]],
+    old_descriptor: RefinementDescriptor,
     marked_ancestor_index: int,
 ) -> _BranchCorrectionState:
     unmodified_branch, _ = old_descriptor.get_branch(
@@ -113,10 +112,10 @@ def _initialize_branch_state_with_dataclass(
 
 def _walk_branch(
     state: _BranchCorrectionState,
-    old_descriptor,
-    old_discretization,
-    new_discretization,
+    old_discretization: Discretization,
+    new_discretization: Discretization,
 ) -> int:
+    old_descriptor = old_discretization.descriptor
     while True:
         if old_descriptor.is_box(state.index_to_consider):
             _apply_reverse_replacements(state)
@@ -150,8 +149,8 @@ def _walk_branch(
 
 def _handle_index_replacement(
     state: _BranchCorrectionState,
-    old_descriptor,
-    new_descriptor,
+    old_descriptor: RefinementDescriptor,
+    new_descriptor: RefinementDescriptor,
     matching_index: int,
     exact_match: bool,
 ):
@@ -232,11 +231,11 @@ def _compute_influence_range(
 
 
 def _forget_self_remembering_leaves(
-    index_mapping,
+    index_mapping: list[set[int]],
     marked_ancestor_index: int,
     one_after_last_considered_index: int,
     leaves_to_forget_except: list[tuple[int, int]],
-):
+) -> None:
     for index in range(marked_ancestor_index, one_after_last_considered_index):
         for old_leaf, new_leaf in leaves_to_forget_except:
             if index != old_leaf:
@@ -244,9 +243,9 @@ def _forget_self_remembering_leaves(
 
 
 def _find_matching_new_index(
-    unmodified_branch,
-    old_discretization,
-    new_discretization,
+    unmodified_branch: Branch,
+    old_discretization: Discretization,
+    new_discretization: Discretization,
 ) -> tuple[int, bool]:
     old_location_code = location_code_from_branch(
         unmodified_branch, old_discretization._linearization
@@ -254,7 +253,7 @@ def _find_matching_new_index(
     try:
         return (
             new_discretization.get_index_from_location_code(
-                old_location_code, get_box=False
+                old_location_code, get_box=False  # type: ignore
             ),
             True,
         )
