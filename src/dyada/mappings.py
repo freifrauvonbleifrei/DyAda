@@ -9,7 +9,6 @@ from dyada.linearization import location_code_from_branch
 from dyada.markers import (
     MarkersType,
     MarkersMapProxyType,
-    filter_markers_by_min_index,
     get_next_largest_markered_index,
 )
 
