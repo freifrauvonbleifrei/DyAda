@@ -174,9 +174,7 @@ class AncestryBranch:
             current_refinement: ba.frozenbitarray,
             markers: list[MarkerType],
         ) -> Union["AncestryBranch.TrackInfo", None]:
-            marker = markers[0].copy()
-            for marker_to_add in markers[1:]:
-                marker += np.array(marker_to_add, dtype=np.int8)
+            marker = np.sum(markers, axis=0)
             if marker.min() < 0:
                 dimensions_to_coarsen = ba.frozenbitarray(
                     ba.bitarray(1 if marker[i] < 0 else 0 for i in range(len(marker)))
@@ -208,22 +206,20 @@ class AncestryBranch:
         ) -> None:
             if len(self.ancestry) == 0:
                 return  # at root, nothing to map
+            parent_index = self.ancestry[-1]
             for skipped_index in intermediate_generation:
-                is_ancestor = skipped_index < current_old_index
-                if is_ancestor:  # ancestor
+                if skipped_index < current_old_index:  # is ancestor
                     # map upward to parent
                     self.missed_mappings[skipped_index].add(
-                        self.old_indices_map_track_tokens[self.ancestry[-1]][-1]
+                        self.old_indices_map_track_tokens[parent_index][-1]
                     )
-                    # map downward to current
-                    self.missed_mappings[skipped_index].add(self.current_track_token)
-                else:  # descendant, map upward to current
-                    self.missed_mappings[skipped_index].add(self.current_track_token)
+                # either descendant -> map upward to current, or ancestor -> map downward to current
+                self.missed_mappings[skipped_index].add(self.current_track_token)
 
             if not exact:
                 # no exact match, map current_old_index upward
                 self.missed_mappings[current_old_index].add(
-                    self.old_indices_map_track_tokens[self.ancestry[-1]][-1]
+                    self.old_indices_map_track_tokens[parent_index][-1]
                 )
                 for ancestor_index, ancestor in reversed(
                     list(enumerate(self.ancestry))
@@ -237,15 +233,11 @@ class AncestryBranch:
                     )
                     self.missed_mappings[current_old_index].add(older_ancestor_token)
             # update old track info
-            ancestor_track_info = self.track_info_mapping.get(self.ancestry[-1])
+            ancestor_track_info = self.track_info_mapping.get(parent_index)
             if ancestor_track_info is not None:
                 this_item = ancestor_track_info.pop()
                 if this_item.same_index_as is None:
                     inform_about = {self.current_track_token}
-                    if not exact:
-                        inform_about.add(
-                            self.old_indices_map_track_tokens[self.ancestry[-1]][-1]
-                        )
                     inform_same_remaining_position_about_index(
                         ancestor_track_info, this_item, inform_about
                     )
@@ -335,7 +327,7 @@ class AncestryBranch:
 
     def _gather_remaining_mappings(self) -> dict[int, set[TrackToken]]:
         # check if all relationships from coarsening tracking are exhausted
-        mapping: defaultdict[int, set[TrackToken]] = defaultdict(set)
+        mapping: defaultdict[int, set[TrackToken]] = self._mapping_state.missed_mappings
         hint_previous_branch = None
         for key, track_info in sorted(self._mapping_state.track_info_mapping.items()):
             ancestor_branch = self._discretization.descriptor.get_branch(
@@ -367,9 +359,6 @@ class AncestryBranch:
                 assert isinstance(missed_descendant_index, int)
                 mapping[missed_descendant_index].update(map_to)
 
-        # add all the not yet adequately tracked results too
-        for key, map_to_same_as in self._mapping_state.missed_mappings.items():
-            mapping[key].update(map_to_same_as)
         return mapping
 
 
@@ -444,7 +433,7 @@ def _is_old_index_now_at_or_containing_location_code(
     return part_of_history, old_index_dimensionwise_positions
 
 
-def _old_node_will_be_contained_in_new_descriptor(
+def _old_node_will_be_in_new_descriptor(
     descriptor: RefinementDescriptor,
     old_index: int,
     markers: MarkersMapProxyType,
@@ -502,14 +491,9 @@ def _find_next_twig(
             location_code_matches = (
                 child_dimensionwise_positions == desired_dimensionwise_positions
             )
-            if _old_node_will_be_contained_in_new_descriptor(
-                descriptor, child, markers
-            ):
-                return (
-                    child,
-                    intermediate_generation,
-                    location_code_matches,
-                )  # we found the next twig
+            if _old_node_will_be_in_new_descriptor(descriptor, child, markers):
+                # we found the next twig
+                return child, intermediate_generation, location_code_matches
 
             # else it's a coarsened node and we can see if there is a matching child
             children_of_coarsened = descriptor.get_children(child)
@@ -517,10 +501,6 @@ def _find_next_twig(
                 # this means that its former children are now gone and need to be mapped to this child's index
                 for child_of_coarsened in children_of_coarsened:
                     # need to append the binarized index of the child, broadcast to split dimensions
-                    if not (
-                        discretization._linearization == MortonOrderLinearization()
-                    ):  # this would need proper linearization
-                        raise NotImplementedError("Refinement tracking")
                     intermediate_generation.add(child_of_coarsened)
                 return child, intermediate_generation, True
             else:
