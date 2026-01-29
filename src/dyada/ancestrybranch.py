@@ -4,6 +4,7 @@
 
 import bitarray as ba
 from collections import defaultdict
+from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 from typing import Sequence, TypeAlias, Union
@@ -78,6 +79,75 @@ class AncestryBranch:
                 return coarsen_refine_stack
         return None
 
+    @dataclass
+    class _AncestryBranchState:
+        discretization: Discretization
+        current_modified_branch: Branch
+        initial_branch_depth: int
+        history_of_indices: list[int]
+        history_of_level_increments: list[ba.frozenbitarray]
+        history_of_binary_positions: list[ba.bitarray]
+
+        def __init__(self, discretization: Discretization, starting_index: int):
+            self.discretization = discretization
+            descriptor = discretization.descriptor
+            self.current_modified_branch, _ = descriptor.get_branch(
+                starting_index, is_box_index=False
+            )
+            self.initial_branch_depth = len(self.current_modified_branch)
+
+            self.history_of_indices, self.history_of_level_increments = (
+                self.current_modified_branch.to_history()
+            )
+            self.history_of_binary_positions = [
+                discretization._linearization.get_binary_position_from_index(
+                    self.history_of_indices[: i + 1],
+                    self.history_of_level_increments[: i + 1],
+                )
+                for i in range(len(self.current_modified_branch) - 1)
+            ]
+
+        def __len__(self) -> int:
+            return len(self.history_of_binary_positions)
+
+        def advance(self) -> int:
+            self.current_modified_branch.advance_branch(self.initial_branch_depth)
+
+            # prune all other data to current length,
+            # so we don't have to recompute from new branch
+            current_modified_branch_depth = len(self.current_modified_branch)
+            self.history_of_binary_positions = self.history_of_binary_positions[
+                : current_modified_branch_depth - 2
+            ]
+            self.history_of_indices = self.history_of_indices[
+                : current_modified_branch_depth - 1
+            ]
+            self.history_of_indices[-1] += 1
+            self.history_of_level_increments = self.history_of_level_increments[
+                : current_modified_branch_depth - 1
+            ]
+
+            # update history of binary positions
+            latest_binary_position = (
+                self.discretization._linearization.get_binary_position_from_index(
+                    self.history_of_indices, self.history_of_level_increments
+                )
+            )
+            self.history_of_binary_positions.append(latest_binary_position)
+            return current_modified_branch_depth
+
+        def grow(self, next_refinement: ba.frozenbitarray) -> None:
+            self.current_modified_branch.grow_branch(next_refinement)
+            self.history_of_level_increments.append(next_refinement)
+            self.history_of_indices.append(0)
+            # update history of binary positions
+            latest_binary_position = (
+                self.discretization._linearization.get_binary_position_from_index(
+                    self.history_of_indices, self.history_of_level_increments
+                )
+            )
+            self.history_of_binary_positions.append(latest_binary_position)
+
     def __init__(
         self,
         discretization: Discretization,
@@ -86,32 +156,23 @@ class AncestryBranch:
     ):
         self.markers = markers
         self._discretization = discretization
-        descriptor = self._discretization.descriptor
+        descriptor = discretization.descriptor
         # iterates a modified version of the descriptor, incorporating the markers knowledge
         # and keeping track of the ancestry
-        self._current_modified_branch: Branch
-        self._current_modified_branch, _ = descriptor.get_branch(
-            starting_index, is_box_index=False
+        self._ancestry_branch_state = AncestryBranch._AncestryBranchState(
+            discretization, starting_index
         )
-        self._initial_branch_depth = len(self._current_modified_branch)
-        self._history_of_indices, self._history_of_level_increments = (
-            self._current_modified_branch.to_history()
-        )
-        self._history_of_binary_positions = [
-            self._discretization._linearization.get_binary_position_from_index(
-                self._history_of_indices[: i + 1],
-                self._history_of_level_increments[: i + 1],
-            )
-            for i in range(self._initial_branch_depth - 1)
-        ]
-
         # the ancestry, in old indices but new relationships
-        self.ancestry = descriptor.get_ancestry(self._current_modified_branch)
+        self.ancestry = descriptor.get_ancestry(
+            self._ancestry_branch_state.current_modified_branch
+        )
         self.old_indices_map_track_tokens: defaultdict[int, list[TrackToken]] = (
             defaultdict(list)
         )
+        assert (
+            len(self.ancestry) == self._ancestry_branch_state.initial_branch_depth - 1
+        )
         self.current_track_token: TrackToken = TrackToken(-1)
-        assert len(self.ancestry) == self._initial_branch_depth - 1
         self.missed_mappings: defaultdict[int, set[TrackToken]] = defaultdict(set)
         self.track_info_mapping: dict[int, AncestryBranch.TrackInfo] = {}
 
@@ -123,23 +184,24 @@ class AncestryBranch:
         current_old_index = 0
         intermediate_generation: set[int] = set()
         exact = True
-        if len(self._history_of_binary_positions) > 0:  # if not at root
+        if len(self._ancestry_branch_state) > 0:  # if not at root
             modified_dimensionwise_positions = location_code_from_history(
-                self._history_of_binary_positions, self._history_of_level_increments
+                self._ancestry_branch_state.history_of_binary_positions,
+                self._ancestry_branch_state.history_of_level_increments,
             )
-            current_old_index, intermediate_generation, exact = find_next_twig(
+            current_old_index, intermediate_generation, exact = _find_next_twig(
                 self._discretization,
                 self.markers,
                 modified_dimensionwise_positions,
                 self.ancestry[-1],
             )
-            self.store_missed_mappings(
+            self._store_missed_mappings(
                 current_old_index,
                 intermediate_generation,
                 exact,
             )
 
-        next_refinement = refinement_with_marker_applied(
+        next_refinement = _refinement_with_marker_applied(
             self._discretization.descriptor[current_old_index],
             next_marker := self.markers[current_old_index],
         )
@@ -177,49 +239,19 @@ class AncestryBranch:
 
     def advance(self) -> None:
         try:
-            self._current_modified_branch.advance_branch(self._initial_branch_depth)
+            current_modified_branch_depth = self._ancestry_branch_state.advance()
         except IndexError as e:
-            mapping = self.gather_remaining_mappings()
+            mapping = self._gather_remaining_mappings()
             raise AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships(
                 mapping
             ) from e
 
-        # prune all other data to current length,
-        # so we don't have to recompute from new branch
-        current_modified_branch_depth = len(self._current_modified_branch)
-        self._history_of_binary_positions = self._history_of_binary_positions[
-            : current_modified_branch_depth - 2
-        ]
-        self._history_of_indices = self._history_of_indices[
-            : current_modified_branch_depth - 1
-        ]
-        self._history_of_indices[-1] += 1
-        self._history_of_level_increments = self._history_of_level_increments[
-            : current_modified_branch_depth - 1
-        ]
         self.ancestry = self.ancestry[: current_modified_branch_depth - 1]
 
-        # update history of binary positions
-        latest_binary_position = (
-            self._discretization._linearization.get_binary_position_from_index(
-                self._history_of_indices, self._history_of_level_increments
-            )
-        )
-        self._history_of_binary_positions.append(latest_binary_position)
-
     def grow(self, next_refinement: ba.frozenbitarray) -> None:
-        self._current_modified_branch.grow_branch(next_refinement)
-        self._history_of_level_increments.append(next_refinement)
-        self._history_of_indices.append(0)
-        # update history of binary positions
-        latest_binary_position = (
-            self._discretization._linearization.get_binary_position_from_index(
-                self._history_of_indices, self._history_of_level_increments
-            )
-        )
-        self._history_of_binary_positions.append(latest_binary_position)
+        self._ancestry_branch_state.grow(next_refinement)
 
-    def store_missed_mappings(
+    def _store_missed_mappings(
         self, current_old_index: int, intermediate_generation: set[int], exact: bool
     ) -> None:
         for skipped_index in intermediate_generation:
@@ -262,7 +294,7 @@ class AncestryBranch:
                     ancestor_track_info, this_item, inform_about
                 )
 
-    def gather_remaining_mappings(self) -> dict[int, set[TrackToken]]:
+    def _gather_remaining_mappings(self) -> dict[int, set[TrackToken]]:
         # check if all relationships from coarsening tracking are exhausted
         mapping: defaultdict[int, set[TrackToken]] = defaultdict(set)
         hint_previous_branch = None
@@ -302,7 +334,7 @@ class AncestryBranch:
         return mapping
 
 
-def refinement_with_marker_applied(
+def _refinement_with_marker_applied(
     refinement: ba.frozenbitarray,
     marker: npt.NDArray[np.int8],
 ) -> ba.frozenbitarray:
@@ -320,7 +352,7 @@ def refinement_with_marker_applied(
     return ba.frozenbitarray(refinement_modified)
 
 
-def is_old_index_now_at_or_containing_location_code(
+def _is_old_index_now_at_or_containing_location_code(
     discretization: Discretization,
     markers: MarkersMapProxyType,
     desired_dimensionwise_positions: Sequence[ba.bitarray],
@@ -373,7 +405,7 @@ def is_old_index_now_at_or_containing_location_code(
     return part_of_history, old_index_dimensionwise_positions
 
 
-def old_node_will_be_contained_in_new_descriptor(
+def _old_node_will_be_contained_in_new_descriptor(
     descriptor: RefinementDescriptor,
     old_index: int,
     markers: MarkersMapProxyType,
@@ -383,13 +415,13 @@ def old_node_will_be_contained_in_new_descriptor(
     Returns:
         bool: True if the node will be contained, False if it will be coarsened away.
     """
-    future_refinement = refinement_with_marker_applied(
+    future_refinement = _refinement_with_marker_applied(
         descriptor[old_index], marker := markers[old_index]
     )
     return np.min(marker) >= 0 or future_refinement != descriptor.d_zeros  # type: ignore
 
 
-def find_next_twig(
+def _find_next_twig(
     discretization: Discretization,
     markers: MarkersMapProxyType,
     desired_dimensionwise_positions: Sequence[ba.frozenbitarray],
@@ -416,7 +448,7 @@ def find_next_twig(
     while True:
         for child in children:
             part_of_history, child_dimensionwise_positions = (
-                is_old_index_now_at_or_containing_location_code(
+                _is_old_index_now_at_or_containing_location_code(
                     discretization,
                     markers,
                     desired_dimensionwise_positions,
@@ -431,7 +463,9 @@ def find_next_twig(
             location_code_matches = (
                 child_dimensionwise_positions == desired_dimensionwise_positions
             )
-            if old_node_will_be_contained_in_new_descriptor(descriptor, child, markers):
+            if _old_node_will_be_contained_in_new_descriptor(
+                descriptor, child, markers
+            ):
                 return (
                     child,
                     intermediate_generation,
