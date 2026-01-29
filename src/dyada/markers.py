@@ -20,6 +20,15 @@ def filter_markers_by_min_index(
     return MarkersMapProxyType(filtered_markers)
 
 
+def get_next_largest_markered_index(
+    markers: MarkersType | MarkersMapProxyType, min_index: int
+) -> int:
+    return min(
+        filter_markers_by_min_index(markers, min_index).keys(),
+        default=-1,
+    )
+
+
 def get_defaultdict_for_markers(
     num_dimensions: int,
 ) -> MarkersType:

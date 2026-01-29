@@ -24,7 +24,7 @@ from dyada.linearization import TrackToken
 from dyada.markers import (
     MarkersType,
     MarkersMapProxyType,
-    filter_markers_by_min_index,
+    get_next_largest_markered_index,
     get_defaultdict_for_markers,
 )
 from dyada.mappings import correct_index_mapping, merge_mappings
@@ -305,14 +305,10 @@ class PlannedAdaptiveRefinement:
                     AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
                 ) as e:  # almost done!
                     # yield the missing relationships
-                    missing_mappings: dict[int, set[int]] = {}
-                    for key, same_missing_indices in sorted(e.missing_mapping.items()):
-                        missing_mappings[key] = set()
-                        for same_missing_index in same_missing_indices:
-                            assert isinstance(same_missing_index, TrackToken)
-                            missing_mappings[key].add(
-                                map_tracking_tokens_to_new_indices[same_missing_index]
-                            )
+                    missing_mappings: dict[int, set[int]] = {
+                        key: {map_tracking_tokens_to_new_indices[i] for i in indices}
+                        for key, indices in e.missing_mapping.items()
+                    }
                     for old_index, new_indices in missing_mappings.items():
                         for new_index in new_indices:
                             yield self.Refinement(
@@ -348,12 +344,6 @@ class PlannedAdaptiveRefinement:
             ):
                 self.track_indices(old_index, new_index)
 
-    def get_next_index_to_refine(self, min_index: int) -> int:
-        return min(
-            filter_markers_by_min_index(self._markers, min_index).keys(),
-            default=-1,
-        )
-
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor
     ) -> RefinementDescriptor:
@@ -361,8 +351,8 @@ class PlannedAdaptiveRefinement:
         last_extended_index = -1
         one_after_last_extended_index = 0
         while one_after_last_extended_index < len(old_descriptor):
-            index_to_refine = self.get_next_index_to_refine(
-                one_after_last_extended_index
+            index_to_refine = get_next_largest_markered_index(
+                self._markers, one_after_last_extended_index
             )
             if index_to_refine == -1:
                 break
@@ -482,6 +472,7 @@ class PlannedAdaptiveRefinement:
         self.populate_queue()
         self.upwards_sweep()
         self.downwards_sweep()
+        # ic(self._markers)
         assert len(self._planned_refinements) == 0
 
         return self.create_new_discretization(track_mapping)
