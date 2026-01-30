@@ -162,32 +162,8 @@ _____
 |_|_|
 |_|_|"""
     )
-    expected_coarsen_mapping = {
-        0: {0},
-        1: {1},
-        2: {1},
-        3: {1},
-        4: {1},
-        5: {1},
-        6: {2},
-        7: {2},
-        8: {2},
-        9: {2},
-        10: {2},
-        11: {3},
-        12: {3},
-        13: {3},
-        14: {3},
-        15: {3},
-        16: {4},
-        17: {4},
-        18: {4},
-        19: {4},
-        20: {4},
-    }
-    assert coarsen_mapping == [
-        expected_coarsen_mapping[i] for i in range(len(expected_coarsen_mapping))
-    ]
+    expected_coarsen_mapping = [{0}, *[{1}] * 5, *[{2}] * 5, *[{3}] * 5, *[{4}] * 5]
+    assert coarsen_mapping == expected_coarsen_mapping
 
 
 def test_flip_2d():
