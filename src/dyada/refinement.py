@@ -284,17 +284,6 @@ class PlannedAdaptiveRefinement:
             ):
                 self.track_indices(old_index, new_index)
 
-    def filter_markers_by_min_index(self, min_index: int) -> MarkersMapProxyType:
-        # filter the markers to the current interval
-        filtered_markers = {k: v for k, v in self._markers.items() if k >= min_index}
-        return MarkersMapProxyType(filtered_markers)
-
-    def get_next_index_to_refine(self, min_index: int) -> int:
-        return min(
-            self.filter_markers_by_min_index(min_index).keys(),
-            default=-1,
-        )
-
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor
     ) -> RefinementDescriptor:
@@ -302,8 +291,8 @@ class PlannedAdaptiveRefinement:
         last_extended_index = -1
         one_after_last_extended_index = 0
         while one_after_last_extended_index < len(old_descriptor):
-            index_to_refine = self.get_next_index_to_refine(
-                one_after_last_extended_index
+            index_to_refine = get_next_largest_markered_index(
+                self._markers, one_after_last_extended_index
             )
             if index_to_refine == -1:
                 break
