@@ -3,14 +3,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import bitarray as ba
-from collections import defaultdict
 import dataclasses
 from enum import auto, Enum
 from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from types import MappingProxyType
 from typing import Optional, Union
 
 from dyada.ancestrybranch import AncestryBranch
@@ -22,6 +20,14 @@ from dyada.descriptor import (
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
+
+from dyada.markers import (
+    MarkerType,
+    MarkersType,
+    MarkersMapProxyType,
+    get_next_largest_markered_index,
+    get_defaultdict_for_markers,
+)
 
 
 def is_lru_cached(func):
@@ -43,8 +49,8 @@ class PlannedAdaptiveRefinement:
                 self._discretization.descriptor.get_num_dimensions(), dtype=np.int8
             )
 
-        self._markers: defaultdict[int, npt.NDArray[np.int8]] = defaultdict(
-            get_d_zeros_as_array
+        self._markers: MarkersType = get_defaultdict_for_markers(
+            self._discretization.descriptor.get_num_dimensions()
         )
         self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
 
@@ -83,9 +89,7 @@ class PlannedAdaptiveRefinement:
 
         self._planned_refinements = []  # clear the planned refinements
 
-    def move_marker_to_parent(
-        self, marker: npt.NDArray[np.int8], sibling_indices
-    ) -> None:
+    def move_marker_to_parent(self, marker: MarkerType, sibling_indices) -> None:
         assert len(sibling_indices) > 1 and len(sibling_indices).bit_count() == 1
         sibling_indices = sorted(sibling_indices)
         # subtract from the current sibling markers
@@ -99,7 +103,7 @@ class PlannedAdaptiveRefinement:
         self._markers[parent] += marker
 
     def move_marker_to_descendants(
-        self, ancestor_index, marker: npt.NDArray[np.int8], descendants_indices=None
+        self, ancestor_index, marker: MarkerType, descendants_indices=None
     ):
         if np.all(marker == np.zeros(marker.shape, dtype=np.int8)):
             return
@@ -218,12 +222,12 @@ class PlannedAdaptiveRefinement:
         type: "Type"
         old_index: int
         new_refinement: ba.bitarray | None = None
-        marker_or_ancestor: npt.NDArray[np.int8] | int | None = None
+        marker_or_ancestor: MarkerType | int | None = None
 
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
         ancestrybranch = AncestryBranch(self._discretization, starting_index)
-        proxy_markers = MappingProxyType(self._markers)
+        proxy_markers = MarkersMapProxyType(self._markers)
 
         while True:
             current_old_index, intermediate_generation, next_refinement, next_marker = (
@@ -280,12 +284,10 @@ class PlannedAdaptiveRefinement:
             ):
                 self.track_indices(old_index, new_index)
 
-    def filter_markers_by_min_index(
-        self, min_index: int
-    ) -> MappingProxyType[int, npt.NDArray[np.int8]]:
+    def filter_markers_by_min_index(self, min_index: int) -> MarkersMapProxyType:
         # filter the markers to the current interval
         filtered_markers = {k: v for k, v in self._markers.items() if k >= min_index}
-        return MappingProxyType(filtered_markers)
+        return MarkersMapProxyType(filtered_markers)
 
     def get_next_index_to_refine(self, min_index: int) -> int:
         return min(
