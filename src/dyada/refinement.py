@@ -3,14 +3,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import bitarray as ba
-from collections import defaultdict
 import dataclasses
 from enum import auto, Enum
 from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from types import MappingProxyType
 from typing import Optional, Union
 
 from dyada.ancestrybranch import AncestryBranch
@@ -22,6 +20,14 @@ from dyada.descriptor import (
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
+
+from dyada.markers import (
+    MarkerType,
+    MarkersType,
+    MarkersMapProxyType,
+    get_next_largest_markered_index,
+    get_defaultdict_for_markers,
+)
 
 
 def is_lru_cached(func):
@@ -43,8 +49,8 @@ class PlannedAdaptiveRefinement:
                 self._discretization.descriptor.get_num_dimensions(), dtype=np.int8
             )
 
-        self._markers: defaultdict[int, npt.NDArray[np.int8]] = defaultdict(
-            get_d_zeros_as_array
+        self._markers: MarkersType = get_defaultdict_for_markers(
+            self._discretization.descriptor.get_num_dimensions()
         )
         self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
 
@@ -83,9 +89,7 @@ class PlannedAdaptiveRefinement:
 
         self._planned_refinements = []  # clear the planned refinements
 
-    def move_marker_to_parent(
-        self, marker: npt.NDArray[np.int8], sibling_indices
-    ) -> None:
+    def move_marker_to_parent(self, marker: MarkerType, sibling_indices) -> None:
         assert len(sibling_indices) > 1 and len(sibling_indices).bit_count() == 1
         sibling_indices = sorted(sibling_indices)
         # subtract from the current sibling markers
@@ -99,7 +103,7 @@ class PlannedAdaptiveRefinement:
         self._markers[parent] += marker
 
     def move_marker_to_descendants(
-        self, ancestor_index, marker: npt.NDArray[np.int8], descendants_indices=None
+        self, ancestor_index, marker: MarkerType, descendants_indices=None
     ):
         if np.all(marker == np.zeros(marker.shape, dtype=np.int8)):
             return
@@ -170,28 +174,34 @@ class PlannedAdaptiveRefinement:
         descriptor = self._discretization.descriptor
         if len(self._markers) == 0:
             return
+
+        def get_unresolvable_marker(
+            current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
+        ) -> npt.NDArray[np.int8]:
+            marker_to_push_down = marker.copy()
+
+            # 1st case: negative but cannot be used to coarsen here
+            marker_negative = marker_to_push_down < 0
+            can_be_coarsened = int8_ndarray_from_iterable(
+                current_refinement,
+            )
+            marker_to_push_down[marker_negative] += can_be_coarsened[marker_negative]
+
+            # 2nd case: positive but cannot be used to refine here
+            marker_positive = marker_to_push_down > 0
+            can_be_refined = int8_ndarray_from_iterable(
+                ~current_refinement,
+            )
+            marker_to_push_down[marker_positive] -= can_be_refined[marker_positive]
+            return marker_to_push_down
+
         current_index = min(self._markers.keys())
         while True:
             if not descriptor.is_box(current_index):
                 # check if (parts of) the marker need pushing down
-                marker_to_push_down = self._markers[current_index].copy()
-
-                # 1st case: negative but cannot be used to coarsen here
-                marker_negative = marker_to_push_down < 0
-                can_be_coarsened = int8_ndarray_from_iterable(
-                    descriptor[current_index],
+                marker_to_push_down = get_unresolvable_marker(
+                    descriptor[current_index], self._markers[current_index]
                 )
-                marker_to_push_down[marker_negative] += can_be_coarsened[
-                    marker_negative
-                ]
-
-                # 2nd case: positive but cannot be used to refine here
-                marker_positive = marker_to_push_down > 0
-                can_be_refined = int8_ndarray_from_iterable(
-                    ~descriptor[current_index],
-                )
-                marker_to_push_down[marker_positive] -= can_be_refined[marker_positive]
-
                 self.move_marker_to_descendants(current_index, marker_to_push_down)
 
             filtered_markers = {
@@ -218,12 +228,12 @@ class PlannedAdaptiveRefinement:
         type: "Type"
         old_index: int
         new_refinement: ba.bitarray | None = None
-        marker_or_ancestor: npt.NDArray[np.int8] | int | None = None
+        marker_or_ancestor: MarkerType | int | None = None
 
     def modified_branch_generator(self, starting_index: int):
         descriptor = self._discretization.descriptor
         ancestrybranch = AncestryBranch(self._discretization, starting_index)
-        proxy_markers = MappingProxyType(self._markers)
+        proxy_markers = MarkersMapProxyType(self._markers)
 
         while True:
             current_old_index, intermediate_generation, next_refinement, next_marker = (
@@ -280,19 +290,6 @@ class PlannedAdaptiveRefinement:
             ):
                 self.track_indices(old_index, new_index)
 
-    def filter_markers_by_min_index(
-        self, min_index: int
-    ) -> MappingProxyType[int, npt.NDArray[np.int8]]:
-        # filter the markers to the current interval
-        filtered_markers = {k: v for k, v in self._markers.items() if k >= min_index}
-        return MappingProxyType(filtered_markers)
-
-    def get_next_index_to_refine(self, min_index: int) -> int:
-        return min(
-            self.filter_markers_by_min_index(min_index).keys(),
-            default=-1,
-        )
-
     def add_refined_data(
         self, new_descriptor: RefinementDescriptor
     ) -> RefinementDescriptor:
@@ -300,8 +297,8 @@ class PlannedAdaptiveRefinement:
         last_extended_index = -1
         one_after_last_extended_index = 0
         while one_after_last_extended_index < len(old_descriptor):
-            index_to_refine = self.get_next_index_to_refine(
-                one_after_last_extended_index
+            index_to_refine = get_next_largest_markered_index(
+                self._markers, one_after_last_extended_index
             )
             if index_to_refine == -1:
                 break
