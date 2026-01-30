@@ -172,80 +172,108 @@ class Discretization:
     def get_index_from_location_code(
         self, location_code: LocationCode, get_box: bool
     ) -> int | tuple[int, list[int]]:
-        # traverse the tree
-        # start at the root, coordinate has to be in the patch
-        current_branch = Branch(self._descriptor.get_num_dimensions())
-        history_of_indices, history_of_level_increments = current_branch.to_history()
+        branch = Branch(self._descriptor.get_num_dimensions())
+        history_of_indices, history_of_refinements = branch.to_history()
 
-        found_part_of_location_code = [0 for _ in location_code]
-        if get_box:
-            box_index = -1
-            patch_index = -1000  # unused
-        else:
-            patch_index = 0
-        descriptor_iterator = iter(self._descriptor)
+        found_bits = [0] * len(location_code)
+        descriptor_iter = iter(self._descriptor)
+
+        patch_index = 0
+        box_index = -1
+
         while True:
-            current_refinement = next(descriptor_iterator)
-            if not get_box:
-                if all(
-                    num_found_bits >= len(location_code[d])
-                    for d, num_found_bits in enumerate(found_part_of_location_code)
-                ):
-                    # found all!
-                    return patch_index
-            # go deeper in the branch where the coordinate is
-            current_branch.grow_branch(current_refinement)
+            refinement = next(descriptor_iter)
 
-            if current_refinement == self._descriptor.d_zeros:
-                if get_box:
-                    # found box!
-                    box_index += 1
-                    # assert (
-                    #     found_part_of_location_code
-                    #     == get_level_index_from_linear_index(
-                    #         self._linearization, self._descriptor, box_index
-                    #     ).d_level
-                    # ).all()  # removed, as it may be costly (but should be true nonetheless)
-                    return box_index, found_part_of_location_code
-                else:
-                    raise Discretization.NoExactMatchError(patch_index)
-            history_of_level_increments.append(current_refinement)
+            if not get_box and all(
+                found_bits[d] >= len(location_code[d])
+                for d in range(len(location_code))
+            ):
+                return patch_index
 
-            # increment the found part at these indices where refinement is 1
-            new_binary_position = ba.bitarray([0] * len(location_code))
-            for i, bitarray_i in enumerate(current_refinement):
-                if bitarray_i:
-                    actually_too_short = (
-                        len(location_code[i]) <= found_part_of_location_code[i]
-                    )
-                    if actually_too_short and not get_box:
-                        raise Discretization.NoExactMatchError(patch_index)
-                    new_binary_position[i] = (
-                        0
-                        if actually_too_short
-                        else location_code[i][found_part_of_location_code[i]]
-                    )
-                    found_part_of_location_code[i] += 1
+            branch.grow_branch(refinement)
+
+            if refinement == self._descriptor.d_zeros:
+                return (
+                    self._handle_leaf(
+                        get_box,
+                        patch_index,
+                        box_index,
+                    ),
+                    found_bits,
+                )
+
+            history_of_refinements.append(refinement)
+            binary_position = self._add_refinement_bits(
+                refinement,
+                location_code,
+                found_bits,
+                patch_index,
+                get_box,
+            )
 
             child_index = self._linearization.get_index_from_binary_position(
-                new_binary_position, history_of_indices, history_of_level_increments
+                binary_position,
+                history_of_indices,
+                history_of_refinements,
             )
             history_of_indices.append(child_index)
 
-            for _ in range(child_index):
-                # skip the children where the coordinate is not in the patch
-                current_refinement = next(descriptor_iterator)
-                if get_box:
-                    box_index += self._descriptor.skip_to_next_neighbor(
-                        descriptor_iterator, current_refinement
-                    )[0]
-                else:
-                    patch_index += self._descriptor.skip_to_next_neighbor(
-                        descriptor_iterator, current_refinement
-                    )[1]
-                current_branch.advance_branch()
-            if not get_box:
-                patch_index += 1
+            patch_index, box_index = self._skip_unmatched_children(
+                descriptor_iter,
+                branch,
+                child_index,
+                patch_index,
+                box_index,
+            )
+            patch_index += 1
+
+    def _handle_leaf(self, get_box: bool, patch_index: int, box_index: int):
+        if get_box:
+            box_index += 1
+            return box_index
+        raise Discretization.NoExactMatchError(patch_index)
+
+    def _add_refinement_bits(
+        self,
+        refinement,
+        location_code: LocationCode,
+        found_bits: list[int],
+        patch_index: int,
+        get_box: bool,
+    ):
+        new_binary_position = ba.bitarray(len(location_code))
+        for dim, is_refined in enumerate(refinement):
+            if not is_refined:
+                continue
+
+            bit_pos = found_bits[dim]
+            too_short = bit_pos >= len(location_code[dim])
+            if too_short and not get_box:
+                raise Discretization.NoExactMatchError(patch_index)
+
+            new_binary_position[dim] = 0 if too_short else location_code[dim][bit_pos]
+            found_bits[dim] += 1
+
+        return new_binary_position
+
+    def _skip_unmatched_children(
+        self,
+        descriptor_iter: Generator,
+        branch: Branch,
+        child_index: int,
+        patch_index: int,
+        box_index: int,
+    ) -> tuple[int, int]:
+        for _ in range(child_index):
+            skipped = next(descriptor_iter)
+            inc_box, inc_patch = self._descriptor.skip_to_next_neighbor(
+                descriptor_iter, skipped
+            )
+            box_index += inc_box
+            patch_index += inc_patch
+            branch.advance_branch()
+
+        return patch_index, box_index
 
     def slice(
         self,
