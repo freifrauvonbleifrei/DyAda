@@ -231,7 +231,7 @@ class AncestryBranch:
                         self.old_indices_map_track_tokens[older_ancestor]
                     )
                     self.missed_mappings[current_old_index].add(older_ancestor_token)
-            # update old track info
+            # update existing track info
             ancestor_track_info = self.track_info_mapping.get(parent_index)
             if ancestor_track_info is not None:
                 this_item = ancestor_track_info.pop()
@@ -467,9 +467,7 @@ def _find_next_twig(
             and a bool indicating whether the node is exactly at the location code
     """
     descriptor = discretization.descriptor
-    parent_branch, _ = descriptor.get_branch(
-        parent_of_next_refinement, is_box_index=False
-    )
+    parent_branch, _ = descriptor.get_branch(parent_of_next_refinement, False)
     children = descriptor.get_children(parent_of_next_refinement, parent_branch)
     intermediate_generation: set[int] = set()
     while True:

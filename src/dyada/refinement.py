@@ -255,6 +255,24 @@ class PlannedAdaptiveRefinement:
         new_refinement: ba.bitarray | None = None
         marker_or_ancestor: MarkerType | int | None = None
 
+    def _yield_missing_relationships(
+        self,
+        missing_mapping_items,
+        map_tracking_tokens_to_new_indices: dict[TrackToken, int],
+    ) -> Generator[Refinement, None, None]:
+        missing_mappings: dict[int, set[int]] = {
+            key: {map_tracking_tokens_to_new_indices[i] for i in indices}
+            for key, indices in missing_mapping_items
+        }
+        for old_index, new_indices in missing_mappings.items():
+            for new_index in new_indices:
+                yield self.Refinement(
+                    self.Refinement.Type.TrackOnly,
+                    old_index,
+                    None,
+                    new_index,
+                )
+
     def modified_branch_generator(
         self, starting_index: int, new_descriptor: RefinementDescriptor
     ) -> Generator[Refinement, None, None]:
@@ -269,15 +287,13 @@ class PlannedAdaptiveRefinement:
         """
         descriptor = self._discretization.descriptor
         proxy_markers = MarkersMapProxyType(self._markers)
-        ancestrybranch = AncestryBranch(
-            self._discretization, starting_index, proxy_markers
-        )
+        abranch = AncestryBranch(self._discretization, starting_index, proxy_markers)
         map_tracking_tokens_to_new_indices: dict[TrackToken, int] = {}
 
         while True:
             current_new_index = len(new_descriptor)
             current_old_index, tracking_token, next_refinement, next_marker = (
-                ancestrybranch.get_current_location_info()
+                abranch.get_current_location_info()
             )
             map_tracking_tokens_to_new_indices[tracking_token] = current_new_index
             is_leaf = next_refinement == descriptor.d_zeros
@@ -299,27 +315,18 @@ class PlannedAdaptiveRefinement:
             if is_leaf:
                 # only on leaves, we advance the branch
                 try:
-                    ancestrybranch.advance()
+                    abranch.advance()
                 except (
                     AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
                 ) as e:  # almost done!
-                    # yield the missing relationships
-                    missing_mappings: dict[int, set[int]] = {
-                        key: {map_tracking_tokens_to_new_indices[i] for i in indices}
-                        for key, indices in e.missing_mapping.items()
-                    }
-                    for old_index, new_indices in missing_mappings.items():
-                        for new_index in new_indices:
-                            yield self.Refinement(
-                                self.Refinement.Type.TrackOnly,
-                                old_index,
-                                None,
-                                new_index,
-                            )
+                    yield from self._yield_missing_relationships(
+                        e.missing_mapping.items(),
+                        map_tracking_tokens_to_new_indices,
+                    )
                     return
             else:
                 # on non-leaves, we grow the branch
-                ancestrybranch.grow(next_refinement)
+                abranch.grow(next_refinement)
 
     def track_indices(self, old_index: int, new_index: int) -> None:
         assert new_index > -1
