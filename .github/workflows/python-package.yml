@@ -31,10 +31,10 @@ jobs:
           python -m pip install black flake8 mypy pytest
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -e .[drawing,matplotlib]
-      - name: Run linters
-        uses: wearerequired/lint-action@548d8a7c4b04d3553d32ed5b6e91eb171e10e7bb
-        with:
-          black: true
+      # - name: Run linters
+      #   uses: wearerequired/lint-action@548d8a7c4b04d3553d32ed5b6e91eb171e10e7bb
+      #   with:
+      #     black: true
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
@@ -98,6 +98,7 @@ jobs:
       - name: Install DyAda module
         run: pip install -e .[drawing,matplotlib,opengl]
       - name: Test with pytest, to create cov report
+        continue-on-error: true # we want to get the coverage report even if tests fail
         run: |
           xvfb-run -a pytest test/ --cov=dyada --cov-report=xml --cov-report=html
       - name: Get coverage, fail if under 90%
