@@ -203,23 +203,22 @@ class AncestryBranch:
         def store_missed_mappings(
             self, current_old_index: int, intermediate_generation: set[int], exact: bool
         ) -> None:
-            if len(self.ancestry) == 0:
+            if not self.ancestry:
                 return  # at root, nothing to map
+
             parent_index = self.ancestry[-1]
+            parent_token = self.old_indices_map_track_tokens[parent_index][-1]
             for skipped_index in intermediate_generation:
-                if skipped_index < current_old_index:  # is ancestor
-                    # map upward to parent
-                    self.missed_mappings[skipped_index].add(
-                        self.old_indices_map_track_tokens[parent_index][-1]
-                    )
+                if skipped_index < current_old_index:
+                    # ancestor -> map upward to parent
+                    self.missed_mappings[skipped_index].add(parent_token)
                 # either descendant -> map upward to current, or ancestor -> map downward to current
+
                 self.missed_mappings[skipped_index].add(self.current_track_token)
 
             if not exact:
                 # no exact match, map current_old_index upward
-                self.missed_mappings[current_old_index].add(
-                    self.old_indices_map_track_tokens[parent_index][-1]
-                )
+                self.missed_mappings[current_old_index].add(parent_token)
                 for ancestor_index, ancestor in reversed(
                     list(enumerate(self.ancestry))
                 ):
