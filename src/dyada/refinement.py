@@ -49,6 +49,36 @@ class PlannedAdaptiveRefinement:
         )
         self._upward_queue: PriorityQueue[tuple[int, int]] = PriorityQueue()
 
+    def plan_coarsening(
+        self,
+        index: int,
+        dimensions_to_coarsen: ba.bitarray,
+    ) -> None:
+        """plan to coarsen a node in the given directions (which merges its children);
+        will raise error if this is not possible
+
+        Args:
+            index (int): hierarchical index of the node to coarsen
+            dimensions_to_coarsen (ba.bitarray): 1 denotes if the node should be coarsened
+        """
+        num_dimensions = self._discretization.descriptor.get_num_dimensions()
+        assert len(dimensions_to_coarsen) == num_dimensions
+        dimensions_not_to_coarsen = ~dimensions_to_coarsen
+        # children = self._discretization.descriptor.get_siblings(index + 1) #TODO add more checks
+        parent = index
+
+        # assert that the parent refinement has a 1 where coarsening is requested
+        parent_refinement = self._discretization.descriptor[parent]
+        assert (parent_refinement | dimensions_not_to_coarsen).count() == num_dimensions
+
+        np_dimensions_to_coarsen = np.fromiter(
+            dimensions_to_coarsen,
+            dtype=np.int8,
+            count=num_dimensions,
+        )
+        # then, store planned refinements, but the inverted one for the parent node
+        self._planned_refinements.append((parent, -np_dimensions_to_coarsen))
+
     def plan_refinement(self, box_index: int, dimensions_to_refine=None) -> None:
         if dimensions_to_refine is None:
             dimensions_to_refine = (
