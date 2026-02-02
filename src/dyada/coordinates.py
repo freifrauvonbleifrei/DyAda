@@ -138,7 +138,7 @@ def float_parts_bitarray(value):
     return sign_bit, exponent, mantissa
 
 
-def deciding_bitarray_from_float(value):
+def location_code_from_float(value):
     if value < 0.0 or value > 1.0:
         raise ValueError("Value must be in the range [0.0, 1.0]")
     if value == 1.0:
