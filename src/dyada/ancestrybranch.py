@@ -13,6 +13,7 @@ from dyada.descriptor import (
 from dyada.discretization import Discretization
 from dyada.linearization import (
     MortonOrderLinearization,
+    LocationCode,
     location_code_from_history,
     location_code_from_branch,
 )
@@ -144,23 +145,23 @@ def refinement_with_marker_applied(
 def is_old_index_now_at_or_containing_location_code(
     discretization: Discretization,
     markers: MarkersMapProxyType,
-    desired_dimensionwise_positions: list[ba.bitarray],
+    desired_dimensionwise_positions: LocationCode,
     parent_of_next_refinement: int,
     parent_branch: Branch,
     old_index: int,
-) -> tuple[bool, list[ba.bitarray]]:
+) -> tuple[bool, LocationCode]:
     """Check whether old_index is now at or containing the next hyperrectangular location code.
     Args:
         discretization (Discretization): the old discretization we're referring to
         markers (MarkersMapProxyType): markers that should be applied to the old discretization
-        desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
+        desired_dimensionwise_positions (LocationCode): the location code we're looking for next
         parent_of_next_refinement (int): the current parent or other ancestor of the index we're looking for
         parent_branch (Branch): the branch corresponding to the parent_of_next_refinement
         old_index (int): the old index we're checking
 
     Returns:
-        bool            : whether old_index is now at or containing the location code
-        list[ba.bitarray]: the location code of the old_index
+        bool         : whether old_index is now at or containing the location code
+        LocationCode : the location code of the old_index
     """
     descriptor = discretization.descriptor
     old_index_branch, _ = descriptor.get_branch(
@@ -213,14 +214,14 @@ def old_node_will_be_contained_in_new_descriptor(
 def find_next_twig(
     discretization: Discretization,
     markers: MarkersMapProxyType,
-    desired_dimensionwise_positions: list[ba.bitarray],
+    desired_dimensionwise_positions: LocationCode,
     parent_of_next_refinement: int,
 ) -> tuple[int, set[int]]:
     """Get the (old) tree node corresponding to the location code, and any nodes encountered on the way.
     Args:
         discretization (Discretization): the old discretization we're referring to
         markers (MarkersMapProxyType): refinement markers that should be applied to the discretization
-        desired_dimensionwise_positions (list[ba.bitarray]): the location code we're looking for next
+        desired_dimensionwise_positions (LocationCode): the location code we're looking for next
         parent_of_next_refinement (int): parent or other ancestor of the index we're looking for
     Returns:
         tuple[int, set[int]]:
