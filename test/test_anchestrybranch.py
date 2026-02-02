@@ -29,13 +29,10 @@ def advance_or_grow(
 
 def test_ancestry_branch_2d_6():
     # inspired by test_refine_2d_6
-    discretization = Discretization(
-        MortonOrderLinearization(),
-        RefinementDescriptor.from_binary(
-            2,
-            ba.bitarray("01 00 10 10 00 00 10 00 00"),
-        ),
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("01 00 10 10 00 00 10 00 00")
     )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
     assert (
         discretization_to_2d_ascii(discretization, resolution=(8, 4))
         == """\
@@ -45,16 +42,13 @@ _________
 |       |
 |_______|"""
     )
-
     markers = get_defaultdict_for_markers(
         discretization.descriptor.get_num_dimensions()
     )
     markers[0] = np.array([1, 0], dtype=np.int8)
     markers[6] = np.array([-1, 0], dtype=np.int8)
 
-    ancestrybranch = AncestryBranch(
-        discretization=discretization, starting_index=0, markers=markers
-    )
+    ancestrybranch = AncestryBranch(discretization, starting_index=0, markers=markers)
     # step through ancestry branch
     expected_return_values = [
         (0, TrackToken(0), ba.frozenbitarray("11"), np.array([1, 0], dtype=np.int8)),
