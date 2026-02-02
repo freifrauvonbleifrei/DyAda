@@ -98,27 +98,26 @@ def test_ancestrybranch_3d_5():
     markers[0] = np.array([1, 1, 0], dtype=np.int8)
     markers[1] = np.array([0, -1, 0], dtype=np.int8)
     markers[2] = np.array([-1, 0, 0], dtype=np.int8)
-    ancestrybranch = AncestryBranch(
-        discretization=discretization, starting_index=0, markers=markers
-    )
+    ancestrybranch = AncestryBranch(discretization, starting_index=0, markers=markers)
 
+    TT = TrackToken  # type alias for brevity
     leaf_no_marker = (ba.frozenbitarray("000"), np.array([0, 0, 0], dtype=np.int8))
     # step through ancestry branch
     expected_return_values = [
         (
             0,
-            TrackToken(0),
+            TT(0),
             ba.frozenbitarray("111"),
             np.array([1, 1, 0], dtype=np.int8),
         ),
-        (3, TrackToken(1), *leaf_no_marker),
-        (4, TrackToken(2), *leaf_no_marker),
-        (5, TrackToken(3), *leaf_no_marker),
-        (5, TrackToken(4), *leaf_no_marker),
-        (6, TrackToken(5), *leaf_no_marker),
-        (6, TrackToken(6), *leaf_no_marker),
-        (6, TrackToken(7), *leaf_no_marker),
-        (6, TrackToken(8), *leaf_no_marker),
+        (3, TT(1), *leaf_no_marker),
+        (4, TT(2), *leaf_no_marker),
+        (5, TT(3), *leaf_no_marker),
+        (5, TT(4), *leaf_no_marker),
+        (6, TT(5), *leaf_no_marker),
+        (6, TT(6), *leaf_no_marker),
+        (6, TT(7), *leaf_no_marker),
+        (6, TT(8), *leaf_no_marker),
     ]
     for expected in expected_return_values[:-1]:
         current_old_index, track_token, next_refinement, next_marker = (
@@ -129,18 +128,12 @@ def test_ancestrybranch_3d_5():
         try:
             ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
         except AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships as e:
-            assert track_token == TrackToken(8)
+            assert track_token == TT(8)
             assert e.missing_mapping == {
-                1: {
-                    TrackToken(0),
-                    TrackToken(1),
-                    TrackToken(2),
-                    TrackToken(3),
-                    TrackToken(4),
-                },
-                2: {TrackToken(0), TrackToken(1), TrackToken(2)},
-                5: {TrackToken(0)},
-                6: {TrackToken(0)},
+                1: {TT(0), TT(1), TT(2), TT(3), TT(4)},
+                2: {TT(0), TT(1), TT(2)},
+                5: {TT(0)},
+                6: {TT(0)},
             }
 
 
@@ -176,10 +169,7 @@ _________
     p.extend_descriptor_and_track_indices(
         new_descriptor, zeroth_refinement.old_index, zeroth_refinement.new_refinement
     )
-    assert p._index_mapping == [
-        {0},
-        *(set(), set(), set(), set(), set(), set(), set(), set()),
-    ]
+    assert p._index_mapping == [{0}, *[set()] * 8]
     first_refinement = next(generator)
     assert first_refinement.type == p.Refinement.Type.ExpandLeaf
     assert first_refinement.old_index == 1
@@ -192,11 +182,7 @@ _________
         first_refinement.old_index,
         ba.bitarray("00"),
     )
-    assert p._index_mapping == [
-        {0},
-        {1},
-        *(set(), set(), set(), set(), set(), set(), set()),
-    ]
+    assert p._index_mapping == [{0}, {1}, *[set()] * 7]
 
     second_refinement = next(generator)
     assert second_refinement.type == p.Refinement.Type.ExpandLeaf
