@@ -9,7 +9,7 @@ from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Optional, Union
+from typing import Generator, Optional, Union
 
 from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import (
@@ -20,7 +20,7 @@ from dyada.descriptor import (
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
-from dyada.mappings import merge_mappings
+from dyada.linearization import TrackToken
 from dyada.markers import (
     MarkerType,
     MarkersType,
@@ -43,12 +43,6 @@ class PlannedAdaptiveRefinement:
         self._discretization = discretization
         # initialize planned refinement list and data structures used later
         self._planned_refinements: list[tuple[int, npt.NDArray[np.int8]]] = []
-
-        def get_d_zeros_as_array():
-            return np.zeros(
-                self._discretization.descriptor.get_num_dimensions(), dtype=np.int8
-            )
-
         self._markers: MarkersType = get_defaultdict_for_markers(
             self._discretization.descriptor.get_num_dimensions()
         )
@@ -176,8 +170,8 @@ class PlannedAdaptiveRefinement:
             return
 
         def get_unresolvable_marker(
-            current_refinement: ba.frozenbitarray, marker: npt.NDArray[np.int8]
-        ) -> npt.NDArray[np.int8]:
+            current_refinement: ba.frozenbitarray, marker: MarkerType
+        ) -> MarkerType:
             marker_to_push_down = marker.copy()
 
             # 1st case: negative but cannot be used to coarsen here
@@ -230,43 +224,78 @@ class PlannedAdaptiveRefinement:
         new_refinement: ba.bitarray | None = None
         marker_or_ancestor: MarkerType | int | None = None
 
-    def modified_branch_generator(self, starting_index: int):
+    def _yield_missing_relationships(
+        self,
+        missing_mapping_items,
+        map_tracking_tokens_to_new_indices: dict[TrackToken, int],
+    ) -> Generator[Refinement, None, None]:
+        missing_mappings: dict[int, set[int]] = {
+            key: {map_tracking_tokens_to_new_indices[i] for i in indices}
+            for key, indices in missing_mapping_items
+        }
+        for old_index, new_indices in missing_mappings.items():
+            for new_index in new_indices:
+                yield self.Refinement(
+                    self.Refinement.Type.TrackOnly,
+                    old_index,
+                    None,
+                    new_index,
+                )
+
+    def modified_branch_generator(
+        self, starting_index: int, new_descriptor: RefinementDescriptor
+    ) -> Generator[Refinement, None, None]:
+        """Yields what every new entry in the new descriptor should be, and how to track
+
+        Args:
+            starting_index (int): where to start the branch
+            new_descriptor (RefinementDescriptor): read-only access to the new descriptor
+
+        Yields:
+            Generator[Refinement, None, None]: sequence of refinement actions
+        """
         descriptor = self._discretization.descriptor
-        ancestrybranch = AncestryBranch(self._discretization, starting_index)
         proxy_markers = MarkersMapProxyType(self._markers)
+        abranch = AncestryBranch(self._discretization, starting_index, proxy_markers)
+        map_tracking_tokens_to_new_indices: dict[TrackToken, int] = {}
 
         while True:
-            current_old_index, intermediate_generation, next_refinement, next_marker = (
-                ancestrybranch.get_current_location_info(proxy_markers)
+            current_new_index = len(new_descriptor)
+            current_old_index, tracking_token, next_refinement, next_marker = (
+                abranch.get_current_location_info()
             )
-            if next_refinement == descriptor.d_zeros:
+            map_tracking_tokens_to_new_indices[tracking_token] = current_new_index
+            is_leaf = next_refinement == descriptor.d_zeros
+            if is_leaf and np.min(next_marker) >= 0:
+                # will actually be expanded
                 yield self.Refinement(
                     self.Refinement.Type.ExpandLeaf,
                     current_old_index,
                     next_refinement,
                     next_marker,
                 )
-                for p in intermediate_generation:
-                    yield self.Refinement(
-                        self.Refinement.Type.TrackOnly,
-                        p,
-                        None,
-                        ancestrybranch.ancestry[-2],
-                    )
-                # only on leaves, we advance the branch
-                try:
-                    ancestrybranch.advance()
-                except IndexError:  # done!
-                    return
-
             else:
                 yield self.Refinement(
                     self.Refinement.Type.CopyOver,
                     current_old_index,
                     next_refinement,
                 )
+
+            if is_leaf:
+                # only on leaves, we advance the branch
+                try:
+                    abranch.advance()
+                except (
+                    AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships
+                ) as e:  # almost done!
+                    yield from self._yield_missing_relationships(
+                        e.missing_mapping.items(),
+                        map_tracking_tokens_to_new_indices,
+                    )
+                    return
+            else:
                 # on non-leaves, we grow the branch
-                ancestrybranch.grow(next_refinement)
+                abranch.grow(next_refinement)
 
     def track_indices(self, old_index: int, new_index: int) -> None:
         assert new_index > -1
@@ -309,7 +338,9 @@ class PlannedAdaptiveRefinement:
                 old_descriptor[one_after_last_extended_index:index_to_refine],
             )
             # only refine where there are markers
-            for requested_refinement in self.modified_branch_generator(index_to_refine):
+            for requested_refinement in self.modified_branch_generator(
+                index_to_refine, new_descriptor
+            ):
                 match requested_refinement:
                     case self.Refinement(
                         self.Refinement.Type.TrackOnly,
