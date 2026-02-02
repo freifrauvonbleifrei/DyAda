@@ -75,6 +75,27 @@ def side_corners_generator(
             yield side_corners[0], side_corners[1], side_corners[3], side_corners[2]
 
 
+def overwrite_char_in_canvas(
+    canvas: list[list[str]], i: int, j: int, vertical: bool
+) -> list[list[str]]:
+    new = "|" if vertical else "_"
+    old = canvas[i][j]
+
+    if old not in (new, " "):
+        W = len(canvas[0])
+        ok = not vertical or (
+            j == 0 or j == W - 1 or canvas[i][j - 1] == "_" or canvas[i][j + 1] == "_"
+        )
+
+        if not ok:
+            canvas[i][j] = "*"
+            drawing = "\n".join("".join(r) for r in canvas)
+            warnings.warn(f"Overwriting non-whitespace with {new}\n{drawing}")
+
+    canvas[i][j] = new
+    return canvas
+
+
 def boxes_to_2d_ascii(
     intervals: Union[Sequence[CoordinateInterval], Mapping[CoordinateInterval, str]],
     projection: Sequence[int],
@@ -92,7 +113,12 @@ def boxes_to_2d_ascii(
     def to_idx(x, dim):
         # unit coordinates -> grid indices
         # dim=0: horizontal direction, dim=1: vertical direction
-        return int(round(x * resolution[dim]))
+        idx = int(round(x * resolution[dim]))
+        if abs(idx - (x * resolution[dim])) > 1e-8:
+            warnings.warn(
+                f"Coordinate {x} in not aligned with resolution {resolution[dim]}[{dim}]"
+            )
+        return idx
 
     # canvas with boundary slots
     W = resolution[0] + 1
@@ -110,13 +136,13 @@ def boxes_to_2d_ascii(
 
         # Horizontal edges
         for x in range(ix0, ix1 + 1):
-            canvas[H - iy0 - 1][x] = "_"
-            canvas[H - iy1 - 1][x] = "_"
+            canvas = overwrite_char_in_canvas(canvas, H - iy0 - 1, x, False)
+            canvas = overwrite_char_in_canvas(canvas, H - iy1 - 1, x, False)
 
         # Vertical edges
         for y in range(iy0, iy1):
-            canvas[H - y - 1][ix0] = "|"
-            canvas[H - y - 1][ix1] = "|"
+            canvas = overwrite_char_in_canvas(canvas, H - y - 1, ix0, True)
+            canvas = overwrite_char_in_canvas(canvas, H - y - 1, ix1, True)
 
     return "\n".join("".join(row) for row in canvas)
 

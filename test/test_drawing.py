@@ -193,6 +193,27 @@ _________
 | | |   |
 |_|_|___|"""
     )
+    with pytest.warns(UserWarning):
+        ascii_4_2 = boxes_to_2d_ascii(
+            omnitree_cells, projection=[0, 1], resolution=(4, 2)
+        )
+    assert (
+        ascii_4_2
+        == """\
+_____
+||| |
+|||_|"""
+    )
+    with pytest.warns(UserWarning):
+        ascii_2_1 = boxes_to_2d_ascii(
+            omnitree_cells, projection=[0, 1], resolution=(2, 1)
+        )
+    assert (
+        ascii_2_1
+        == """\
+___
+|||"""
+    )
 
 
 def test_draw_simplest_grandchild_split_tikz():
