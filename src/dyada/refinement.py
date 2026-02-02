@@ -21,6 +21,7 @@ from dyada.descriptor import (
 )
 from dyada.discretization import Discretization
 from dyada.linearization import TrackToken
+from dyada.mappings import correct_index_mapping, merge_mappings
 from dyada.markers import (
     MarkerType,
     MarkersType,
@@ -411,7 +412,9 @@ class PlannedAdaptiveRefinement:
         )
 
         new_descriptor = self.add_refined_data(new_descriptor)
-
+        new_discretization = Discretization(
+            self._discretization._linearization, new_descriptor
+        )
         if track_mapping == "boxes":
             # transform the mapping to box indices
             self._index_mapping = hierarchical_to_box_index_mapping(
@@ -420,14 +423,20 @@ class PlannedAdaptiveRefinement:
                 new_descriptor,
             )
         elif track_mapping == "patches":
-            pass
+            # may need to normalize in case refinement happened at non-leaves
+            correct_index_mapping(
+                self._index_mapping,
+                self._discretization,
+                new_discretization,
+                self._markers,
+            )
         else:
             raise ValueError(
                 "track_mapping must be either 'boxes' or 'patches', got "
                 + str(track_mapping)
             )
         return (
-            Discretization(self._discretization._linearization, new_descriptor),
+            new_discretization,
             self._index_mapping,
         )
 

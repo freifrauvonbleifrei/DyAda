@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from collections import Counter, defaultdict
+from collections import Counter
 import pytest
 import bitarray as ba
 import numpy as np
@@ -23,6 +23,7 @@ from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
     apply_single_refinement,
+    get_defaultdict_for_markers,
     normalize_discretization,
 )
 from dyada.linearization import MortonOrderLinearization, single_bit_set_gen
@@ -62,74 +63,99 @@ def test_refine_3d_only_leaves():
     assert validate_descriptor(new_descriptor)
 
 
+def helper_check_box_mapping(
+    index_mapping: list[set[int]],
+    old_discretization: Discretization,
+    new_discretization: Discretization,
+    tested_refinement=None,
+):
+    old_descriptor = old_discretization.descriptor
+    new_descriptor = new_discretization.descriptor
+    assert len(index_mapping) == old_descriptor.get_num_boxes()
+    assert set() not in index_mapping
+    count_new_indices: Counter = Counter()
+    for value in index_mapping:
+        count_new_indices.update(value)
+    # check that each is there once
+    for e in count_new_indices.most_common():
+        assert e[1] == 1
+    assert sorted(count_new_indices.elements()) == list(
+        range(new_descriptor.get_num_boxes())
+    )
+    for mapped_from_index, mapped_to_indices in enumerate(index_mapping):
+        old_coordinates = coordinates_from_box_index(
+            old_discretization, mapped_from_index
+        )
+        if len(mapped_to_indices) == 1:
+            (mapped_to_index,) = mapped_to_indices
+            new_coordinates = coordinates_from_box_index(
+                new_discretization, mapped_to_index
+            )
+            # make sure the coordinates are correct
+            assert old_coordinates == new_coordinates
+        else:
+            # assert that the new boxes cover the old box
+            # new_coordinates_list = [
+            #     coordinates_from_index(new_discretization, new_index, is_box_index=True)
+            #     for new_index in mapped_to_indices
+            # ]
+            # # needs recursive line-sweep #TODO
+            pass
+
+
 def helper_check_mapping(
     index_mapping: list[set[int]],
     old_discretization: Discretization,
     new_discretization: Discretization,
     mapping_indices_are_boxes=True,
     tested_refinement=None,
-):
+) -> None:
+    if mapping_indices_are_boxes:
+        return helper_check_box_mapping(
+            index_mapping, old_discretization, new_discretization, tested_refinement
+        )
+    else:
+        # get box mapping from index mapping
+        box_mapping = hierarchical_to_box_index_mapping(
+            index_mapping,
+            old_discretization.descriptor,
+            new_discretization.descriptor,
+        )
+        helper_check_box_mapping(box_mapping, old_discretization, new_discretization)
+
     old_descriptor = old_discretization.descriptor
     new_descriptor = new_discretization.descriptor
     count_new_indices: Counter = Counter()
     for value in index_mapping:
         count_new_indices.update(value)
-    if mapping_indices_are_boxes:
-        assert len(index_mapping) == old_descriptor.get_num_boxes()
-        assert set() not in index_mapping
-        assert sorted(count_new_indices.elements()) == list(
-            range(new_descriptor.get_num_boxes())
-        )
-    else:
-        assert len(index_mapping) == len(old_descriptor)
-        assert set() not in index_mapping
-        assert set(count_new_indices.elements()) == set(range(len(new_descriptor)))
+    assert len(index_mapping) == len(old_descriptor)
+    assert set() not in index_mapping
+    assert set(count_new_indices.elements()) == set(range(len(new_descriptor)))
     for b, mapped_to_indices in enumerate(index_mapping):
-        if len(mapped_to_indices) == 1:
-            # make sure the coordinates are correct
-            (mapped_to_index,) = mapped_to_indices
-            if not (
-                coordinates_from_index(
-                    new_discretization, mapped_to_index, mapping_indices_are_boxes
-                )
-                == coordinates_from_index(
-                    old_discretization, b, mapping_indices_are_boxes
-                )
-            ):
-                print(
-                    f"mapping failed for box {b} with index {mapped_to_index}"
-                    " and coordinates {coordinates_from_box_index(old_discretization, b)} "
-                    "-> {coordinates_from_box_index(new_discretization, mapped_to_index)}"
-                )
-                print(f"old descriptor: {old_descriptor}")
-                print(f"new descriptor: {new_descriptor}")
-                if tested_refinement is not None:
-                    print(f"tested refinement: {tested_refinement}")
-            if mapping_indices_are_boxes:
-                # otherwise, there may be smaller, now-deleted patches as well
-                assert coordinates_from_index(
-                    new_discretization, mapped_to_index, mapping_indices_are_boxes
-                ) == coordinates_from_index(
-                    old_discretization, b, mapping_indices_are_boxes
-                )
-        else:
-            old_interval = coordinates_from_index(
-                old_discretization, b, mapping_indices_are_boxes
+        old_coordinates = coordinates_from_index(
+            old_discretization, b, mapping_indices_are_boxes
+        )
+        # the smallest of the mapped_to_indices' interval should cover the old interval
+        most_senior_mapped_to = min(mapped_to_indices)
+        new_coordinates = coordinates_from_index(
+            new_discretization,
+            most_senior_mapped_to,
+            mapping_indices_are_boxes,
+        )
+        assert np.all(new_coordinates.lower_bound <= old_coordinates.lower_bound)
+        assert np.all(old_coordinates.upper_bound <= new_coordinates.upper_bound)
+        if len(mapped_to_indices) > 1:
+            # and this should not be true for the second
+            second_most_senior_mapped_to = sorted(mapped_to_indices)[1]
+            new_coordinates = coordinates_from_index(
+                new_discretization,
+                second_most_senior_mapped_to,
+                mapping_indices_are_boxes,
             )
-            for new_index in mapped_to_indices:
-                new_interval = coordinates_from_index(
-                    new_discretization, new_index, mapping_indices_are_boxes
-                )
-                assert np.all(
-                    old_interval.lower_bound <= new_interval.lower_bound
-                ) and np.all(
-                    new_interval.lower_bound <= old_interval.upper_bound
-                )  # type: ignore
-                assert np.all(
-                    old_interval.lower_bound <= new_interval.upper_bound
-                ) and np.all(
-                    new_interval.upper_bound <= old_interval.upper_bound
-                )  # type: ignore
+            assert not (
+                np.all(new_coordinates.lower_bound <= old_coordinates.lower_bound)
+                and np.all(old_coordinates.upper_bound <= new_coordinates.upper_bound)
+            )
 
 
 def test_refine_simplest_not_only_leaves():
@@ -200,6 +226,15 @@ def test_refine_simplest_grandchild_split():
     new_discretization, index_mapping = p.create_new_discretization(
         track_mapping="boxes"
     )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 4))
+        == """\
+_________
+|   | | |
+|___| | |
+|   | | |
+|___|_|_|"""
+    )
     new_descriptor = new_discretization.descriptor
     assert new_descriptor._data == ba.bitarray("10010000100000")
     assert validate_descriptor(new_descriptor)
@@ -227,8 +262,17 @@ def test_refine_simplest_grandchild_split():
     new_discretization_2, index_mapping_2 = p.create_new_discretization(
         track_mapping="patches"
     )
+    assert (
+        discretization_to_2d_ascii(new_discretization_2, resolution=(8, 4))
+        == """\
+_________
+|   | | |
+|___|_|_|
+|   | | |
+|___|_|_|"""
+    )
     new_descriptor_2 = new_discretization_2.descriptor
-    assert new_descriptor_2._data == ba.bitarray("110010000000100000")
+    assert new_descriptor_2._data == ba.bitarray("11 00 10 00 00 00 10 00 00")
     assert validate_descriptor(new_descriptor_2)
     helper_check_mapping(
         index_mapping_2,
@@ -236,6 +280,18 @@ def test_refine_simplest_grandchild_split():
         new_discretization_2,
         mapping_indices_are_boxes=False,
     )
+    expected_index_mapping_2 = {
+        0: {0},
+        1: {0},
+        2: {1},
+        3: {5},
+        4: {0, 2, 6},
+        5: {0, 2, 6, 3, 7},
+        6: {0, 2, 4, 6, 8},
+    }
+    assert index_mapping_2 == [
+        expected_index_mapping_2[i] for i in range(len(expected_index_mapping_2))
+    ]
 
 
 def test_refine_grandchild_split():
@@ -246,7 +302,7 @@ def test_refine_grandchild_split():
     p.plan_refinement(0, ba.bitarray("01"))
     p.plan_refinement(2, ba.bitarray("10"))
     discretization, _ = p.apply_refinements()
-    new_discretization, _ = apply_single_refinement(discretization, 1)
+    new_discretization, patch_mapping = apply_single_refinement(discretization, 1)
     assert (
         discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
         == """\
@@ -263,6 +319,8 @@ _________________
     new_descriptor = new_discretization.descriptor
     four_branch = new_descriptor.get_branch(4, False)[0]
     assert new_descriptor.get_ancestry(four_branch) == [0, 1, 3]
+    helper_check_mapping(patch_mapping, discretization, new_discretization)
+
     p = PlannedAdaptiveRefinement(new_discretization)
 
     # the actual test
@@ -401,31 +459,32 @@ _________________
     validate_descriptor(new_descriptor)
     assert new_descriptor.get_num_boxes() == num_boxes_before + 1
     assert new_descriptor == correct_descriptor
-    assert index_mapping == [
-        {0},
-        {0},
-        {1},
-        {7},
-        {2, 8},
-        {3, 9},
-        {4},
-        {5},
-        {10},
-        {11},
-        {6, 12},
-    ]
+    expected_box_mapping = {
+        0: {0},
+        1: {4},
+        2: {1},
+        3: {2},
+        4: {5},
+        5: {6},
+        6: {3, 7},
+    }
+    assert box_mapping == list(expected_box_mapping.values())
+    expected_index_mapping = {
+        0: {0},
+        1: {0},
+        2: {1},
+        3: {7},
+        4: {0, 2, 8},
+        5: {0, 2, 3, 8, 9},
+        6: {4},
+        7: {5},
+        8: {10},
+        9: {11},
+        10: {0, 2, 8, 6, 12},
+    }
+    assert index_mapping == list(expected_index_mapping.values())
+    helper_check_mapping(box_mapping, discretization, new_discretization)
     helper_check_mapping(index_mapping, discretization, new_discretization, False)
-    helper_check_mapping(box_mapping, discretization, new_discretization, True)
-    for b in range(descriptor.get_num_boxes()):
-        assert len(box_mapping[b]) == 1 or (
-            b == (len(discretization) - 1) and len(box_mapping[b]) == 2
-        )
-        if len(box_mapping[b]) == 1:
-            (mapped_to_index,) = box_mapping[b]
-            # make sure the coordinates are correct
-            assert coordinates_from_box_index(
-                new_discretization, mapped_to_index
-            ) == coordinates_from_box_index(discretization, b)
 
 
 def test_refine_2d_2():
@@ -532,10 +591,7 @@ _________________
     assert find_uniqueness_violations(non_normalized_descriptor) == [{2, 3, 6}]
     p = PlannedAdaptiveRefinement(non_normalized_discretization)
 
-    def get_d_zeros_as_array():
-        return np.zeros(descriptor.get_num_dimensions(), dtype=np.int8)
-
-    p._markers = defaultdict(get_d_zeros_as_array)
+    p._markers = get_defaultdict_for_markers(descriptor.get_num_dimensions())
     p._markers[2] = np.array([0, 1], dtype=np.int8)
     p._markers[3] = np.array([0, -1], dtype=np.int8)
     p._markers[6] = np.array([0, -1], dtype=np.int8)
@@ -660,40 +716,157 @@ _________________________________
         track_mapping="patches",
     )
     assert num_rounds == 5
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 17},
+        2: {0, 1, 2, 17},
+        3: {1, 2},
+        4: {2},
+        5: {3},
+        6: {4},
+        7: {5},
+        8: {6},
+        9: {12},
+        10: {18},
+        11: {0, 1, 7, 13, 17, 19},
+        12: {0, 1, 7, 13, 17, 19},
+        13: {1, 7, 13},
+        14: {7},
+        15: {8},
+        16: {10},
+        17: {14},
+        18: {20},
+        19: {0, 1, 7, 13, 17, 19},
+        20: {1, 7, 13},
+        21: {7},
+        22: {9},
+        23: {11},
+        24: {15},
+        25: {21},
+        26: {0},
+        27: {16},
+        28: {22},
+    }
+    assert patch_mapping == list(expected_patch_mapping.values())
+
+
+def test_refine_2d_5():
+    """Test found through randomized testing, it used to return incomplete mapping"""
+    descriptor = RefinementDescriptor.from_binary(
+        2,
+        ba.bitarray("10 00 01 01 00 00 01 00 00"),
+    )
+    assert validate_descriptor(descriptor)
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 4))
+        == """\
+_________
+|   |___|
+|   |___|
+|   |___|
+|___|___|"""
+    )
+
+    refinement = ba.bitarray("01")
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, refinement)
+    new_discretization, index_mapping = p.apply_refinements(track_mapping="patches")
+
+    assert validate_descriptor(new_discretization.descriptor)
+    helper_check_mapping(
+        index_mapping,
+        discretization,
+        new_discretization,
+        mapping_indices_are_boxes=False,
+        tested_refinement=[refinement],
+    )
+
+    assert new_discretization.descriptor._data == ba.bitarray(
+        "11 00 01 00 00 00 01 00 00"
+    )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 4))
+        == """\
+_________
+|   |___|
+|___|___|
+|   |___|
+|___|___|"""
+    )
+    expected_mapping = {
+        0: {0},
+        1: {0, 1, 5},
+        2: {0, 2, 6},
+        3: {2},
+        4: {3},
+        5: {4},
+        6: {6},
+        7: {7},
+        8: {8},
+    }
+    assert index_mapping == [expected_mapping[i] for i in range(len(expected_mapping))]
+
+
+def test_refine_2d_6():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(
+            2,
+            ba.bitarray("01 00 10 10 00 00 10 00 00"),
+        ),
+    )
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 4))
+        == """\
+_________
+| | | | |
+|_|_|_|_|
+|       |
+|_______|"""
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "10")
+    p.plan_refinement(1, "10")
+    p.plan_refinement(2, "10")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
+        == """\
+_________________
+| | | | |   |   |
+| | | | |   |   |
+| | | | |   |   |
+|_|_|_|_|___|___|
+|       |       |
+|       |       |
+|       |       |
+|_______|_______|"""
+    )
+    validate_descriptor(new_discretization.descriptor)
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2},
+        2: {0, 3, 10},
+        3: {3, 4, 7},
+        4: {4, 5, 6},
+        5: {7, 8, 9},
+        6: {10},
+        7: {11},
+        8: {12},
+    }
     assert patch_mapping == [
-        {0},
-        {1, 17},  # {0},
-        {1, 17},  # {0},
-        {1},
-        {2},
-        {3},
-        {4},
-        {5},
-        {6},
-        {12},
-        {18},
-        {7, 13, 19},  # {0},
-        {7, 13, 19},  # {0},
-        {7, 13},  # {1},
-        {7},
-        {8},
-        {10},
-        {14},
-        {20},
-        {7, 13, 19},  # {0},
-        {7, 13},  # {1},
-        {7},
-        {9},
-        {11},
-        {15},
-        {21},
-        {0},
-        {16},
-        {22},
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
     ]
+    helper_check_mapping(
+        patch_mapping,
+        discretization,
+        new_discretization,
+        mapping_indices_are_boxes=False,
+    )
 
 
-def test_refine_3d():
+def test_refine_3d_1():
     prependable_string = "110001000000001000000001000000"
     for round_number in range(4):
         descriptor = RefinementDescriptor.from_binary(
@@ -715,16 +888,118 @@ def test_refine_3d():
         validate_descriptor(new_descriptor)
         assert new_descriptor.get_num_boxes() == num_boxes_before + 1
         helper_check_mapping(index_mapping, discretization, new_discretization)
+        # make sure only the last box maps to two new boxes
         for b in range(descriptor.get_num_boxes()):
             assert len(index_mapping[b]) == 1 or (
                 b == (len(discretization) - 1) and len(index_mapping[b]) == 2
             )
-            if len(index_mapping[b]) == 1:
-                # make sure the coordinates are correct
-                (mapped_to_index,) = index_mapping[b]
-                assert coordinates_from_box_index(
-                    new_discretization, mapped_to_index
-                ) == coordinates_from_box_index(discretization, b)
+
+
+def test_refine_3d_2():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(3, ba.bitarray("001 000 100 000 000")),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "110")
+    p.plan_refinement(1, "011")
+    p.plan_refinement(2, "011")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2, 3, 4},
+        2: {0, 5, 8, 11, 14},
+        3: {0, 5, 6, 7, 11, 12, 13},
+        4: {0, 8, 9, 10, 14, 15, 16},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
+
+
+def test_refine_3d_3():
+    descriptor = RefinementDescriptor.from_binary(
+        3, ba.bitarray("010 000 101 100 000 000 100 000 000 100 000 000 100 000 000")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "101")
+    p.plan_refinement(1, "100")
+    p.plan_refinement(2, "100")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2, 13, 14},
+        2: {0, 3, 10, 15, 18},
+        3: {3, 4, 7},
+        4: {4, 5, 6},
+        5: {7, 8, 9},
+        6: {10},
+        7: {11},
+        8: {12},
+        9: {15},
+        10: {16},
+        11: {17},
+        12: {18},
+        13: {19},
+        14: {20},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
+
+
+def test_refine_3d_4():
+    descriptor = RefinementDescriptor.from_binary(
+        3, ba.bitarray("010 000 001 000 100 000 000")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, "101")
+    p.plan_refinement(1, "100")
+    p.plan_refinement(2, "111")
+    p.plan_refinement(3, "111")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 1, 2, 5, 6},
+        2: {0, 3, 4, 7, 16},
+        3: {0, 3, 4},
+        4: {0, 7, 16},
+        5: {7, 8, 9, 10, 11, 12, 13, 14, 15},
+        6: {16, 17, 18, 19, 20, 21, 22, 23, 24},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
+
+
+def test_refine_3d_5():
+    # almost same beginning as 3d_4
+    descriptor = RefinementDescriptor.from_binary(
+        3, ba.bitarray("001 010 100 000 000 000 000")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(2, "100")
+    p.plan_refinement(3, "110")
+    new_discretization, patch_mapping = p.apply_refinements(track_mapping="patches")
+    expected_patch_mapping = {
+        0: {0},
+        1: {0, 3, 4},
+        2: {0},
+        3: {1},
+        4: {2},
+        5: {0, 3, 4},
+        6: {0, 5, 6, 7, 8},
+    }
+    assert patch_mapping == [
+        expected_patch_mapping[i] for i in range(len(expected_patch_mapping))
+    ]
+    helper_check_mapping(patch_mapping, discretization, new_discretization, False)
 
 
 def test_refine_4d():
