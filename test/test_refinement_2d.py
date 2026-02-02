@@ -472,17 +472,13 @@ def test_refine_2d_3():
     p.plan_refinement(4, "02")
     non_normalized_discretization, _ = p.apply_refinements()
     ascii_before_and_after = """\
-_________________
-|       |   |   |
-|       |   |___|
-|       |   |   |
-|_______|___|___|
-|       |   |   |
-|       |___|___|
-|       |   |   |
-|_______|___|___|"""
+_________
+|   | |_|
+|___|_|_|
+|   |_|_|
+|___|_|_|"""
     assert (
-        discretization_to_2d_ascii(non_normalized_discretization, resolution=(16, 8))
+        discretization_to_2d_ascii(non_normalized_discretization, resolution=(8, 4))
         == ascii_before_and_after
     )
     non_normalized_descriptor = non_normalized_discretization.descriptor
@@ -499,7 +495,7 @@ _________________
 
     new_discretization, _ = p.create_new_discretization(track_mapping="patches")
     assert (
-        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 4))
         == ascii_before_and_after
     )
     new_descriptor = new_discretization.descriptor
@@ -540,23 +536,15 @@ def test_refine_2d_4():
     )
     assert find_uniqueness_violations(non_normalized_descriptor) == [{11, 12, 19}]
     ascii_before_and_after = """\
-_________________________________
-|       |   |   |               |
-|       |   |   |               |
-|       |   |   |               |
-|       |   |   |               |
-|       |   |   |               |
-|       |   |   |               |
-|       |   |   |               |
-|_______|___|___|_______________|
-|       |   |   |               |
-|       |   |   |               |
-|       |   |   |               |
-|_______|___|___|               |
-|   |   |   |   |               |
-|___|___|___|___|               |
-|   |   |   |   |               |
-|___|___|___|___|_______________|"""
+_________________
+|   | | |       |
+|   | | |       |
+|   | | |       |
+|___|_|_|_______|
+|   | | |       |
+|___|_|_|       |
+|_|_|_|_|       |
+|_|_|_|_|_______|"""
 
     non_normalized_discretization = Discretization(
         MortonOrderLinearization(), non_normalized_descriptor
@@ -583,7 +571,7 @@ _________________________________
         track_mapping="boxes",
     )
     assert (
-        discretization_to_2d_ascii(new_discretization, resolution=(32, 16))
+        discretization_to_2d_ascii(new_discretization, resolution=(16, 8))
         == ascii_before_and_after
     )
     assert num_rounds == 5
