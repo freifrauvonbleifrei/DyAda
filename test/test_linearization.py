@@ -317,40 +317,17 @@ def test_coarsen_refine_stack_3d():
         dimensions_to_coarsen=(2,),
         dimensions_to_refine=(0,),
     )
+    fba = ba.frozenbitarray
 
     expected_coarsen_refine_stack = [
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("111"),
-            ba.frozenbitarray("001"),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("011"),
-            ba.frozenbitarray("001"),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("101"),
-            ba.frozenbitarray("001"),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("001"),
-            ba.frozenbitarray("001"),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("110"),
-            ba.frozenbitarray("001"),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("010"),
-            ba.frozenbitarray("001"),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("100"),
-            ba.frozenbitarray("001"),
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("000"),
-            ba.frozenbitarray("001"),
-        ),
+        DimensionSeparatedLocalPosition(fba("111"), fba("001")),
+        DimensionSeparatedLocalPosition(fba("011"), fba("001")),
+        DimensionSeparatedLocalPosition(fba("101"), fba("001")),
+        DimensionSeparatedLocalPosition(fba("001"), fba("001")),
+        DimensionSeparatedLocalPosition(fba("110"), fba("001")),
+        DimensionSeparatedLocalPosition(fba("010"), fba("001")),
+        DimensionSeparatedLocalPosition(fba("100"), fba("001")),
+        DimensionSeparatedLocalPosition(fba("000"), fba("001")),
     ]
     assert coarsen_refine_stack == expected_coarsen_refine_stack
 
