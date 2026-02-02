@@ -5,6 +5,9 @@
 import pytest
 import bitarray as ba
 import numpy as np
+from os.path import abspath
+
+from dyada.coordinates import location_code_from_level_index
 
 from dyada.descriptor import (
     RefinementDescriptor,
@@ -129,6 +132,43 @@ def test_get_box_from_coordinate():
         r.get_containing_box(np.array([1.5, 1.5]))
 
 
+def test_get_index_from_location_code_from_level_index_2d():
+    descriptor = RefinementDescriptor.from_binary(  # same as test_refine_2_3
+        2, ba.bitarray("11 00 10 01 00 00 01 00 00 00 10 00 01 00 00")
+    )
+    validate_descriptor(descriptor)
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    # test all indices
+    for i in range(len(descriptor)):
+        level_index = discretization.get_level_index(i, is_box_index=False)
+        location_code = location_code_from_level_index(level_index)
+        index = discretization.get_index_from_location_code(
+            location_code, get_box=False
+        )
+        assert index == i  # expect exact match
+        # now extend one location code by one level
+        extended_location_code = (location_code[0] + ba.bitarray("1"), location_code[1])
+        try:
+            index = discretization.get_index_from_location_code(
+                extended_location_code, get_box=False
+            )
+            assert index > i  # if match, it has to be a child
+        except Discretization.NoExactMatchError as e:
+            assert e.closest_match == i
+
+        other_extended_location_code = (
+            location_code[0],
+            location_code[1] + ba.bitarray("1"),
+        )
+        try:
+            index = discretization.get_index_from_location_code(
+                other_extended_location_code, get_box=False
+            )
+            assert index > i  # if match, it has to be a child
+        except Discretization.NoExactMatchError as e:
+            assert e.closest_match == i
+
+
 def helper_mapping_as_box_mapping(
     old_descriptor: RefinementDescriptor, new_descriptor: RefinementDescriptor, mapping
 ):
@@ -138,11 +178,10 @@ def helper_mapping_as_box_mapping(
     box_keys = list()
     box_values = list()
     for key, value in mapping.items():
-        try:
-            box_keys.append(old_descriptor.to_box_index(key))
-        except AssertionError:
-            # if the key is not a box index, we skip it
+        if not old_descriptor.is_box(key):
             continue
+        box_keys.append(old_descriptor.to_box_index(key))
+        assert new_descriptor.is_box(value)
         box_values.append(new_descriptor.to_box_index(value))
 
     assert len(set(box_keys)) == len(box_keys)
@@ -388,3 +427,8 @@ def test_stack():
         ("10", ""),
         ("11", ""),
     ]
+
+
+if __name__ == "__main__":
+    here = abspath(__file__)
+    pytest.main([here, "-s"])
