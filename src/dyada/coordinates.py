@@ -10,6 +10,9 @@ import numpy as np
 import numpy.typing as npt
 from typing import NamedTuple, TypeAlias, Sequence
 
+# todo move LocationCode etc into coordinates?
+from dyada.linearization import LocationCode
+
 
 class DyadaTooFineError(ValueError):
     pass
@@ -23,6 +26,13 @@ class LevelIndex:
     def __iter__(self):
         """make iterable, mainly to allow unpacking in assignments"""
         return iter(dataclasses.astuple(self))
+
+    def __eq__(self, other: object):
+        if not isinstance(other, LevelIndex):
+            return NotImplemented
+        return np.all(self.d_level == other.d_level) and np.all(
+            self.d_index == other.d_index
+        )
 
 
 def level_index_from_sequence(
@@ -112,6 +122,35 @@ def get_coordinates_from_level_index(level_index: LevelIndex) -> CoordinateInter
             )
         ),
     )
+
+
+def location_code_from_coordinate(coordinate: Coordinate) -> LocationCode:
+    return LocationCode(location_code_from_float(co) for co in coordinate)
+
+
+def level_index_from_location_code(location_code: list[ba.bitarray]) -> LevelIndex:
+    d_level = []
+    d_index = []
+    for bits in location_code:
+        level = len(bits)
+        if level == 0:
+            index = 0
+        else:
+            index = bitarray.util.ba2int(bits)
+        d_level.append(level)
+        d_index.append(index)
+    return level_index_from_sequence(d_level, d_index)
+
+
+def location_code_from_level_index(level_index: LevelIndex) -> list[ba.bitarray]:
+    location_code = []
+    for d_level, d_index in zip(level_index.d_level, level_index.d_index):
+        if d_level == 0:
+            bits = ba.bitarray("")  # level 0 has empty location code
+        else:
+            bits = bitarray.util.int2ba(int(d_index), length=int(d_level))
+        location_code.append(bits)
+    return location_code
 
 
 def float_parts_bitarray(value):
