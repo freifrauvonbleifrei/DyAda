@@ -64,8 +64,9 @@ _________
         (2, TrackToken(10), ba.frozenbitarray("10"), np.array([0, 0], dtype=np.int8)),
         (7, TrackToken(11), ba.frozenbitarray("00"), np.array([0, 0], dtype=np.int8)),
         (8, TrackToken(12), ba.frozenbitarray("00"), np.array([0, 0], dtype=np.int8)),
+        (None),
     ]
-    for expected in expected_return_values[:-1]:
+    for expected in expected_return_values:
         # new index given by track_token
         current_old_index, track_token, next_refinement, next_marker = (
             ancestrybranch.get_current_location_info()
@@ -84,6 +85,7 @@ _________
                 5: {TrackToken(0), TrackToken(3), TrackToken(7)},
                 6: {TrackToken(10), TrackToken(11), TrackToken(12)},
             }
+            break
 
 
 def test_ancestrybranch_3d_5():
@@ -118,8 +120,9 @@ def test_ancestrybranch_3d_5():
         (6, TT(6), *leaf_no_marker),
         (6, TT(7), *leaf_no_marker),
         (6, TT(8), *leaf_no_marker),
+        (None),
     ]
-    for expected in expected_return_values[:-1]:
+    for expected in expected_return_values:
         current_old_index, track_token, next_refinement, next_marker = (
             ancestrybranch.get_current_location_info()
         )
