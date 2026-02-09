@@ -93,7 +93,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev xvfb # all for OpenGL rendering, xvfb for OpenGL context
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-cov
+          python -m pip install pytest pytest-cov genbadge[coverage]
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Install DyAda module
         run: pip install -e .[drawing,matplotlib,opengl]
@@ -105,8 +105,8 @@ jobs:
         run: |
           coverage report --precision=1 --fail-under=90 --show-missing --skip-empty
       - name: Coverage Badge
-        uses: tj-actions/coverage-badge-py@1788babcb24544eb5bbb6e0d374df5d1e54e670f
-
+        run: |
+          genbadge coverage -i coverage.xml -o coverage.svg
       - name: Verify changed files (badge)
         uses: tj-actions/verify-changed-files@a1c6acee9df209257a246f2cc6ae8cb6581c1edf
         id: verify-changed-files
@@ -120,12 +120,4 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add coverage.svg
           git commit -m "Updated coverage.svg"
-
-      - name: Push changes
-        if: |
-          steps.verify-changed-files.outputs.files_changed == 'true' &&
-          github.event_name != 'pull_request'
-        uses: ad-m/github-push-action@d91a481090679876dfc4178fef17f286781251df
-        with:
-          github_token: ${{ secrets.github_token }}
-          branch: ${{ github.ref }}
+          git push # https://stackoverflow.com/a/58393457/7272382
