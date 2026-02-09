@@ -18,7 +18,6 @@ from dyada.linearization import (
     CoarseningStack,
     TrackToken,
     LocationCode,
-    get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     location_code_from_history,
     location_code_from_branch,
@@ -173,31 +172,30 @@ class AncestryBranch:
             current_refinement: ba.frozenbitarray,
             markers: list[MarkerType],
         ) -> Union["AncestryBranch.TrackInfo", None]:
+            if current_refinement.count() == 0:
+                return None
             marker = np.sum(markers, axis=0)
             if marker.min() < 0:
-                dimensions_to_coarsen = ba.frozenbitarray(
-                    ba.bitarray(1 if marker[i] < 0 else 0 for i in range(len(marker)))
-                    & current_refinement
+                negative = ba.bitarray(
+                    1 if marker[i] < 0 else 0 for i in range(len(marker))
                 )
-                if dimensions_to_coarsen.count() == 0:
-                    return None
-                if marker.max() <= 0:
-                    # only coarsened
-                    coarsening_stack = get_initial_coarsening_stack(
-                        ba.frozenbitarray(current_refinement), dimensions_to_coarsen
-                    )
-                    return coarsening_stack
-                else:
-                    # coarsened and refined
-                    dimensions_to_refine = ba.frozenbitarray(
+
+                dimensions_to_coarsen = ba.frozenbitarray(negative & current_refinement)
+                dimensions_cannot_coarsen = ba.frozenbitarray(
+                    negative & ~current_refinement
+                )
+                dimensions_to_refine = ba.frozenbitarray(
+                    ba.frozenbitarray(
                         1 if marker[i] > 0 else 0 for i in range(len(marker))
                     )
-                    coarsen_refine_stack = get_initial_coarsen_refine_stack(
-                        ba.frozenbitarray(current_refinement),
-                        dimensions_to_coarsen,
-                        dimensions_to_refine,
-                    )
-                    return coarsen_refine_stack
+                    | dimensions_cannot_coarsen
+                )
+                coarsen_refine_stack = get_initial_coarsen_refine_stack(
+                    ba.frozenbitarray(current_refinement),
+                    dimensions_to_coarsen,
+                    dimensions_to_refine,
+                )
+                return coarsen_refine_stack
             return None
 
         def store_missed_mappings(
