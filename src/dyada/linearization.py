@@ -142,6 +142,7 @@ class TrackToken:
 
 @dataclass
 class DimensionSeparatedLocalPosition:
+    # TODO separate masks from stack
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
     same_index_as: set[TrackToken] | None = None
@@ -237,6 +238,11 @@ def get_initial_coarsen_refine_stack(
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
+    if dimensions_cannot_coarsen is not None:
+        assert dimensions_cannot_coarsen.count() > 0
+        assert (dimensions_cannot_coarsen & dimensions_to_refine).count() == 0
+        assert (dimensions_cannot_coarsen & dimensions_to_coarsen).count() == 0
+        assert (dimensions_cannot_coarsen & current_parent_refinement).count() == 0
     assert (dimensions_to_refine & current_parent_refinement).count() == 0
 
     later_iterated_dimensions = current_parent_refinement | dimensions_to_refine

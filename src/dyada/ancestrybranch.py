@@ -336,6 +336,12 @@ class AncestryBranch:
             ancestor_location_code = branch_to_location_code(
                 ancestor_branch, self._discretization._linearization
             )
+            unresolved_coarsen_mask = track_info[0].unresolved_coarsen_mask
+            if unresolved_coarsen_mask is not None:
+                # replace a 1 in the ancestor location code for each unresolved coarsen dimension
+                for d, b in enumerate(unresolved_coarsen_mask):
+                    if b:
+                        ancestor_location_code[d][-1] = 1
             current_refinement_dimensions = [
                 i for i, b in enumerate(self._discretization.descriptor[key]) if b
             ]
