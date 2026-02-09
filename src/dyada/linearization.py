@@ -171,7 +171,7 @@ def indices_to_bitmask(
 @copying_lru_cache()
 def get_initial_coarsening_stack(
     current_parent_refinement: ba.frozenbitarray,
-    dimensions_to_coarsen: tuple[int, ...] | ba.frozenbitarray,
+    dimensions_to_coarsen: ba.frozenbitarray,
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
     """Returns a stack of coarsening mappings for all current children of a parent patch.
@@ -190,11 +190,6 @@ def get_initial_coarsening_stack(
             "Initial coarsening stack generation only implemented for"
             + "Morton order linearization, other linearizations may need"
             + "different signature."
-        )
-    if not isinstance(dimensions_to_coarsen, ba.frozenbitarray):
-        assert len(dimensions_to_coarsen) == len(set(dimensions_to_coarsen))
-        dimensions_to_coarsen = indices_to_bitmask(
-            dimensions_to_coarsen, len(current_parent_refinement)
         )
     assert len(dimensions_to_coarsen) == len(current_parent_refinement)
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
@@ -223,20 +218,10 @@ def get_initial_coarsening_stack(
 
 def get_initial_coarsen_refine_stack(
     current_parent_refinement: ba.frozenbitarray,
-    dimensions_to_coarsen: tuple[int, ...] | ba.frozenbitarray,
-    dimensions_to_refine: tuple[int, ...] | ba.frozenbitarray,
+    dimensions_to_coarsen: ba.frozenbitarray,
+    dimensions_to_refine: ba.frozenbitarray,
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
-    if not isinstance(dimensions_to_coarsen, ba.frozenbitarray):
-        assert len(dimensions_to_coarsen) == len(set(dimensions_to_coarsen))
-        dimensions_to_coarsen = indices_to_bitmask(
-            dimensions_to_coarsen, len(current_parent_refinement)
-        )
-    if not isinstance(dimensions_to_refine, ba.frozenbitarray):
-        assert len(dimensions_to_refine) == len(set(dimensions_to_refine))
-        dimensions_to_refine = indices_to_bitmask(
-            dimensions_to_refine, len(current_parent_refinement)
-        )
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
     assert (dimensions_to_refine & current_parent_refinement).count() == 0
 
