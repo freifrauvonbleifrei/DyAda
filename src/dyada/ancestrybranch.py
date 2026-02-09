@@ -184,16 +184,18 @@ class AncestryBranch:
                 dimensions_cannot_coarsen = ba.frozenbitarray(
                     negative & ~current_refinement
                 )
+                if dimensions_cannot_coarsen.count() == 0:
+                    dimensions_cannot_coarsen = None
                 dimensions_to_refine = ba.frozenbitarray(
                     ba.frozenbitarray(
                         1 if marker[i] > 0 else 0 for i in range(len(marker))
                     )
-                    | dimensions_cannot_coarsen
                 )
                 coarsen_refine_stack = get_initial_coarsen_refine_stack(
                     ba.frozenbitarray(current_refinement),
                     dimensions_to_coarsen,
                     dimensions_to_refine,
+                    dimensions_cannot_coarsen,
                 )
                 return coarsen_refine_stack
             return None

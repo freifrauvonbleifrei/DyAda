@@ -268,6 +268,78 @@ _____
     ]
 
 
+def test_coarsen_nested_2d():
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 00 01 00 00 01 00 00")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 4))
+        == """\
+_________
+|___|___|
+|___|___|
+|   |   |
+|___|___|"""
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(0, ba.bitarray("10"))  # <- hierarchical index
+    new_discretization, _ = p.apply_refinements(track_mapping="patches")
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor == RefinementDescriptor.from_binary(
+        2, ba.bitarray("01 00 01 00 00")
+    )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 4))
+        == """\
+_________
+|_______|
+|_______|
+|       |
+|_______|"""
+    )
+
+
+def test_coarsen_double_nested_2d():
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 00 01 00 01 00 00 01 00 01 00 00")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 8))
+        == """\
+_________
+|___|___|
+|___|___|
+|   |   |
+|___|___|
+|   |   |
+|   |   |
+|   |   |
+|___|___|"""
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(0, ba.bitarray("10"))  # <- hierarchical index
+    new_discretization, _ = p.apply_refinements(track_mapping="patches")
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor == RefinementDescriptor.from_binary(
+        2, ba.bitarray("01 00 01 00 01 00 00")
+    )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 8))
+        == """\
+_________
+|_______|
+|_______|
+|       |
+|_______|
+|       |
+|       |
+|       |
+|_______|"""
+    )
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])
