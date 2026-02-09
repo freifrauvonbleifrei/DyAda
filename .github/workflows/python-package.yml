@@ -121,10 +121,5 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add coverage.svg
           git commit -m "Updated coverage.svg"
-
-      - name: Push changes
-        if: steps.verify-changed-files.outputs.files_changed == 'true'
-        uses: ad-m/github-push-action@d91a481090679876dfc4178fef17f286781251df
-        with:
-          github_token: ${{ secrets.github_token }}
-          branch: ${{ github.ref }}
+          git remote set-url --push origin https://freifrauvonbleifrei:${{ secrets.github_token }}@github.com/freifrauvonbleifrei/DyAda
+          git push          
