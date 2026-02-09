@@ -145,10 +145,15 @@ class DimensionSeparatedLocalPosition:
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
     same_index_as: set[TrackToken] | None = None
+    unresolved_coarsen_mask: ba.frozenbitarray | None = None
 
     @property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
-        return ba.frozenbitarray(~self.separated_dimensions_mask)
+        return ba.frozenbitarray(
+            ~self.separated_dimensions_mask & self.unresolved_coarsen_mask
+            if self.unresolved_coarsen_mask
+            else ~self.separated_dimensions_mask
+        )
 
     @property
     def separated_positions(self) -> ba.frozenbitarray:
@@ -156,7 +161,7 @@ class DimensionSeparatedLocalPosition:
 
     @property
     def remaining_positions(self) -> ba.frozenbitarray:
-        return ba.frozenbitarray(self.local_position[~self.separated_dimensions_mask])
+        return ba.frozenbitarray(self.local_position[self.remaining_positions_mask])
 
 
 CoarseningStack: TypeAlias = list[DimensionSeparatedLocalPosition]
@@ -172,6 +177,7 @@ def indices_to_bitmask(
 def get_initial_coarsening_stack(
     current_parent_refinement: ba.frozenbitarray,
     dimensions_to_coarsen: ba.frozenbitarray,
+    dimensions_cannot_coarsen: ba.frozenbitarray | None = None,
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
     """Returns a stack of coarsening mappings for all current children of a parent patch.
@@ -179,6 +185,7 @@ def get_initial_coarsening_stack(
     Args:
         current_parent_refinement (ba.frozenbitarray): current parent's refinement, frozen to be hashable
         dimensions_to_coarsen (tuple[int, ...] | ba.frozenbitarray): a sorted tuple of dimensions to coarsen or a frozenbitarray mask
+        dimensions_cannot_coarsen (ba.frozenbitarray): a frozenbitarray mask of dimensions that cannot be coarsened
         linearization (Linearization, optional): Linearization. Defaults to MortonOrderLinearization().
     Returns:
         CoarseningStack: a list of DimensionSeparatedLocalPosition entries, one per current child patch
@@ -193,7 +200,11 @@ def get_initial_coarsening_stack(
         )
     assert len(dimensions_to_coarsen) == len(current_parent_refinement)
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
-
+    separate_dimensions = dimensions_to_coarsen
+    if dimensions_cannot_coarsen is not None:
+        current_parent_refinement = ba.frozenbitarray(
+            current_parent_refinement | dimensions_cannot_coarsen
+        )
     initial_coarsening_stack: CoarseningStack = []
     num_current_children = 2 ** current_parent_refinement.count()
     for child_index in range(num_current_children):
@@ -204,7 +215,9 @@ def get_initial_coarsening_stack(
         initial_coarsening_stack.append(
             DimensionSeparatedLocalPosition(
                 local_position=ba.frozenbitarray(binary_position),
-                separated_dimensions_mask=dimensions_to_coarsen,
+                separated_dimensions_mask=separate_dimensions,
+                same_index_as=None,
+                unresolved_coarsen_mask=dimensions_cannot_coarsen,
             )
         )
 
@@ -220,6 +233,7 @@ def get_initial_coarsen_refine_stack(
     current_parent_refinement: ba.frozenbitarray,
     dimensions_to_coarsen: ba.frozenbitarray,
     dimensions_to_refine: ba.frozenbitarray,
+    dimensions_cannot_coarsen: ba.frozenbitarray | None = None,
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
@@ -229,6 +243,7 @@ def get_initial_coarsen_refine_stack(
     return get_initial_coarsening_stack(
         later_iterated_dimensions,
         dimensions_to_coarsen,
+        dimensions_cannot_coarsen,
         linearization,
     )
 

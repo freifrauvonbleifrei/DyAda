@@ -267,6 +267,23 @@ def test_coarsening_stack_3d():
     )
 
 
+def test_coarsen_refine_stack_cannot_coarsen_2d():
+    fba = ba.frozenbitarray
+    coarsen_refine_stack = get_initial_coarsen_refine_stack(
+        current_parent_refinement=fba("01"),
+        dimensions_to_coarsen=fba("00"),
+        dimensions_to_refine=fba("00"),
+        dimensions_cannot_coarsen=fba("10"),
+    )
+    expected_coarsen_refine_stack = [
+        DimensionSeparatedLocalPosition(fba("11"), fba("00"), None, fba("10")),
+        DimensionSeparatedLocalPosition(fba("01"), fba("00"), None, fba("10")),
+        DimensionSeparatedLocalPosition(fba("10"), fba("00"), None, fba("10")),
+        DimensionSeparatedLocalPosition(fba("00"), fba("00"), None, fba("10")),
+    ]
+    assert coarsen_refine_stack == expected_coarsen_refine_stack
+
+
 def test_coarsen_refine_stack_3d():
     fba = ba.frozenbitarray
     coarsen_refine_stack = get_initial_coarsen_refine_stack(
