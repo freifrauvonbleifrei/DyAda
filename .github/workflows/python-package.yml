@@ -93,7 +93,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev xvfb # all for OpenGL rendering, xvfb for OpenGL context
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-cov setuptools
+          python -m pip install pytest pytest-cov genbadge
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Install DyAda module
         run: pip install -e .[drawing,matplotlib,opengl]
@@ -105,8 +105,8 @@ jobs:
         run: |
           coverage report --precision=1 --fail-under=90 --show-missing --skip-empty
       - name: Coverage Badge
-        uses: tj-actions/coverage-badge-py@1788babcb24544eb5bbb6e0d374df5d1e54e670f
-
+        run: |
+          genbadge coverage -o coverage.svg
       - name: Verify changed files (badge)
         uses: tj-actions/verify-changed-files@a1c6acee9df209257a246f2cc6ae8cb6581c1edf
         id: verify-changed-files
