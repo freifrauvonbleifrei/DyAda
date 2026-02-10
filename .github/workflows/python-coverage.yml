@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2025 Theresa Pollinger
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python coverage
+
+on:
+  push:
+  workflow_dispatch:
+# to allow replacing the coverage.svg
+permissions:
+  contents: write
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Set up Python "3.10"
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y freeglut3-dev libgl1-mesa-dev libglu1-mesa-dev xvfb # all for OpenGL rendering, xvfb for OpenGL context
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-cov
+          # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install DyAda module
+        run: pip install -e .[drawing,matplotlib,opengl]
+      - name: Test with pytest, to create cov report
+        continue-on-error: true # we want to get the coverage report even if tests fail
+        run: |
+          xvfb-run -a pytest test/ --cov=dyada --cov-report=xml --cov-report=html
+      - name: Get coverage, fail if under 90%, update coverage.svg
+        run: |
+          coverage report --precision=2 --fail-under=90 --show-missing --skip-empty
+          cov_score=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
+          echo '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="20" role="img" aria-label="coverage: '"${cov_score}"'%"><title>coverage: '"${cov_score}"'%</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="96" height="20" rx="3" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="'"${cov_score}"'" height="20" fill="#555"/><rect x="'"${cov_score}"'" width="35" height="20" fill="#4c1"/><rect width="96" height="20" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110"><text aria-hidden="true" x="315" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="510">coverage</text><text x="315" y="140" transform="scale(.1)" fill="#fff" textLength="510">coverage</text><text aria-hidden="true" x="775" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="250">'"${cov_score}"'%</text><text x="775" y="140" transform="scale(.1)" fill="#fff" textLength="250">'"${cov_score}"'%</text></g></svg>' > coverage.svg
+      - name: Verify changed files (badge)
+        uses: tj-actions/verify-changed-files@a1c6acee9df209257a246f2cc6ae8cb6581c1edf
+        id: verify-changed-files
+        with:
+          files: coverage.svg
+
+      - name: Commit badge file
+        if: steps.verify-changed-files.outputs.files_changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add coverage.svg
+          git commit -m "Updated coverage.svg"
+          git push # https://stackoverflow.com/a/58393457/7272382
