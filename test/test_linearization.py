@@ -163,22 +163,22 @@ def test_binary_or_none_generator():
     N = 4
     generated = list(binary_or_none_generator(indices, N))
     expected = [
-        (1, None, 1, None),
-        (0, None, 1, None),
-        (1, None, 1, None),
-        (0, None, 1, None),
-        (1, None, 0, None),
+        (0, None, 0, None),
+        (0, None, 0, None),
+        (0, None, 0, None),
         (0, None, 0, None),
         (1, None, 0, None),
-        (0, None, 0, None),
-        (1, None, 1, None),
+        (1, None, 0, None),
+        (1, None, 0, None),
+        (1, None, 0, None),
+        (0, None, 1, None),
+        (0, None, 1, None),
+        (0, None, 1, None),
         (0, None, 1, None),
         (1, None, 1, None),
-        (0, None, 1, None),
-        (1, None, 0, None),
-        (0, None, 0, None),
-        (1, None, 0, None),
-        (0, None, 0, None),
+        (1, None, 1, None),
+        (1, None, 1, None),
+        (1, None, 1, None),
     ]
     assert generated == expected
 

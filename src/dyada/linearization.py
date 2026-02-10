@@ -136,20 +136,30 @@ def location_code_from_branch(branch, linearization: Linearization) -> LocationC
     )
 
 
-def binary_or_none_generator(indices: set[int], N: int):
-    """Generate all tuples of length N with 1/0 at given indices, None elsewhere.
+def binary_or_none_generator(indices: Sequence[int], N: int):
+    """Generate all tuples of length N with 0/1 at given indices, None elsewhere.
     None also repeats.
 
     Args:
-        indices (set[int]): indices for which to yield 1/0
+        indices (Sequence[int]): indices for which to yield 0/1
         N (int): total number of positions
 
     Yields:
-        tuple[Union[int, None]]: tuples of length N with 1/0 at given indices, None elsewhere
+        tuple[Union[int, None]]: tuples of length N with 0/1 at given indices, None elsewhere
     """
-    indices = set(indices)
-    pools = [([1, 0] if i in indices else [None, None]) for i in reversed(range(N))]  # type: ignore
-    return (tuple(reversed(t)) for t in product(*pools))
+    # value indices reversed so lower index flips faster
+    value_indices = list(reversed(sorted(indices)))
+    none_indices = [i for i in range(N) if i not in indices]
+
+    pools = [[0, 1]] * len(value_indices) + [[None, None]] * len(none_indices)
+
+    for vals in product(*pools):
+        out: list[int | None] = [None] * N
+
+        for i, v in zip(value_indices, vals[: len(value_indices)]):
+            out[i] = v
+
+        yield tuple(out)
 
 
 @dataclass(frozen=True, order=True)
