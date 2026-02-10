@@ -18,6 +18,7 @@ from dyada.linearization import (
     CoarseningStack,
     TrackToken,
     LocationCode,
+    binary_or_none_generator,
     bitmask_to_indices,
     get_initial_coarsen_refine_stack,
     location_code_from_history,
