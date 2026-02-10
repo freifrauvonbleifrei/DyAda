@@ -314,6 +314,124 @@ _________
     ]
 
 
+def test_coarsen_nested_3d_whole():
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "111 000 000 010 000 000 010 000 000 000 000 010 000 000 010 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    expected_index_mapping = {
+        "patches": {
+            0: {0},
+            1: {1},
+            2: {1},
+            3: {2},
+            4: {3},
+            5: {4},
+            6: {2},
+            7: {3},
+            8: {4},
+            9: {1},
+            10: {1},
+            11: {2},
+            12: {3},
+            13: {4},
+            14: {2},
+            15: {3},
+            16: {4},
+        },
+        "boxes": {
+            0: {0},
+            1: {0},
+            2: {1},
+            3: {2},
+            4: {1},
+            5: {2},
+            6: {0},
+            7: {0},
+            8: {1},
+            9: {2},
+            10: {1},
+            11: {2},
+        },
+    }
+    for refinement in ["boxes", "patches"]:
+        p = PlannedAdaptiveRefinement(discretization)
+        p.plan_coarsening(0, ba.bitarray("101"))  # <- hierarchical index
+        new_discretization, index_mapping = p.apply_refinements(
+            track_mapping=refinement
+        )
+        new_descriptor = new_discretization.descriptor
+        assert new_descriptor == RefinementDescriptor.from_binary(
+            3, ba.bitarray("010 000 010 000 000")
+        )
+        assert index_mapping == [
+            expected_index_mapping[refinement][i]
+            for i in range(len(expected_index_mapping[refinement]))
+        ]
+
+
+def test_coarsen_nested_3d_half():
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "111 000 000 010 000 000 010 000 000 000 000 010 000 000 010 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    expected_index_mapping = {
+        "patches": {
+            0: {0},
+            1: {1},
+            2: {1},
+            3: {2},
+            4: {3},
+            5: {4},
+            6: {2},
+            7: {3},
+            8: {4},
+            9: {5},
+            10: {5},
+            11: {6},
+            12: {7},
+            13: {8},
+            14: {6},
+            15: {7},
+            16: {8},
+        },
+        "boxes": {
+            0: {0},
+            1: {0},
+            2: {1},
+            3: {2},
+            4: {1},
+            5: {2},
+            6: {3},
+            7: {3},
+            8: {4},
+            9: {5},
+            10: {4},
+            11: {5},
+        },
+    }
+    for refinement in ["boxes", "patches"]:
+        p = PlannedAdaptiveRefinement(discretization)
+        p.plan_coarsening(0, ba.bitarray("100"))  # <- hierarchical index
+        new_discretization, index_mapping = p.apply_refinements(
+            track_mapping=refinement
+        )
+        new_descriptor = new_discretization.descriptor
+        assert new_descriptor == RefinementDescriptor.from_binary(
+            3, ba.bitarray("011 000 010 000 000 000 010 000 000")
+        )
+        assert index_mapping == [
+            expected_index_mapping[refinement][i]
+            for i in range(len(expected_index_mapping[refinement]))
+        ]
+
+
 def test_coarsen_double_nested_2d():
     descriptor = RefinementDescriptor.from_binary(
         2, ba.bitarray("11 00 00 01 00 01 00 00 01 00 01 00 00")
