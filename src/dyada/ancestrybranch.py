@@ -329,6 +329,7 @@ class AncestryBranch:
         # check if all relationships from coarsening tracking are exhausted
         mapping: defaultdict[int, set[TrackToken]] = self._mapping_state.missed_mappings
         hint_previous_branch = None
+        dimensionality = self._discretization.descriptor.get_num_dimensions()
         for key, track_info in sorted(self._mapping_state.track_info_mapping.items()):
             ancestor_branch = self._discretization.descriptor.get_branch(
                 key, is_box_index=False, hint_previous_branch=hint_previous_branch
@@ -338,20 +339,38 @@ class AncestryBranch:
                 ancestor_branch, self._discretization._linearization
             )
             unresolved_coarsen_mask = track_info[0].unresolved_coarsen_mask
+            unresolved_iterable = None
             if unresolved_coarsen_mask is not None:
-                # replace a 1 in the ancestor location code for each unresolved coarsen dimension
+                # shorten the ancestor location code for each unresolved coarsen dimension
                 for d, b in enumerate(unresolved_coarsen_mask):
                     if b:
-                        ancestor_location_code[d][-1] = 1
+                        ancestor_location_code[d].pop()
+                unresolved_iterable = binary_or_none_generator(
+                    bitmask_to_indices(unresolved_coarsen_mask),
+                    dimensionality,
+                )
+                # todo get analytically
+                num_to_drop = 2**dimensionality - len(track_info)
+                for _ in range(num_to_drop):
+                    next(unresolved_iterable)
             current_refinement_dimensions = bitmask_to_indices(
                 self._discretization.descriptor[key]
             )
-            for index in track_info:
+            while len(track_info) > 0:
+                index = track_info.pop()
                 # get their indices in the old discretization by their location code
                 missed_descendant_location_code = [
                     a.copy() for a in ancestor_location_code
                 ]
                 for d in current_refinement_dimensions:
+                    if unresolved_iterable is not None:
+                        unresolved_to_append = next(unresolved_iterable)
+                        for ud in range(len(unresolved_to_append)):
+                            if unresolved_to_append[ud] is None:
+                                continue
+                            missed_descendant_location_code[ud].append(
+                                unresolved_to_append[ud]
+                            )
                     missed_descendant_location_code[d].append(index.local_position[d])
 
                 missed_descendant_index = self._discretization.get_index_from_location_code(
@@ -364,6 +383,9 @@ class AncestryBranch:
 
                 assert isinstance(missed_descendant_index, int)
                 mapping[missed_descendant_index].update(map_to)
+            assert (  # assert exhausted
+                unresolved_iterable is None or next(unresolved_iterable, None) is None
+            )
 
         return mapping
 

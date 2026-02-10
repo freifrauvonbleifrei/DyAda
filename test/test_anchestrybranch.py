@@ -184,7 +184,8 @@ def test_ancestrybranch_coarsen_nested_2d():
                 4: {TT(0), TT(2)},
                 5: {TT(0), TT(2)},
                 6: {TT(2)},
-                8: {TT(3), TT(4)},  # 3 is actually for 7!
+                7: {TT(3)},
+                8: {TT(4)},
             }
             break
 

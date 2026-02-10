@@ -177,11 +177,12 @@ class DimensionSeparatedLocalPosition:
 
     @property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
-        return ba.frozenbitarray(
-            ~self.separated_dimensions_mask & self.unresolved_coarsen_mask
+        remaining_positions = ba.frozenbitarray(
+            ~self.separated_dimensions_mask & ~self.unresolved_coarsen_mask
             if self.unresolved_coarsen_mask
             else ~self.separated_dimensions_mask
         )
+        return remaining_positions
 
     @property
     def separated_positions(self) -> ba.frozenbitarray:
@@ -190,6 +191,14 @@ class DimensionSeparatedLocalPosition:
     @property
     def remaining_positions(self) -> ba.frozenbitarray:
         return ba.frozenbitarray(self.local_position[self.remaining_positions_mask])
+
+    @property
+    def unresolved_positions(self) -> ba.frozenbitarray:
+        return (
+            ba.frozenbitarray(self.local_position[self.unresolved_coarsen_mask])
+            if self.unresolved_coarsen_mask
+            else ba.frozenbitarray()
+        )
 
 
 CoarseningStack: TypeAlias = list[DimensionSeparatedLocalPosition]
@@ -257,6 +266,9 @@ def get_initial_coarsening_stack(
 
     initial_coarsening_stack.sort(
         key=lambda entry: entry.separated_positions.to01()[::-1]
+    )
+    initial_coarsening_stack.sort(
+        key=lambda entry: (entry.unresolved_positions).to01()[::-1]
     )
     # reverse so we can pop() from the back
     initial_coarsening_stack.reverse()

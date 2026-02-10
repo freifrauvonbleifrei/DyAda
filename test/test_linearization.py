@@ -303,8 +303,8 @@ def test_coarsen_refine_stack_cannot_coarsen_2d():
     )
     expected_coarsen_refine_stack = [
         DimensionSeparatedLocalPosition(fba("11"), fba("00"), None, fba("10")),
-        DimensionSeparatedLocalPosition(fba("01"), fba("00"), None, fba("10")),
         DimensionSeparatedLocalPosition(fba("10"), fba("00"), None, fba("10")),
+        DimensionSeparatedLocalPosition(fba("01"), fba("00"), None, fba("10")),
         DimensionSeparatedLocalPosition(fba("00"), fba("00"), None, fba("10")),
     ]
     assert coarsen_refine_stack == expected_coarsen_refine_stack
