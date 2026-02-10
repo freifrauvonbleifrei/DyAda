@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from abc import ABC, abstractmethod
+from itertools import product
 import bitarray as ba
 from dataclasses import dataclass
 from typing import Sequence, TypeAlias
@@ -133,6 +134,22 @@ def location_code_from_branch(branch, linearization: Linearization) -> LocationC
     return location_code_from_history(
         history_of_binary_positions, history_of_level_increments
     )
+
+
+def binary_or_none_generator(indices: set[int], N: int):
+    """Generate all tuples of length N with 1/0 at given indices, None elsewhere.
+    None also repeats.
+
+    Args:
+        indices (set[int]): indices for which to yield 1/0
+        N (int): total number of positions
+
+    Yields:
+        tuple[Union[int, None]]: tuples of length N with 1/0 at given indices, None elsewhere
+    """
+    indices = set(indices)
+    pools = [([1, 0] if i in indices else [None, None]) for i in reversed(range(N))]  # type: ignore
+    return (tuple(reversed(t)) for t in product(*pools))
 
 
 @dataclass(frozen=True, order=True)

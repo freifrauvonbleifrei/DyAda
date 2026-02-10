@@ -8,6 +8,7 @@ import pytest
 from dyada.linearization import (
     DimensionSeparatedLocalPosition,
     MortonOrderLinearization,
+    binary_or_none_generator,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     indices_to_bitmask,
@@ -155,6 +156,31 @@ def test_get_index_morton_order():
         ba.bitarray("111"), [], [level_increment]
     )
     assert position == 7
+
+
+def test_binary_or_none_generator():
+    indices = {0, 2}
+    N = 4
+    generated = list(binary_or_none_generator(indices, N))
+    expected = [
+        (1, None, 1, None),
+        (0, None, 1, None),
+        (1, None, 1, None),
+        (0, None, 1, None),
+        (1, None, 0, None),
+        (0, None, 0, None),
+        (1, None, 0, None),
+        (0, None, 0, None),
+        (1, None, 1, None),
+        (0, None, 1, None),
+        (1, None, 1, None),
+        (0, None, 1, None),
+        (1, None, 0, None),
+        (0, None, 0, None),
+        (1, None, 0, None),
+        (0, None, 0, None),
+    ]
+    assert generated == expected
 
 
 def test_empty_coarsening_stack_initialization():
