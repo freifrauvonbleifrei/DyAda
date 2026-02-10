@@ -191,6 +191,12 @@ def indices_to_bitmask(
     return ba.frozenbitarray(1 if i in indices else 0 for i in range(num_dimensions))
 
 
+def bitmask_to_indices(
+    bitmask: ba.bitarray | ba.frozenbitarray,
+) -> tuple[int, ...]:
+    return tuple(i for i in range(len(bitmask)) if bitmask[i])
+
+
 @copying_lru_cache()
 def get_initial_coarsening_stack(
     current_parent_refinement: ba.frozenbitarray,

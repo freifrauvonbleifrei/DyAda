@@ -18,6 +18,7 @@ from dyada.linearization import (
     CoarseningStack,
     TrackToken,
     LocationCode,
+    bitmask_to_indices,
     get_initial_coarsen_refine_stack,
     location_code_from_history,
     location_code_from_branch,
@@ -342,9 +343,9 @@ class AncestryBranch:
                 for d, b in enumerate(unresolved_coarsen_mask):
                     if b:
                         ancestor_location_code[d][-1] = 1
-            current_refinement_dimensions = [
-                i for i, b in enumerate(self._discretization.descriptor[key]) if b
-            ]
+            current_refinement_dimensions = bitmask_to_indices(
+                self._discretization.descriptor[key]
+            )
             for index in track_info:
                 # get their indices in the old discretization by their location code
                 missed_descendant_location_code = [
