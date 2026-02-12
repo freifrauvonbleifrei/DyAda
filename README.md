@@ -74,7 +74,7 @@ This reduction will be even stronger if you go to higher dimensions.
 
 You can start with a regular `RefinementDescriptor`:
 
-```python:main.py:s:A
+```python:dyada_tutorial.py:s:A
 ```
 
 ```python
