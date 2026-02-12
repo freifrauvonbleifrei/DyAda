@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from functools import wraps
 import warnings
 
 try:
@@ -102,17 +103,33 @@ def plot_all_boxes_3d(
 
 def discretization_to_2d_ascii(
     discretization: Discretization,
-    resolution=(16, 8),
+    resolution=None,
     projection: Sequence[int] | None = None,
     **kwargs,
 ) -> str:
     if projection is None:
         projection = [0, 1]
+    if resolution is None:
+        max_level = discretization._descriptor.get_maximum_level()
+        resolution = (2 ** (max_level[0] + 1), 2 ** max_level[1])
+        return discretization_to_2d_ascii(discretization, resolution)
     level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
     return boxes_to_2d_ascii(
         coordinates, projection=projection, resolution=resolution, **kwargs
     )
+
+
+def discretization_str(discretization: Discretization):
+    dimensionality = discretization._descriptor.get_num_dimensions()
+    if dimensionality == 2:
+        return discretization_to_2d_ascii(discretization)
+    else:
+        return repr(discretization)
+
+
+# Monkey-patch Discretization.__str__ to use this function
+Discretization.__str__ = wraps(Discretization.__str__)(discretization_str)  # type: ignore
 
 
 @depends_on_optional("matplotlib.pyplot")
