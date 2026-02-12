@@ -7,6 +7,7 @@
 # You can start with a regular `RefinementDescriptor`:
 
 # %%
+# code_embedder:A start
 import bitarray as ba
 import dyada
 from random import randint
@@ -16,6 +17,7 @@ descriptor = dyada.RefinementDescriptor(2, [2, 1])
 # dyada.plot_tree_tikz(descriptor, filename="simple_tree")
 num_dimensions = descriptor.get_num_dimensions()
 print(descriptor)
+# code_embedder:A end
 
 # %% [markdown]
 # ```python
