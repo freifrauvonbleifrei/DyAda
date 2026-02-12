@@ -73,7 +73,7 @@ This reduction will be even stronger if you go to higher dimensions.
 ## Using DyAda
 
 You can start with a regular descriptor:
-[dyada_tutorial.py lines 5-12](https://github.com/freifrauvonbleifrei/DyAda/blob/d7d3517e3d6754a95bcb27a980e7a3060ea32472/dyada_tutorial.py#L5-L12)
+[dyada_tutorial.py lines 5-12](https://github.com/freifrauvonbleifrei/DyAda/blob/feature_extend_readme/dyada_tutorial.py#L5-L12)
 
 ```python
 RefinementDescriptor('11 01 00 00 ...0 00 01 00 00')
