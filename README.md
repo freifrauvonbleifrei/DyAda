@@ -72,7 +72,11 @@ This reduction will be even stronger if you go to higher dimensions.
 
 ## Using DyAda
 
-(Find the full tutorial code in [dyada_tutorial.py](./dyada_tutorial.py).)
+For a quick overview, the following example sticks to only two-dimensional discretizations,
+but all algorithms work on (almost) arbitrary-dimensional omnitrees, though DyAda may
+become slow for too many dimensions.
+(Find the full tutorial code in [dyada_tutorial.py](./dyada_tutorial.py), and more examples
+of usage in the extensive test suite in [/test](/test).)
 
 You can start with a regular `RefinementDescriptor`:
 
