@@ -70,9 +70,20 @@ The tree will then look like this:
 And you will only have to use 14 degrees of freedom instead of 29!
 This reduction will be even stronger if you go to higher dimensions.
 
+## Using DyAda
+
+You can start with a regular descriptor:
+
+```python:dyada_tutorial.py [4-11]
+
+```
+
+This one has two rectangles in the first dimension and four on the second, because
+the level `[1, 2]` is passed as base-2 exponents.
+
 ## Contributing
 
-Feel free to request features or voice your intent to work on/with DyAda as an 
+Feel free to request features or voice your intent to work on/with DyAda as an
 [issue](https://github.com/freifrauvonbleifrei/DyAda/issues).
 Depending on what you are looking for, exciting features may be in preparation,
 or they may just be waiting for you to implement them!
