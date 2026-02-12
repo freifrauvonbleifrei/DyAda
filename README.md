@@ -72,7 +72,7 @@ This reduction will be even stronger if you go to higher dimensions.
 
 ## Using DyAda
 
-Find the full tutorial in [dyada_tutorial.py](./dyada_tutorial.py).
+(Find the full tutorial code in [dyada_tutorial.py](./dyada_tutorial.py).)
 
 You can start with a regular `RefinementDescriptor`:
 
@@ -88,7 +88,9 @@ num_dimensions = descriptor.get_num_dimensions()
 print(descriptor)
 ```
 
-```python
+Expected output:
+
+```console
 RefinementDescriptor('11 01 00 00 ...0 00 01 00 00')
 ```
 
@@ -106,7 +108,9 @@ print("initial discretization:")
 print(discretization)
 ```
 
-```python
+->
+
+```console
 initial discretization:
 _________
 |_|_|_|_|
@@ -123,7 +127,9 @@ print("after refining box 0:")
 print(new_discretization)
 ```
 
-```python
+->
+
+```console
 after refining box 0:
 _________________
 |   |   |   |   |
@@ -149,7 +155,9 @@ print("after refining random box:")
 print(new_discretization)
 ```
 
-```python
+->
+
+```console
 after refining random box:
 _________________
 |   |___|   |   |
@@ -173,7 +181,9 @@ print("after applying planned refinements:")
 print(new_discretization)
 ```
 
-```python
+->
+
+```console
 after applying planned refinements:
 _________________
 |   |   |   |   |
