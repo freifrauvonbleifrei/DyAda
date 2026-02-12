@@ -11,9 +11,6 @@ on:
   pull_request:
     branches: ["main"]
   workflow_dispatch:
-# to allow replacing the coverage.svg
-permissions:
-  contents: write
 
 jobs:
   lint:

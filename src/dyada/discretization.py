@@ -20,7 +20,6 @@ from dyada.coordinates import (
     location_code_from_float,
     location_code_from_coordinate,
 )
-
 from dyada.descriptor import (
     Branch,
     RefinementDescriptor,
@@ -110,7 +109,15 @@ class Discretization:
         return self._descriptor.get_num_boxes()
 
     def __repr__(self):
-        return f"Discretization({self._linearization}, {self._descriptor})"
+        return f"Discretization({repr(self._linearization)}, {repr(self._descriptor)})"
+
+    # TODO has pretty dependency
+    # def _repr_pretty_(self, p, cycle):
+    #    p.text(str(self) if not cycle else '...')
+
+    def __str__(self):
+        # this is monkey-patched when drawing.py is imported
+        return repr(self)
 
     def get_level_index_from_branch(self, branch: Branch) -> LevelIndex:
         return get_level_index_from_branch(self._linearization, branch)
