@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 [![PyPI version](https://img.shields.io/pypi/v/dyada)](https://pypi.org/project/dyada/)
 [![Supported Python version](https://img.shields.io/badge/python-%E2%89%A53.10-blue.svg)](https://github.com/freifrauvonbleifrei/DyAda/blob/main/pyproject.toml)
-[![Python package CI](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/badge.svg)](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/)
+[![Python package CI](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-lint-and-test.yml/badge.svg)](https://github.com/freifrauvonbleifrei/DyAda/actions/workflows/python-package.yml/)
 ![Coverage](coverage.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/edde9abcb3a249979e71f08e23a14112)](https://app.codacy.com/gh/freifrauvonbleifrei/DyAda/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
