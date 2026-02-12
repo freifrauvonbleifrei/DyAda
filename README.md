@@ -75,6 +75,15 @@ This reduction will be even stronger if you go to higher dimensions.
 You can start with a regular `RefinementDescriptor`:
 
 ```python:dyada_tutorial.py:s:A
+import bitarray as ba
+import dyada
+from random import randint
+
+# %%
+descriptor = dyada.RefinementDescriptor(2, [2, 1])
+# dyada.plot_tree_tikz(descriptor, filename="simple_tree")
+num_dimensions = descriptor.get_num_dimensions()
+print(descriptor)
 ```
 
 ```python
