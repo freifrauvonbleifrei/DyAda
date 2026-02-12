@@ -2,25 +2,30 @@
 # SPDX-FileCopyrightText: 2025 Theresa Pollinger
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+# %%
 import bitarray as ba
 import dyada
 from random import randint
 
+# %%
 descriptor = dyada.RefinementDescriptor(2, [2, 1])
 # dyada.plot_tree_tikz(descriptor, filename="simple_tree")
 num_dimensions = descriptor.get_num_dimensions()
 print(descriptor)
 
+# %%
 discretization = dyada.Discretization(dyada.MortonOrderLinearization(), descriptor)
 print("initial discretization:")
 print(discretization)
 
+# %%
 new_discretization, index_mapping = dyada.apply_single_refinement(
     discretization, 0, track_mapping="boxes"
 )
 print("after refining box 0:")
 print(new_discretization)
 
+# %%
 # select random index and refinement
 random_index = randint(0, new_discretization.descriptor.get_num_boxes() - 1)
 random_refinement = ba.bitarray("00")
@@ -34,12 +39,15 @@ new_discretization, index_mapping = dyada.apply_single_refinement(
 print("after refining random box:")
 print(new_discretization)
 
+# %%
 refining = dyada.PlannedAdaptiveRefinement(discretization)
 refining.plan_refinement(0, ba.bitarray("11"))
-refining.plan_refinement(1, ba.bitarray("10"))
+refining.plan_refinement(1, ba.bitarray("01"))
 new_discretization, index_mapping = refining.apply_refinements(track_mapping="boxes")
 # dyada.plot_all_boxes_2d(new_discretization, backend="matplotlib", labels="boxes")
 print("after applying planned refinements:")
 print(new_discretization)
 
-#TODO when changing this, update permalinks in readme
+
+# %%
+#TODO when changing this file, update permalinks in readme
