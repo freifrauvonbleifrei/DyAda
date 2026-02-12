@@ -72,9 +72,11 @@ This reduction will be even stronger if you go to higher dimensions.
 
 ## Using DyAda
 
+Find the full tutorial in [dyada_tutorial.py](./dyada_tutorial.py).
+
 You can start with a regular `RefinementDescriptor`:
 
-```python:dyada_tutorial.py:s:A
+```python:dyada_tutorial.py:s:descriptor
 import bitarray as ba
 import dyada
 from random import randint
@@ -98,7 +100,8 @@ same folder.
 
 You can use the descriptor and `MortonOrderLinearization` to build a `Discretization`:
 
-[dyada_tutorial.py lines 14-16](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L14-L16)
+```python:dyada_tutorial.py:s:discretization
+```
 
 ```python
 initial discretization:
@@ -109,7 +112,8 @@ _________
 
 If you want to refine a single rectangle at once, you can use `apply_single_refinement`:
 
-[dyada_tutorial.py lines 18-22](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L18-L22)
+```python:dyada_tutorial.py:s:zero
+```
 
 ```python
 after refining box 0:
@@ -122,7 +126,8 @@ _________________
 
 Of course, you can also refine only in a subset of the dimensions:
 
-[dyada_tutorial.py lines 24-35](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L24-L35)
+```python:dyada_tutorial.py:s:random
+```
 
 ```python
 after refining random box:
@@ -138,7 +143,8 @@ You can keep running the above and watch your discretization become finer and fi
 To refine many rectangles at once, you can collect the refinements
 as `PlannedAdaptiveRefinement` object:
 
-[dyada_tutorial.py lines 37-43](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L24-L35)
+```python:dyada_tutorial.py:s:planned
+```
 
 ```python
 after applying planned refinements:
@@ -149,7 +155,7 @@ _________________
 |_|_|_|_|___|___|
 ```
 
-if you uncomment the `plot_all_boxes_2d`, it will show you the discretization
+If you uncomment the `plot_all_boxes_2d`, it will show you the discretization
 as matplotlib. Other backends are `tikz`, `ascii`(only 2d), and `opengl` (only 3d).
 
 ## Contributing
