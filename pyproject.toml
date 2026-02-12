@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dyada"
-version = "0.0.7"
+version = "0.0.8"
 dynamic = ["authors"]
 description = "A Code for Memory-Saving Dyadic Adaptivity in Optimization and Simulation"
 readme = "README.md"
