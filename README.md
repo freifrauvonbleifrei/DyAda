@@ -72,15 +72,15 @@ This reduction will be even stronger if you go to higher dimensions.
 
 ## Using DyAda
 
-You can start with a regular descriptor:
+You can start with a regular `RefinementDescriptor`:
 [dyada_tutorial.py lines 5-12](https://github.com/freifrauvonbleifrei/DyAda/blob/feature_extend_readme/dyada_tutorial.py#L5-L12)
 
 ```python
 RefinementDescriptor('11 01 00 00 ...0 00 01 00 00')
 ```
 
-This one has two rectangles in the first dimension and four on the second, because
-the level `[1, 2]` is passed as base-2 exponents.
+This one has four rectangles in the first dimension and two on the second, because
+the level `[2, 1]` is passed as base-2 exponents.
 If you uncomment the line with `plot_tree_tikz` and you have `latexmk` and some
 LaTeX tikz packages installed, the script will generate a `simple_tree.pdf` in the
 same folder.

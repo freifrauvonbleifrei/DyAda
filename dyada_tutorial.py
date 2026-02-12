@@ -6,7 +6,7 @@ import bitarray as ba
 import dyada
 from random import randint
 
-descriptor = dyada.RefinementDescriptor(2, [1, 2])
+descriptor = dyada.RefinementDescriptor(2, [2, 1])
 # dyada.plot_tree_tikz(descriptor, filename="simple_tree")
 num_dimensions = descriptor.get_num_dimensions()
 print(descriptor)
@@ -41,3 +41,5 @@ new_discretization, index_mapping = refining.apply_refinements(track_mapping="bo
 # dyada.plot_all_boxes_2d(new_discretization, labels="boxes")
 print("after applying planned refinements:")
 print(new_discretization)
+
+#TODO main branch in readme
