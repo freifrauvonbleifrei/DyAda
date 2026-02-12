@@ -25,6 +25,7 @@ Or, if you would like to change the source code, do
 
 ```bash
 git clone https://github.com/freifrauvonbleifrei/DyAda.git
+cd DyAda
 # ... git checkout the required version ...
 pip install -e DyAda[drawing,matplotlib,opengl]
 ```

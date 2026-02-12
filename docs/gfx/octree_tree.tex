@@ -23,73 +23,74 @@
     },
     }
 }
-\tikzset{every label/.style={yshift=-2.6ex, font=\footnotesize, text=black}}
-\definecolor{color_0}{RGB}{68,1,84}
-\definecolor{color_1}{RGB}{70,12,95}
-\definecolor{color_2}{RGB}{72,25,107}
-\definecolor{color_3}{RGB}{71,37,117}
-\definecolor{color_4}{RGB}{70,48,125}
-\definecolor{color_5}{RGB}{67,59,131}
-\definecolor{color_6}{RGB}{64,68,135}
-\definecolor{color_7}{RGB}{60,78,138}
-\definecolor{color_8}{RGB}{55,88,140}
-\definecolor{color_9}{RGB}{51,97,141}
-\definecolor{color_10}{RGB}{47,106,141}
-\definecolor{color_11}{RGB}{43,115,142}
-\definecolor{color_12}{RGB}{40,122,142}
-\definecolor{color_13}{RGB}{37,131,141}
-\definecolor{color_14}{RGB}{34,139,141}
-\definecolor{color_15}{RGB}{31,148,139}
-\definecolor{color_16}{RGB}{30,156,137}
-\definecolor{color_17}{RGB}{32,165,133}
-\definecolor{color_18}{RGB}{38,172,129}
-\definecolor{color_19}{RGB}{48,180,122}
-\definecolor{color_20}{RGB}{62,188,115}
-\definecolor{color_21}{RGB}{79,195,105}
-\definecolor{color_22}{RGB}{98,202,95}
-\definecolor{color_23}{RGB}{119,208,82}
-\definecolor{color_24}{RGB}{139,213,70}
-\definecolor{color_25}{RGB}{162,218,55}
-\definecolor{color_26}{RGB}{186,222,39}
-\definecolor{color_27}{RGB}{210,225,27}
-\definecolor{color_28}{RGB}{233,228,25}
+\tikzset{every label/.style={xshift=-2ex,yshift=-2ex , font=\footnotesize, text=red}}
+\definecolor{color_0}{RGB}{8,92,248}
+\definecolor{color_1}{RGB}{29,109,217}
+\definecolor{color_2}{RGB}{20,126,183}
+\definecolor{color_3}{RGB}{32,139,147}
+\definecolor{color_4}{RGB}{54,150,107}
+\definecolor{color_5}{RGB}{60,160,65}
+\definecolor{color_6}{RGB}{70,167,37}
+\definecolor{color_7}{RGB}{95,173,30}
+\definecolor{color_8}{RGB}{118,178,28}
+\definecolor{color_9}{RGB}{139,184,26}
+\definecolor{color_10}{RGB}{160,189,24}
+\definecolor{color_11}{RGB}{180,193,21}
+\definecolor{color_12}{RGB}{197,198,18}
+\definecolor{color_13}{RGB}{216,202,14}
+\definecolor{color_14}{RGB}{235,205,17}
+\definecolor{color_15}{RGB}{248,200,44}
+\definecolor{color_16}{RGB}{252,188,70}
+\definecolor{color_17}{RGB}{253,174,89}
+\definecolor{color_18}{RGB}{254,162,104}
+\definecolor{color_19}{RGB}{254,148,119}
+\definecolor{color_20}{RGB}{254,134,133}
+\definecolor{color_21}{RGB}{253,118,146}
+\definecolor{color_22}{RGB}{251,101,159}
+\definecolor{color_23}{RGB}{249,83,168}
+\definecolor{color_24}{RGB}{247,69,158}
+\definecolor{color_25}{RGB}{243,58,129}
+\definecolor{color_26}{RGB}{237,47,99}
+\definecolor{color_27}{RGB}{230,35,69}
+\definecolor{color_28}{RGB}{222,22,38}
 \begin{forest}
+    for tree={draw=gray,circle}
     %  tracing tree=tree,
-    [,circle,draw
-        [,circle,draw,fill=color_0,fill opacity=0.4,label=0]
-        [,circle,draw,fill=color_1,fill opacity=0.4,label=1]
-        [,circle,draw,fill=color_2,fill opacity=0.4,label=2]
-        [,circle,draw,fill=color_3,fill opacity=0.4,label=3]
-        [,circle,draw
-            [,circle,draw,fill=color_4,fill opacity=0.4,label=4]
-            [,circle,draw,fill=color_5,fill opacity=0.4,label=5]
-            [,circle,draw,fill=color_6,fill opacity=0.4,label=6]
-            [,circle,draw,fill=color_7,fill opacity=0.4,label=7]
-            [,circle,draw,fill=color_8,fill opacity=0.4,label=8]
-            [,circle,draw,fill=color_9,fill opacity=0.4,label=9]
-            [,circle,draw,fill=color_10,fill opacity=0.4,label=10]
-            [,circle,draw,fill=color_11,fill opacity=0.4,label=11]
+    [{0},
+        [{1},fill=color_0,fill opacity=0.4,]
+        [{2},fill=color_1,fill opacity=0.4,]
+        [{3},fill=color_2,fill opacity=0.4,]
+        [{4},fill=color_3,fill opacity=0.4,]
+        [{5},
+            [{6},fill=color_4,fill opacity=0.4,]
+            [{7},fill=color_5,fill opacity=0.4,]
+            [{8},fill=color_6,fill opacity=0.4,]
+            [{9},fill=color_7,fill opacity=0.4,]
+            [{10},fill=color_8,fill opacity=0.4,]
+            [{11},fill=color_9,fill opacity=0.4,]
+            [{12},fill=color_10,fill opacity=0.4,]
+            [{13},fill=color_11,fill opacity=0.4,]
         ]
-        [,circle,draw,fill=color_12,fill opacity=0.4,label=12]
-        [,circle,draw,fill=color_13,fill opacity=0.4,label=13]
-        [,circle,draw
-            [,circle,draw,fill=color_14,fill opacity=0.4,label=14]
-            [,circle,draw,fill=color_15,fill opacity=0.4,label=15]
-            [,circle,draw,fill=color_16,fill opacity=0.4,label=16]
-            [,circle,draw,fill=color_17,fill opacity=0.4,label=17]
-            [,circle,draw,fill=color_18,fill opacity=0.4,label=18]
-            [,circle,draw,fill=color_19,fill opacity=0.4,label=19]
-            [,circle,draw,
-                [,circle,draw,fill=color_20,fill opacity=0.4,label=20]
-                [,circle,draw,fill=color_21,fill opacity=0.4,label=21]
-                [,circle,draw,fill=color_22,fill opacity=0.4,label=22]
-                [,circle,draw,fill=color_23,fill opacity=0.4,label=23]
-                [,circle,draw,fill=color_24,fill opacity=0.4,label=24]
-                [,circle,draw,fill=color_25,fill opacity=0.4,label=25]
-                [,circle,draw,fill=color_26,fill opacity=0.4,label=26]
-                [,circle,draw,fill=color_27,fill opacity=0.4,label=27]
+        [{14},fill=color_12,fill opacity=0.4,]
+        [{15},fill=color_13,fill opacity=0.4,]
+        [{16},
+            [{17},fill=color_14,fill opacity=0.4,]
+            [{18},fill=color_15,fill opacity=0.4,]
+            [{19},fill=color_16,fill opacity=0.4,]
+            [{20},fill=color_17,fill opacity=0.4,]
+            [{21},fill=color_18,fill opacity=0.4,]
+            [{22},fill=color_19,fill opacity=0.4,]
+            [{23},
+                [{24},fill=color_20,fill opacity=0.4,]
+                [{25},fill=color_21,fill opacity=0.4,]
+                [{26},fill=color_22,fill opacity=0.4,]
+                [{27},fill=color_23,fill opacity=0.4,]
+                [{28},fill=color_24,fill opacity=0.4,]
+                [{29},fill=color_25,fill opacity=0.4,]
+                [{30},fill=color_26,fill opacity=0.4,]
+                [{31},fill=color_27,fill opacity=0.4,]
             ]
-            [,circle,draw,fill=color_28,fill opacity=0.4,label=28]
+            [{32},fill=color_28,fill opacity=0.4,]
 ]]
 \end{forest}
 \end{document}
