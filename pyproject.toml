@@ -20,3 +20,6 @@ dependencies = ["numpy", "bitarray"]
 drawing = ["cmap"]
 matplotlib = ["matplotlib"]
 opengl = ["pyopengl"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
