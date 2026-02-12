@@ -75,6 +75,7 @@ This reduction will be even stronger if you go to higher dimensions.
 You can start with a regular `RefinementDescriptor`:
 
 [dyada_tutorial.py lines 10-18](https://github.com/freifrauvonbleifrei/DyAda/blob/8fafb9d74b656cc7f28d5c93d0bd378eb1d9fceb/dyada_tutorial.py#L10-L18)
+
 ```python
 RefinementDescriptor('11 01 00 00 ...0 00 01 00 00')
 ```
