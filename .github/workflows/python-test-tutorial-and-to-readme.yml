@@ -34,9 +34,7 @@ jobs:
           pip install -e .[drawing,matplotlib]
       - name: Test with pytest
         run: |
-          pytest dyada_tutorial.py
-          test_error_code=$?
-          if [ "$test_error_code" -ne 5 ]; then
+          if [ pytest dyada_tutorial.py -ne 5 ]; then
             # no tests ran
             echo "wrong pytest return code $test_error_code"
           else
