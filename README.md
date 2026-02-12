@@ -78,8 +78,17 @@ You can start with a regular descriptor:
 
 ```
 
+->
+
+```python
+RefinementDescriptor('11 01 00 00 ...0 00 01 00 00')
+```
+
 This one has two rectangles in the first dimension and four on the second, because
 the level `[1, 2]` is passed as base-2 exponents.
+If you uncomment the line with `plot_tree_tikz` and you have `latexmk` and some
+LaTeX tikz packages installed, the script will generate a `simple_tree.pdf` in the
+same folder.
 
 ## Contributing
 

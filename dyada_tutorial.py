@@ -7,9 +7,9 @@ import dyada
 from random import randint
 
 descriptor = dyada.RefinementDescriptor(2, [1, 2])
-print(descriptor)
-dyada.plot_tree_tikz(descriptor, filename="simple_tree")
+# dyada.plot_tree_tikz(descriptor, filename="simple_tree")
 num_dimensions = descriptor.get_num_dimensions()
+print(descriptor)
 
 discretization = dyada.Discretization(dyada.MortonOrderLinearization(), descriptor)
 print("initial discretization:")
