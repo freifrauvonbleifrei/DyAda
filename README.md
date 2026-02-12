@@ -43,7 +43,7 @@ special type of dyadic adaptivity: Each box is either refined in *every* dimensi
 or not at all.
 For a three-d domain, the tree and the resulting partitioning could look like this:
 
-<!-- 
+<!--
 images generated like this:
 ```bash
 for f in *.tex ; do latexmk -pdf $f ; done
@@ -74,8 +74,7 @@ This reduction will be even stronger if you go to higher dimensions.
 
 You can start with a regular `RefinementDescriptor`:
 
-[dyada_tutorial.py lines 5-12](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L5-L12)
-
+[dyada_tutorial.py lines 10-18](https://github.com/freifrauvonbleifrei/DyAda/blob/8fafb9d74b656cc7f28d5c93d0bd378eb1d9fceb/dyada_tutorial.py#L10-L18)
 ```python
 RefinementDescriptor('11 01 00 00 ...0 00 01 00 00')
 ```
@@ -86,61 +85,6 @@ If you uncomment the line with `plot_tree_tikz` and you have `latexmk` and some
 LaTeX tikz packages installed, the script will generate a `simple_tree.pdf` in the
 same folder.
 
-You can use the descriptor and `MortonOrderLinearization` to build a `Discretization`:
-
-[dyada_tutorial.py lines 14-16](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L14-L16)
-
-```python
-initial discretization:
-_________
-|_|_|_|_|
-|_|_|_|_|
-```
-
-If you want to refine a single rectangle at once, you can use `apply_single_refinement`:
-
-[dyada_tutorial.py lines 18-22](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L18-L22)
-
-```python
-after refining box 0:
-_________________
-|   |   |   |   |
-|___|___|___|___|
-|_|_|   |   |   |
-|_|_|___|___|___|
-```
-
-Of course, you can also refine only in a subset of the dimensions:
-
-[dyada_tutorial.py lines 24-35](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L24-L35)
-
-```python
-after refining random box:
-_________________
-|   |___|   |   |
-|___|___|___|___|
-|_|_|   |   |   |
-|_|_|___|___|___|
-```
-
-You can keep running the above and watch your discretization become finer and finer!
-
-To refine many rectangles at once, you can collect the refinements
-as `PlannedAdaptiveRefinement` object:
-
-[dyada_tutorial.py lines 37-43](https://github.com/freifrauvonbleifrei/DyAda/blob/55af36515d136091eae1c0766a8c84a98c1c03c5/dyada_tutorial.py#L24-L35)
-
-```python
-after applying planned refinements:
-_________________
-|   |   |   |   |
-|___|___|___|___|
-|_|_| | |   |   |
-|_|_|_|_|___|___|
-```
-
-if you uncomment the `plot_all_boxes_2d`, it will show you the discretization
-as matplotlib. Other backends are `tikz`, `ascii`(only 2d), and `opengl` (only 3d).
 
 ## Contributing
 
