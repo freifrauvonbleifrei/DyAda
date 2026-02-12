@@ -49,7 +49,7 @@ images generated like this:
 ```bash
 for f in *.tex ; do latexmk -pdf $f ; done
 for d in *.pdf ; do inkscape --without-gui --file=$d --export-plain-svg=${d%.*}.svg ; done
-rsvg-convert tikz_cubes_solid.svg -w 268 -h 252 -f svg -o tikz_cubes_solid.svg #etc.
+rsvg-convert tikz_cuboidss_solid.svg -w 268 -h 252 -f svg -o tikz_cuboids_solid.svg #etc.
 ``` -->
 ![The octree tree](docs/gfx/octree_tree.svg)
 
@@ -60,7 +60,7 @@ But maybe you didn't need all this resolution?
 Maybe, in the finely-resolved areas, you only needed only *some* of the dimensions
 resolved finely:
 
-![The dyadic partitioning](docs/gfx/tikz_cubes_solid.svg)
+![The dyadic partitioning](docs/gfx/tikz_cuboids_solid.svg)
 
 This is what DyAda provides.
 
@@ -68,8 +68,12 @@ The tree will then look like this:
 
 ![The omnitree tree](docs/gfx/omnitree.svg)
 
-And you will only have to use 14 degrees of freedom instead of 29!
+And you can use only 14 degrees of freedom instead of 29!
+(Count the number of colorful tree nodes to check!)
 This reduction will be even stronger if you go to higher dimensions.
+
+For details, refer to the [preprint](https://arxiv.org/abs/2508.06316),
+with animations!
 
 ## Using DyAda
 
