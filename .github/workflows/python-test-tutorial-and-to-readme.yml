@@ -35,15 +35,3 @@ jobs:
       - name: Test with pytest
         run: |
           pytest dyada_tutorial.py
-  # cf. https://github.com/marketplace/actions/markdown-embed-code-from-file
-  embed-tutorial-to-readme:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: refs/heads/${{ github.head_ref }}
-      - uses: tokusumi/markdown-embed-code@v1.0.0
-        with:
-          markdown: "README.md"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          silent: true
