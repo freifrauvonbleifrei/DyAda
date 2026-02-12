@@ -38,8 +38,8 @@ refining = dyada.PlannedAdaptiveRefinement(discretization)
 refining.plan_refinement(0, ba.bitarray("11"))
 refining.plan_refinement(1, ba.bitarray("10"))
 new_discretization, index_mapping = refining.apply_refinements(track_mapping="boxes")
-# dyada.plot_all_boxes_2d(new_discretization, labels="boxes")
+# dyada.plot_all_boxes_2d(new_discretization, backend="matplotlib", labels="boxes")
 print("after applying planned refinements:")
 print(new_discretization)
 
-#TODO main branch in readme
+#TODO when changing this, update permalinks in readme
