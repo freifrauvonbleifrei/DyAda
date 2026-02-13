@@ -298,20 +298,8 @@ _________
 |       |
 |_______|"""
     )
-    expected_index_mapping = {
-        0: {0},
-        1: {1},
-        2: {1},
-        3: {2},
-        4: {3},
-        5: {4},
-        6: {2},
-        7: {3},
-        8: {4},
-    }
-    assert index_mapping == [
-        expected_index_mapping[i] for i in range(len(expected_index_mapping))
-    ]
+    expected_index_mapping = [{0}, {1}, {1}, {2}, {3}, {4}, {2}, {3}, {4}]
+    assert index_mapping == expected_index_mapping
 
 
 def test_coarsen_nested_3d_whole():
@@ -323,39 +311,11 @@ def test_coarsen_nested_3d_whole():
     )
     discretization = Discretization(MortonOrderLinearization(), descriptor)
     expected_index_mapping = {
-        "patches": {
-            0: {0},
-            1: {1},
-            2: {1},
-            3: {2},
-            4: {3},
-            5: {4},
-            6: {2},
-            7: {3},
-            8: {4},
-            9: {1},
-            10: {1},
-            11: {2},
-            12: {3},
-            13: {4},
-            14: {2},
-            15: {3},
-            16: {4},
-        },
-        "boxes": {
-            0: {0},
-            1: {0},
-            2: {1},
-            3: {2},
-            4: {1},
-            5: {2},
-            6: {0},
-            7: {0},
-            8: {1},
-            9: {2},
-            10: {1},
-            11: {2},
-        },
+        "patches": [
+            *[{0}, {1}, {1}, {2}, {3}, {4}, {2}, {3}, {4}],
+            *[{1}, {1}, {2}, {3}, {4}, {2}, {3}, {4}],
+        ],
+        "boxes": [{0}, {0}, {1}, {2}, {1}, {2}, {0}, {0}, {1}, {2}, {1}, {2}],
     }
     for refinement in ["boxes", "patches"]:
         p = PlannedAdaptiveRefinement(discretization)
@@ -367,10 +327,7 @@ def test_coarsen_nested_3d_whole():
         assert new_descriptor == RefinementDescriptor.from_binary(
             3, ba.bitarray("010 000 010 000 000")
         )
-        assert index_mapping == [
-            expected_index_mapping[refinement][i]
-            for i in range(len(expected_index_mapping[refinement]))
-        ]
+        assert index_mapping == expected_index_mapping[refinement]
 
 
 def test_coarsen_nested_3d_half():
@@ -382,39 +339,11 @@ def test_coarsen_nested_3d_half():
     )
     discretization = Discretization(MortonOrderLinearization(), descriptor)
     expected_index_mapping = {
-        "patches": {
-            0: {0},
-            1: {1},
-            2: {1},
-            3: {2},
-            4: {3},
-            5: {4},
-            6: {2},
-            7: {3},
-            8: {4},
-            9: {5},
-            10: {5},
-            11: {6},
-            12: {7},
-            13: {8},
-            14: {6},
-            15: {7},
-            16: {8},
-        },
-        "boxes": {
-            0: {0},
-            1: {0},
-            2: {1},
-            3: {2},
-            4: {1},
-            5: {2},
-            6: {3},
-            7: {3},
-            8: {4},
-            9: {5},
-            10: {4},
-            11: {5},
-        },
+        "patches": [
+            *[{0}, {1}, {1}, {2}, {3}, {4}, {2}, {3}],
+            *[{4}, {5}, {5}, {6}, {7}, {8}, {6}, {7}, {8}],
+        ],
+        "boxes": [{0}, {0}, {1}, {2}, {1}, {2}, {3}, {3}, {4}, {5}, {4}, {5}],
     }
     for refinement in ["boxes", "patches"]:
         p = PlannedAdaptiveRefinement(discretization)
@@ -426,10 +355,7 @@ def test_coarsen_nested_3d_half():
         assert new_descriptor == RefinementDescriptor.from_binary(
             3, ba.bitarray("011 000 010 000 000 000 010 000 000")
         )
-        assert index_mapping == [
-            expected_index_mapping[refinement][i]
-            for i in range(len(expected_index_mapping[refinement]))
-        ]
+        assert index_mapping == expected_index_mapping[refinement]
 
 
 def test_coarsen_double_nested_2d():
@@ -470,24 +396,11 @@ _________
 |       |
 |_______|"""
     )
-    expected_index_mapping = {
-        0: {0},
-        1: {1},
-        2: {1},
-        3: {2},
-        4: {3},
-        5: {4},
-        6: {5},
-        7: {6},
-        8: {2},
-        9: {3},
-        10: {4},
-        11: {5},
-        12: {6},
-    }
-    assert index_mapping == [
-        expected_index_mapping[i] for i in range(len(expected_index_mapping))
+    expected_index_mapping = [
+        *[{0}, {1}, {1}],
+        *[{2}, {3}, {4}, {5}, {6}, {2}, {3}, {4}, {5}, {6}],
     ]
+    assert index_mapping == expected_index_mapping
 
 
 if __name__ == "__main__":
