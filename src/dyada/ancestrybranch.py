@@ -18,7 +18,8 @@ from dyada.linearization import (
     CoarseningStack,
     TrackToken,
     LocationCode,
-    get_initial_coarsening_stack,
+    binary_or_none_generator,
+    bitmask_to_indices,
     get_initial_coarsen_refine_stack,
     location_code_from_history,
     location_code_from_branch,
@@ -173,31 +174,34 @@ class AncestryBranch:
             current_refinement: ba.frozenbitarray,
             markers: list[MarkerType],
         ) -> Union["AncestryBranch.TrackInfo", None]:
+            if current_refinement.count() == 0:
+                return None
             marker = np.sum(markers, axis=0)
             if marker.min() < 0:
-                dimensions_to_coarsen = ba.frozenbitarray(
-                    ba.bitarray(1 if marker[i] < 0 else 0 for i in range(len(marker)))
-                    & current_refinement
+                negative = ba.bitarray(
+                    1 if marker[i] < 0 else 0 for i in range(len(marker))
                 )
-                if dimensions_to_coarsen.count() == 0:
-                    return None
-                if marker.max() <= 0:
-                    # only coarsened
-                    coarsening_stack = get_initial_coarsening_stack(
-                        ba.frozenbitarray(current_refinement), dimensions_to_coarsen
-                    )
-                    return coarsening_stack
-                else:
-                    # coarsened and refined
-                    dimensions_to_refine = ba.frozenbitarray(
+
+                dimensions_to_coarsen = ba.frozenbitarray(negative & current_refinement)
+                dimensions_cannot_coarsen = ba.frozenbitarray(
+                    negative & ~current_refinement
+                )
+                dimensions_to_refine = ba.frozenbitarray(
+                    ba.frozenbitarray(
                         1 if marker[i] > 0 else 0 for i in range(len(marker))
                     )
-                    coarsen_refine_stack = get_initial_coarsen_refine_stack(
-                        ba.frozenbitarray(current_refinement),
-                        dimensions_to_coarsen,
-                        dimensions_to_refine,
-                    )
-                    return coarsen_refine_stack
+                )
+                coarsen_refine_stack = get_initial_coarsen_refine_stack(
+                    ba.frozenbitarray(current_refinement),
+                    dimensions_to_coarsen,
+                    dimensions_to_refine,
+                    (
+                        dimensions_cannot_coarsen
+                        if dimensions_cannot_coarsen.count() > 0
+                        else None
+                    ),
+                )
+                return coarsen_refine_stack
             return None
 
         def store_missed_mappings(
@@ -326,6 +330,7 @@ class AncestryBranch:
         # check if all relationships from coarsening tracking are exhausted
         mapping: defaultdict[int, set[TrackToken]] = self._mapping_state.missed_mappings
         hint_previous_branch = None
+        dimensionality = self._discretization.descriptor.get_num_dimensions()
         for key, track_info in sorted(self._mapping_state.track_info_mapping.items()):
             ancestor_branch = self._discretization.descriptor.get_branch(
                 key, is_box_index=False, hint_previous_branch=hint_previous_branch
@@ -334,15 +339,39 @@ class AncestryBranch:
             ancestor_location_code = branch_to_location_code(
                 ancestor_branch, self._discretization._linearization
             )
-            current_refinement_dimensions = [
-                i for i, b in enumerate(self._discretization.descriptor[key]) if b
-            ]
-            for index in track_info:
+            unresolved_coarsen_mask = track_info[0].unresolved_coarsen_mask
+            unresolved_iterable = None
+            if unresolved_coarsen_mask is not None:
+                # shorten the ancestor location code for each unresolved coarsen dimension
+                for d, b in enumerate(unresolved_coarsen_mask):
+                    if b:
+                        ancestor_location_code[d].pop()
+                unresolved_iterable = binary_or_none_generator(
+                    bitmask_to_indices(unresolved_coarsen_mask),
+                    dimensionality,
+                )
+                # todo get analytically
+                num_to_drop = 2**dimensionality - len(track_info)
+                for _ in range(num_to_drop):
+                    next(unresolved_iterable)
+            current_refinement_dimensions = bitmask_to_indices(
+                self._discretization.descriptor[key]
+            )
+            while len(track_info) > 0:
+                index = track_info.pop()
                 # get their indices in the old discretization by their location code
                 missed_descendant_location_code = [
                     a.copy() for a in ancestor_location_code
                 ]
                 for d in current_refinement_dimensions:
+                    if unresolved_iterable is not None:
+                        unresolved_to_append = next(unresolved_iterable)
+                        for ud in range(len(unresolved_to_append)):
+                            if unresolved_to_append[ud] is None:
+                                continue
+                            missed_descendant_location_code[ud].append(
+                                unresolved_to_append[ud]
+                            )
                     missed_descendant_location_code[d].append(index.local_position[d])
 
                 missed_descendant_index = self._discretization.get_index_from_location_code(
@@ -355,6 +384,9 @@ class AncestryBranch:
 
                 assert isinstance(missed_descendant_index, int)
                 mapping[missed_descendant_index].update(map_to)
+            assert (  # assert exhausted
+                unresolved_iterable is None or next(unresolved_iterable, None) is None
+            )
 
         return mapping
 

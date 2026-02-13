@@ -64,8 +64,9 @@ _________
         (2, TrackToken(10), ba.frozenbitarray("10"), np.array([0, 0], dtype=np.int8)),
         (7, TrackToken(11), ba.frozenbitarray("00"), np.array([0, 0], dtype=np.int8)),
         (8, TrackToken(12), ba.frozenbitarray("00"), np.array([0, 0], dtype=np.int8)),
+        (None),
     ]
-    for expected in expected_return_values[:-1]:
+    for expected in expected_return_values:
         # new index given by track_token
         current_old_index, track_token, next_refinement, next_marker = (
             ancestrybranch.get_current_location_info()
@@ -84,6 +85,7 @@ _________
                 5: {TrackToken(0), TrackToken(3), TrackToken(7)},
                 6: {TrackToken(10), TrackToken(11), TrackToken(12)},
             }
+            break
 
 
 def test_ancestrybranch_3d_5():
@@ -118,8 +120,9 @@ def test_ancestrybranch_3d_5():
         (6, TT(6), *leaf_no_marker),
         (6, TT(7), *leaf_no_marker),
         (6, TT(8), *leaf_no_marker),
+        (None),
     ]
-    for expected in expected_return_values[:-1]:
+    for expected in expected_return_values:
         current_old_index, track_token, next_refinement, next_marker = (
             ancestrybranch.get_current_location_info()
         )
@@ -135,6 +138,56 @@ def test_ancestrybranch_3d_5():
                 5: {TT(0)},
                 6: {TT(0)},
             }
+            break
+
+
+def test_ancestrybranch_coarsen_nested_2d():
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 00 01 00 00 01 00 00")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+
+    markers = get_defaultdict_for_markers(
+        discretization.descriptor.get_num_dimensions()
+    )
+    markers[0] = np.array([-1, 0], dtype=np.int8)
+    ancestrybranch = AncestryBranch(discretization, starting_index=0, markers=markers)
+
+    TT = TrackToken
+    bba = ba.bitarray
+    fba = ba.frozenbitarray
+    no_marker = np.array([0, 0], dtype=np.int8)
+    leaf = fba("00")
+    # step through ancestry branch
+    expected_return_values = [
+        (0, TT(0), fba("01"), np.array([-1, 0], dtype=np.int8)),
+        (1, TT(1), leaf, no_marker),
+        (3, TT(2), fba("01"), no_marker),
+        (4, TT(3), bba("00"), no_marker),
+        (5, TT(4), leaf, no_marker),
+        (None),
+    ]
+    for expected in expected_return_values:
+        current_old_index, track_token, next_refinement, next_marker = (
+            ancestrybranch.get_current_location_info()
+        )
+        assert (current_old_index, track_token, next_refinement) == expected[0:-1]
+        assert np.array_equal(next_marker, expected[-1])
+        try:
+            ancestrybranch = advance_or_grow(ancestrybranch, next_refinement)
+        except AncestryBranch.WeAreDoneAndHereAreTheMissingRelationships as e:
+            assert track_token == TT(4)
+            assert e.missing_mapping == {
+                1: {TT(0)},
+                2: {TT(1)},
+                3: {TT(0)},
+                4: {TT(0), TT(2)},
+                5: {TT(0), TT(2)},
+                6: {TT(2)},
+                7: {TT(3)},
+                8: {TT(4)},
+            }
+            break
 
 
 def test_modified_branch_generator_2d_6():
