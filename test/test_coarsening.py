@@ -403,6 +403,56 @@ _________
     assert index_mapping == expected_index_mapping
 
 
+def test_coarsen_refine_nested_2d():
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 00 00 01 00 00 01 00 00")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 4))
+        == """\
+_________
+|___|___|
+|___|___|
+|   |   |
+|___|___|"""
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(0, ba.bitarray("10"))
+    p.plan_refinement(0, ba.bitarray("10"))
+    p.plan_refinement(2, ba.bitarray("10"))
+    new_discretization, index_mapping = p.apply_refinements(
+        track_mapping="patches", sweep_mode="as_planned"
+    )
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor == RefinementDescriptor.from_binary(
+        2, ba.bitarray("01 10 00 00 01 10 00 00 00")
+    )
+    assert (
+        discretization_to_2d_ascii(new_discretization, resolution=(8, 4))
+        == """\
+_________
+|_______|
+|___|___|
+|   |   |
+|___|___|"""
+    )
+    expected_index_mapping = {
+        0: {0},
+        1: {2},
+        2: {3},
+        3: {4},
+        4: {6},
+        5: {8},
+        6: {4},
+        7: {7},
+        8: {8},
+    }
+    assert index_mapping == [
+        expected_index_mapping[i] for i in range(len(expected_index_mapping))
+    ]
+
+
 def test_pushdown_uncanonicalize_then_canonicalize_2d():
     descriptor = RefinementDescriptor.from_binary(2, ba.bitarray("11 00 00 00 00"))
     discretization = Discretization(MortonOrderLinearization(), descriptor)
