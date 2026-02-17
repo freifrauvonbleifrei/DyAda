@@ -265,10 +265,10 @@ def get_initial_coarsening_stack(
         )
 
     initial_coarsening_stack.sort(
-        key=lambda entry: entry.separated_positions.to01()[::-1]
-    )
-    initial_coarsening_stack.sort(
-        key=lambda entry: (entry.unresolved_positions).to01()[::-1]
+        key=lambda entry: (
+            entry.unresolved_positions.to01()[::-1],
+            entry.separated_positions.to01()[::-1],
+        )
     )
     # reverse so we can pop() from the back
     initial_coarsening_stack.reverse()
