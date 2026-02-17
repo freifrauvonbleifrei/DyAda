@@ -9,7 +9,7 @@ from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Generator, Optional, Union
+from typing import Generator, Optional, Union, Literal
 
 from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import (
@@ -414,7 +414,7 @@ class PlannedAdaptiveRefinement:
         return new_descriptor
 
     def create_new_discretization(
-        self, track_mapping: str = "boxes"
+        self, track_mapping: Literal["boxes", "patches"] = "boxes"
     ) -> tuple[Discretization, list[set[int]]]:
         old_descriptor = self._discretization.descriptor
         self._index_mapping: list[set[int]] = [
@@ -471,7 +471,8 @@ class PlannedAdaptiveRefinement:
         )
 
     def apply_refinements(
-        self, track_mapping: str = "boxes"
+        self,
+        track_mapping: Literal["boxes", "patches"] = "boxes",
     ) -> tuple[Discretization, list[set[int]]]:
         assert self._upward_queue.empty()
         assert self._markers == {}
@@ -487,7 +488,7 @@ def apply_single_refinement(
     discretization: Discretization,
     box_index: int,
     dimensions_to_refine: Optional[ba.bitarray] = None,
-    track_mapping: str = "boxes",
+    track_mapping: Literal["boxes", "patches"] = "boxes",
 ) -> tuple[Discretization, list[set[int]]]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
@@ -496,7 +497,7 @@ def apply_single_refinement(
 
 def normalize_discretization(
     discretization: Discretization,
-    track_mapping: str = "patches",
+    track_mapping: Literal["boxes", "patches"] = "patches",
     max_normalization_rounds: int = 2**31 - 1,
 ) -> tuple[Discretization, list[set[int]], int]:
     """
