@@ -9,7 +9,7 @@ from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Generator, Optional, Union
+from typing import Generator, Optional, Union, Literal
 
 from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import (
@@ -96,14 +96,59 @@ class PlannedAdaptiveRefinement:
             )
         )
 
-    def populate_queue(self) -> None:
-        assert len(self._markers) == 0 and self._upward_queue.empty()
+    def plan_pushdown(self, parent_index: int, dimensions_to_push_down: ba.bitarray):
+        """Move selected parent refinements one level down to all direct children.
 
+        This operation intentionally de-normalizes the tree: selected split bits
+        are removed from the parent and added to each current child.
+        """
+        descriptor = self._discretization.descriptor
+        num_dimensions = descriptor.get_num_dimensions()
+        if len(dimensions_to_push_down) != num_dimensions:
+            raise ValueError(
+                "dimensions_to_push_down length does not match discretization dimensionality"
+            )
+        if dimensions_to_push_down.count() == 0:
+            return
+        if parent_index < 0 or parent_index >= len(descriptor):
+            raise IndexError("parent_index out of range")
+
+        parent_refinement = descriptor[parent_index]
+        if parent_refinement.count() == 0:
+            raise ValueError("Cannot push down refinements from a leaf node")
+        if (dimensions_to_push_down & ~parent_refinement).count() > 0:
+            raise ValueError(
+                "Can only push down dimensions that are currently refined at parent_index"
+            )
+
+        children = descriptor.get_children(parent_index)
+        if len(children) == 0:
+            raise ValueError("parent_index has no children")
+
+        # A one-level pushdown only supports dimensions that are currently absent
+        # in all direct children; otherwise the request would imply >1 added level.
+        for child in children:
+            if (descriptor[child] & dimensions_to_push_down).count() > 0:
+                raise ValueError(
+                    "Cannot push down into a child that already refines a requested dimension"
+                )
+
+        np_dimensions_to_push_down = int8_ndarray_from_iterable(dimensions_to_push_down)
+        self._planned_refinements.append((parent_index, -np_dimensions_to_push_down))
+        for child in children:
+            self._planned_refinements.append((child, np_dimensions_to_push_down))
+
+    def initialize_markers(self) -> None:
         # put initial markers
         for linear_index, dimensions_to_refine in self._planned_refinements:
             self._markers[linear_index] += int8_ndarray_from_iterable(
                 dimensions_to_refine
             )
+        self._planned_refinements = []  # clear the planned refinements
+
+    def populate_queue(self) -> None:
+        assert self._upward_queue.empty()
+        self.initialize_markers()
         # put into the upward queue
         for linear_index in self._markers.keys():
             # obtain level sum to know the priority, highest level should come first
@@ -111,8 +156,6 @@ class PlannedAdaptiveRefinement:
                 self._discretization.descriptor.get_level(linear_index, False)
             )
             self._upward_queue.put((-level_sum, linear_index))
-
-        self._planned_refinements = []  # clear the planned refinements
 
     def move_marker_to_parent(self, marker: MarkerType, sibling_indices) -> None:
         assert len(sibling_indices) > 1 and len(sibling_indices).bit_count() == 1
@@ -414,7 +457,7 @@ class PlannedAdaptiveRefinement:
         return new_descriptor
 
     def create_new_discretization(
-        self, track_mapping: str = "boxes"
+        self, track_mapping: Literal["boxes", "patches"] = "boxes"
     ) -> tuple[Discretization, list[set[int]]]:
         old_descriptor = self._discretization.descriptor
         self._index_mapping: list[set[int]] = [
@@ -471,13 +514,24 @@ class PlannedAdaptiveRefinement:
         )
 
     def apply_refinements(
-        self, track_mapping: str = "boxes"
+        self,
+        track_mapping: Literal["boxes", "patches"] = "boxes",
+        sweep_mode: Literal["canonical", "as_planned"] = "canonical",
     ) -> tuple[Discretization, list[set[int]]]:
         assert self._upward_queue.empty()
-        assert self._markers == {}
-        self.populate_queue()
-        self.upwards_sweep()
-        self.downwards_sweep()
+        if sweep_mode == "canonical":
+            assert len(self._markers) == 0
+            self.populate_queue()
+            self.upwards_sweep()
+            self.downwards_sweep()
+        elif sweep_mode == "as_planned":
+            self.initialize_markers()
+        else:
+            raise ValueError(
+                "sweep_mode must be either 'canonical' or 'as_planned', got "
+                + str(sweep_mode)
+            )
+
         assert len(self._planned_refinements) == 0
 
         return self.create_new_discretization(track_mapping)
@@ -487,7 +541,7 @@ def apply_single_refinement(
     discretization: Discretization,
     box_index: int,
     dimensions_to_refine: Optional[ba.bitarray] = None,
-    track_mapping: str = "boxes",
+    track_mapping: Literal["boxes", "patches"] = "boxes",
 ) -> tuple[Discretization, list[set[int]]]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
@@ -496,7 +550,7 @@ def apply_single_refinement(
 
 def normalize_discretization(
     discretization: Discretization,
-    track_mapping: str = "patches",
+    track_mapping: Literal["boxes", "patches"] = "patches",
     max_normalization_rounds: int = 2**31 - 1,
 ) -> tuple[Discretization, list[set[int]], int]:
     """

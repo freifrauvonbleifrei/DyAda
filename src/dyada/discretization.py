@@ -30,6 +30,7 @@ from dyada.linearization import (
     Linearization,
     MortonOrderLinearization,
     LocationCode,
+    bitmask_to_indices,
 )
 
 
@@ -155,7 +156,7 @@ class Discretization:
                 and location_code[i][found_part_of_location_code[i] :].count() == 0
                 for i in range(len(coordinate))
             ]
-            ambiguous_indices = [i for i, a in enumerate(ambiguous_dimensions) if a]
+            ambiguous_indices = bitmask_to_indices(ba.bitarray(ambiguous_dimensions))
             for num_ambiguous in range(1, len(ambiguous_indices) + 1):
                 for ambiguous_subset in combinations(ambiguous_indices, num_ambiguous):
                     # copy the original coordinate
@@ -465,9 +466,7 @@ def branch_to_location_code(branch: Branch, linearization) -> list[ba.bitarray]:
     location_code = [ba.bitarray() for _ in range(num_dimensions)]
     assert isinstance(linearization, MortonOrderLinearization)
     for twig in branch:
-        refined_dimensions = [
-            d_i for d_i in range(num_dimensions) if twig.level_increment[d_i] == 1
-        ]
+        refined_dimensions = bitmask_to_indices(twig.level_increment)
         if len(refined_dimensions) == 0:
             continue
         index_from_count = bitarray.util.int2ba(

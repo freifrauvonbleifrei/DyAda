@@ -221,7 +221,7 @@ def _compute_influence_range(
             oldest = d
             break
 
-    youngest = branch_length - 1
+    youngest = to_modify_depth
     for d in range(to_modify_depth + 1, branch_length):
         if old_ancestry_exact[d]:
             youngest = d - 1

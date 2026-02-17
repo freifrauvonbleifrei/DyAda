@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from abc import ABC, abstractmethod
+from itertools import product
 import bitarray as ba
 from dataclasses import dataclass
 from typing import Sequence, TypeAlias
@@ -135,6 +136,32 @@ def location_code_from_branch(branch, linearization: Linearization) -> LocationC
     )
 
 
+def binary_or_none_generator(indices: Sequence[int], N: int):
+    """Generate all tuples of length N with 0/1 at given indices, None elsewhere.
+    None also repeats.
+
+    Args:
+        indices (Sequence[int]): indices for which to yield 0/1
+        N (int): total number of positions
+
+    Yields:
+        tuple[Union[int, None]]: tuples of length N with 0/1 at given indices, None elsewhere
+    """
+    # value indices reversed so lower index flips faster
+    value_indices = list(reversed(sorted(indices)))
+    none_indices = [i for i in range(N) if i not in indices]
+
+    pools = [[0, 1]] * len(value_indices) + [[None, None]] * len(none_indices)
+
+    for vals in product(*pools):
+        out: list[int | None] = [None] * N
+
+        for i, v in zip(value_indices, vals[: len(value_indices)]):
+            out[i] = v
+
+        yield tuple(out)
+
+
 @dataclass(frozen=True, order=True)
 class TrackToken:
     t: int
@@ -142,13 +169,20 @@ class TrackToken:
 
 @dataclass
 class DimensionSeparatedLocalPosition:
+    # TODO separate masks from stack
     local_position: ba.frozenbitarray
     separated_dimensions_mask: ba.frozenbitarray
     same_index_as: set[TrackToken] | None = None
+    unresolved_coarsen_mask: ba.frozenbitarray | None = None
 
     @property
     def remaining_positions_mask(self) -> ba.frozenbitarray:
-        return ba.frozenbitarray(~self.separated_dimensions_mask)
+        remaining_positions = ba.frozenbitarray(
+            ~self.separated_dimensions_mask & ~self.unresolved_coarsen_mask
+            if self.unresolved_coarsen_mask
+            else ~self.separated_dimensions_mask
+        )
+        return remaining_positions
 
     @property
     def separated_positions(self) -> ba.frozenbitarray:
@@ -156,7 +190,15 @@ class DimensionSeparatedLocalPosition:
 
     @property
     def remaining_positions(self) -> ba.frozenbitarray:
-        return ba.frozenbitarray(self.local_position[~self.separated_dimensions_mask])
+        return ba.frozenbitarray(self.local_position[self.remaining_positions_mask])
+
+    @property
+    def unresolved_positions(self) -> ba.frozenbitarray:
+        return (
+            ba.frozenbitarray(self.local_position[self.unresolved_coarsen_mask])
+            if self.unresolved_coarsen_mask
+            else ba.frozenbitarray()
+        )
 
 
 CoarseningStack: TypeAlias = list[DimensionSeparatedLocalPosition]
@@ -168,10 +210,17 @@ def indices_to_bitmask(
     return ba.frozenbitarray(1 if i in indices else 0 for i in range(num_dimensions))
 
 
+def bitmask_to_indices(
+    bitmask: ba.bitarray | ba.frozenbitarray,
+) -> tuple[int, ...]:
+    return tuple(i for i in range(len(bitmask)) if bitmask[i])
+
+
 @copying_lru_cache()
 def get_initial_coarsening_stack(
     current_parent_refinement: ba.frozenbitarray,
-    dimensions_to_coarsen: tuple[int, ...] | ba.frozenbitarray,
+    dimensions_to_coarsen: ba.frozenbitarray,
+    dimensions_cannot_coarsen: ba.frozenbitarray | None = None,
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
     """Returns a stack of coarsening mappings for all current children of a parent patch.
@@ -179,6 +228,7 @@ def get_initial_coarsening_stack(
     Args:
         current_parent_refinement (ba.frozenbitarray): current parent's refinement, frozen to be hashable
         dimensions_to_coarsen (tuple[int, ...] | ba.frozenbitarray): a sorted tuple of dimensions to coarsen or a frozenbitarray mask
+        dimensions_cannot_coarsen (ba.frozenbitarray): a frozenbitarray mask of dimensions that cannot be coarsened
         linearization (Linearization, optional): Linearization. Defaults to MortonOrderLinearization().
     Returns:
         CoarseningStack: a list of DimensionSeparatedLocalPosition entries, one per current child patch
@@ -191,14 +241,13 @@ def get_initial_coarsening_stack(
             + "Morton order linearization, other linearizations may need"
             + "different signature."
         )
-    if not isinstance(dimensions_to_coarsen, ba.frozenbitarray):
-        assert len(dimensions_to_coarsen) == len(set(dimensions_to_coarsen))
-        dimensions_to_coarsen = indices_to_bitmask(
-            dimensions_to_coarsen, len(current_parent_refinement)
-        )
     assert len(dimensions_to_coarsen) == len(current_parent_refinement)
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
-
+    separate_dimensions = dimensions_to_coarsen
+    if dimensions_cannot_coarsen is not None:
+        current_parent_refinement = ba.frozenbitarray(
+            current_parent_refinement | dimensions_cannot_coarsen
+        )
     initial_coarsening_stack: CoarseningStack = []
     num_current_children = 2 ** current_parent_refinement.count()
     for child_index in range(num_current_children):
@@ -209,12 +258,17 @@ def get_initial_coarsening_stack(
         initial_coarsening_stack.append(
             DimensionSeparatedLocalPosition(
                 local_position=ba.frozenbitarray(binary_position),
-                separated_dimensions_mask=dimensions_to_coarsen,
+                separated_dimensions_mask=separate_dimensions,
+                same_index_as=None,
+                unresolved_coarsen_mask=dimensions_cannot_coarsen,
             )
         )
 
     initial_coarsening_stack.sort(
-        key=lambda entry: entry.separated_positions.to01()[::-1]
+        key=lambda entry: (
+            entry.unresolved_positions.to01()[::-1],
+            entry.separated_positions.to01()[::-1],
+        )
     )
     # reverse so we can pop() from the back
     initial_coarsening_stack.reverse()
@@ -223,27 +277,24 @@ def get_initial_coarsening_stack(
 
 def get_initial_coarsen_refine_stack(
     current_parent_refinement: ba.frozenbitarray,
-    dimensions_to_coarsen: tuple[int, ...] | ba.frozenbitarray,
-    dimensions_to_refine: tuple[int, ...] | ba.frozenbitarray,
+    dimensions_to_coarsen: ba.frozenbitarray,
+    dimensions_to_refine: ba.frozenbitarray,
+    dimensions_cannot_coarsen: ba.frozenbitarray | None = None,
     linearization: Linearization = MortonOrderLinearization(),
 ) -> CoarseningStack:
-    if not isinstance(dimensions_to_coarsen, ba.frozenbitarray):
-        assert len(dimensions_to_coarsen) == len(set(dimensions_to_coarsen))
-        dimensions_to_coarsen = indices_to_bitmask(
-            dimensions_to_coarsen, len(current_parent_refinement)
-        )
-    if not isinstance(dimensions_to_refine, ba.frozenbitarray):
-        assert len(dimensions_to_refine) == len(set(dimensions_to_refine))
-        dimensions_to_refine = indices_to_bitmask(
-            dimensions_to_refine, len(current_parent_refinement)
-        )
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
+    if dimensions_cannot_coarsen is not None:
+        assert dimensions_cannot_coarsen.count() > 0
+        assert (dimensions_cannot_coarsen & dimensions_to_refine).count() == 0
+        assert (dimensions_cannot_coarsen & dimensions_to_coarsen).count() == 0
+        assert (dimensions_cannot_coarsen & current_parent_refinement).count() == 0
     assert (dimensions_to_refine & current_parent_refinement).count() == 0
 
     later_iterated_dimensions = current_parent_refinement | dimensions_to_refine
     return get_initial_coarsening_stack(
         later_iterated_dimensions,
         dimensions_to_coarsen,
+        dimensions_cannot_coarsen,
         linearization,
     )
 
