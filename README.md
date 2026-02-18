@@ -207,7 +207,7 @@ as matplotlib. Other backends are `tikz`, `ascii`(only 2d), and `opengl` (only 3
 Note that dyada does not store your function data; you have to manage your own
 container (for example, a `numpy` array) to do that.
 But the `index_mapping` in the above snippets helps you figure out how your
-function data has moved: `new_index = index_mapping[old_index]`.
+function data has moved: `new_indices = index_mapping[old_index]`.
 
 For a full workflow based on `dyada`, have a look at the project
 [thingies_with_omnitrees](https://github.com/freifrauvonbleifrei/thingies_with_omnitrees).
