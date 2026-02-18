@@ -142,7 +142,7 @@ class RefinementDescriptor:
         num_trailing_zeros = 0
         while inverted_data[-num_trailing_zeros - 1] == 0:
             num_trailing_zeros += 1
-        inverted_data = inverted_data[:-num_trailing_zeros]
+        inverted_data = inverted_data[:None if num_trailing_zeros==0 else -num_trailing_zeros]
         return RefinementDescriptor.from_binary(num_dimensions, ~inverted_data)
 
     @staticmethod
