@@ -75,9 +75,9 @@ def test_float_parts_bitarray():
     assert mantissa_bits.count() == len(mantissa_bits)
 
     with pytest.raises(ValueError):
-        float_parts_bitarray(np.float128(1.0))
+        float_parts_bitarray(np.longdouble(1.0))
     with pytest.raises(ValueError):
-        float_parts_bitarray(np.float16(1.0))
+        float_parts_bitarray(np.half(1.0))
 
 
 def test_location_code_from_coordinate():
