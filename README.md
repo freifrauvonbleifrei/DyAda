@@ -204,6 +204,14 @@ _________________
 If you uncomment the `plot_all_boxes_2d`, it will show you the discretization
 as matplotlib. Other backends are `tikz`, `ascii`(only 2d), and `opengl` (only 3d).
 
+Note that dyada does not store your function data; you have to manage your own
+container (for example, a `numpy` array) to do that.
+But the `index_mapping` in the above snippets helps you figure out how your
+function data has moved: `new_index = index_mapping[old_index]`.
+
+For a full workflow based on `dyada`, have a look at the project
+[thingies_with_omnitrees](https://github.com/freifrauvonbleifrei/thingies_with_omnitrees).
+
 ## Contributing
 
 Feel free to request features or voice your intent to work on/with DyAda as an
