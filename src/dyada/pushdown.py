@@ -25,14 +25,20 @@ def _group_children_for_pushdown(
     remaining_ref = ba.bitarray(parent_ref)
     remaining_ref[pushed_dim] = 0
     num_new_children = 2 ** remaining_ref.count() if remaining_ref.count() > 0 else 1
-    groups: list[list[tuple[int, int] | None]] = [[None, None] for _ in range(num_new_children)]
+    groups: list[list[tuple[int, int] | None]] = [
+        [None, None] for _ in range(num_new_children)
+    ]
     for child_pos, child_range in enumerate(child_ranges):
-        child_bits = linearization.get_binary_position_from_index([child_pos], [parent_ref])
+        child_bits = linearization.get_binary_position_from_index(
+            [child_pos], [parent_ref]
+        )
         pushed_bit = int(child_bits[pushed_dim])
         remaining_bits = child_bits.copy()
         remaining_bits[pushed_dim] = 0
         group_pos = (
-            linearization.get_index_from_binary_position(remaining_bits, [], [remaining_ref])
+            linearization.get_index_from_binary_position(
+                remaining_bits, [], [remaining_ref]
+            )
             if remaining_ref.count() > 0
             else 0
         )
@@ -64,7 +70,9 @@ def _apply_single_dim_pushdown(
 
     child_ranges = descriptor.get_child_ranges(parent_index)
     subtree_end = child_ranges[-1][1]
-    groups = _group_children_for_pushdown(linearization, parent_ref, pushed_dim, child_ranges)
+    groups = _group_children_for_pushdown(
+        linearization, parent_ref, pushed_dim, child_ranges
+    )
 
     # Build the replacement section starting at parent_index.
     # rel_to_old maps (relative offset in new section) → set of old absolute indices.
@@ -122,14 +130,18 @@ def _apply_single_dim_pushdown(
                 gc_one = descriptor.get_child_ranges(r2)
                 num_merged_gc = get_num_children_from_refinement(merged_ref)
                 for m in range(num_merged_gc):
-                    m_bits = linearization.get_binary_position_from_index([m], [merged_ref])
+                    m_bits = linearization.get_binary_position_from_index(
+                        [m], [merged_ref]
+                    )
                     m_pushed_bit = int(m_bits[pushed_dim])
                     m_remaining = m_bits.copy()
                     m_remaining[pushed_dim] = 0
                     old_gc_pos = linearization.get_index_from_binary_position(
                         m_remaining, [], [ref_zero]
                     )
-                    gc_start, gc_end = (gc_zero if m_pushed_bit == 0 else gc_one)[old_gc_pos]
+                    gc_start, gc_end = (gc_zero if m_pushed_bit == 0 else gc_one)[
+                        old_gc_pos
+                    ]
                     for offset, old in enumerate(range(gc_start, gc_end)):
                         rel_to_old.append((new_rel + offset, {old}))
                     new_section.extend(descriptor._data[gc_start * nd : gc_end * nd])
@@ -155,6 +167,60 @@ def _apply_single_dim_pushdown(
         step_mapping[i].add(i + delta)
 
     return new_desc, step_mapping
+
+
+def _apply_pushdown_for_node(
+    descriptor: RefinementDescriptor,
+    linearization,
+    parent_index: int,
+    dims_to_push: ba.bitarray,
+) -> tuple[ba.bitarray, int, list[set[int]]]:
+    """Apply all pushed dims for one node using a mini-descriptor.
+
+    Instead of rewriting the full descriptor once per dim, this extracts just
+    the subtree at parent_index into a mini-descriptor, applies each dim push
+    on that mini-descriptor (parent always at index 0), and returns the result.
+    The caller assembles the full descriptor once from the returned section.
+
+    Returns:
+        new_section: bitarray to replace the original subtree at parent_index
+        subtree_end: original end index of the subtree (exclusive)
+        step_mapping: mapping from original patch indices to new patch indices
+    """
+    nd = descriptor.get_num_dimensions()
+    n = len(descriptor)
+
+    child_ranges = descriptor.get_child_ranges(parent_index)
+    subtree_end = child_ranges[-1][1]
+    mini_n = subtree_end - parent_index
+
+    # One small copy: only the subtree, not the full descriptor.
+    mini = RefinementDescriptor(nd)
+    mini._data = descriptor._data[parent_index * nd : subtree_end * nd].copy()
+
+    # Apply each pushed dim sequentially on the mini-descriptor.
+    # The parent is always at index 0 within the mini-descriptor.
+    mini_mapping: list[set[int]] = [{i} for i in range(mini_n)]
+    for pushed_dim in range(nd):
+        if not dims_to_push[pushed_dim]:
+            continue
+        mini, mini_step = _apply_single_dim_pushdown(mini, linearization, 0, pushed_dim)
+        mini_mapping = merge_mappings(mini_mapping, mini_step)
+
+    new_mini_n = len(mini)
+    delta = new_mini_n - mini_n
+
+    # Convert mini-mapping (relative indices) to absolute patch indices.
+    step_mapping: list[set[int]] = [set() for _ in range(n)]
+    for i in range(parent_index):
+        step_mapping[i].add(i)
+    for mini_old, mini_new_set in enumerate(mini_mapping):
+        for mini_new in mini_new_set:
+            step_mapping[parent_index + mini_old].add(parent_index + mini_new)
+    for i in range(subtree_end, n):
+        step_mapping[i].add(i + delta)
+
+    return mini._data, subtree_end, step_mapping
 
 
 def _merged_planned_pushdowns(
@@ -196,25 +262,30 @@ def apply_planned_pushdowns(
     # pushdowns are applied before their ancestor's pushdown restructures the tree.
     for parent_index in sorted(merged_pushdowns.keys(), reverse=True):
         dims_to_push = merged_pushdowns[parent_index]
-        for pushed_dim in range(nd):
-            if not dims_to_push[pushed_dim]:
-                continue
-            current_descriptor, step_mapping = _apply_single_dim_pushdown(
-                current_descriptor, linearization, parent_index, pushed_dim
-            )
-            cumulative_mapping = merge_mappings(cumulative_mapping, step_mapping)
+        new_section, subtree_end, step_mapping = _apply_pushdown_for_node(
+            current_descriptor, linearization, parent_index, dims_to_push
+        )
+        # Assemble the new descriptor — one copy per pushdown node, not per dim.
+        new_data = current_descriptor._data[: parent_index * nd].copy()
+        new_data.extend(new_section)
+        new_data.extend(current_descriptor._data[subtree_end * nd :])
+        current_descriptor = RefinementDescriptor(nd)
+        current_descriptor._data = new_data
+        cumulative_mapping = merge_mappings(cumulative_mapping, step_mapping)
 
-    new_descriptor = current_descriptor
-    new_discretization = Discretization(discretization._linearization, new_descriptor)
+    new_discretization = Discretization(
+        discretization._linearization, current_descriptor
+    )
 
     if track_mapping == "patches":
         mapping = cumulative_mapping
     elif track_mapping == "boxes":
         mapping = hierarchical_to_box_index_mapping(
-            cumulative_mapping, descriptor, new_descriptor
+            cumulative_mapping, descriptor, current_descriptor
         )
     else:
         raise ValueError(
-            "track_mapping must be either 'boxes' or 'patches', got " + str(track_mapping)
+            "track_mapping must be either 'boxes' or 'patches', got "
+            + str(track_mapping)
         )
     return new_discretization, mapping
