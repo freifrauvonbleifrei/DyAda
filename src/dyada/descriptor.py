@@ -142,7 +142,9 @@ class RefinementDescriptor:
         num_trailing_zeros = 0
         while inverted_data[-num_trailing_zeros - 1] == 0:
             num_trailing_zeros += 1
-        inverted_data = inverted_data[:None if num_trailing_zeros==0 else -num_trailing_zeros]
+        inverted_data = inverted_data[
+            : None if num_trailing_zeros == 0 else -num_trailing_zeros
+        ]
         return RefinementDescriptor.from_binary(num_dimensions, ~inverted_data)
 
     @staticmethod
@@ -418,6 +420,21 @@ class RefinementDescriptor:
         else:
             branch_to_first_child = None
         return self.get_siblings(first_child_index, branch_to_first_child)
+
+    def get_child_ranges(self, parent_index: int) -> list[tuple[int, int]]:
+        """Return (start, end) patch-index ranges for each direct child of parent_index."""
+        num_children = get_num_children_from_refinement(self[parent_index])
+        if num_children == 0:
+            return []
+        ranges = []
+        current = parent_index + 1
+        it = self.__iter__(start=current)  # type: ignore
+        for _ in range(num_children):
+            child_ref = next(it)
+            _, size = self.skip_to_next_neighbor(it, child_ref)
+            ranges.append((current, current + size))
+            current += size
+        return ranges
 
     def get_level(self, index: int, is_box_index: bool = True) -> npt.NDArray[np.int8]:
         current_branch, _ = self.get_branch(index, is_box_index)
