@@ -428,7 +428,7 @@ class RefinementDescriptor:
             return []
         ranges = []
         current = parent_index + 1
-        it = self.__iter__(start=current)
+        it = self.__iter__(start=current)  # type: ignore
         for _ in range(num_children):
             child_ref = next(it)
             _, size = self.skip_to_next_neighbor(it, child_ref)

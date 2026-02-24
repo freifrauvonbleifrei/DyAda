@@ -43,7 +43,7 @@ def _group_children_for_pushdown(
             else 0
         )
         groups[group_pos][pushed_bit] = child_range
-    return [(g[0], g[1]) for g in groups]  # type: ignore[return-value]
+    return [(g[0], g[1]) for g in groups]  # type: ignore
 
 
 def _apply_single_dim_pushdown(
