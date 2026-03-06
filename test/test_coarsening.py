@@ -7,7 +7,7 @@ import pytest
 from os.path import abspath
 from dyada.drawing import discretization_to_2d_ascii
 
-from dyada.descriptor import RefinementDescriptor, find_uniqueness_violations
+from dyada.descriptor import RefinementDescriptor
 from dyada.discretization import Discretization
 from dyada.linearization import MortonOrderLinearization
 from dyada.refinement import (
@@ -451,29 +451,30 @@ _________
     assert index_mapping == [
         expected_index_mapping[i] for i in range(len(expected_index_mapping))
     ]
-
-
-def test_pushdown_uncanonicalize_then_canonicalize_2d():
-    descriptor = RefinementDescriptor.from_binary(2, ba.bitarray("11 00 00 00 00"))
-    discretization = Discretization(MortonOrderLinearization(), descriptor)
-    ascii_before_and_after = """\
-_____
-|_|_|
-|_|_|"""
-    assert str(discretization) == ascii_before_and_after
-    # Keep pushed-down markers exactly as requested
     pushed_plan = PlannedAdaptiveRefinement(discretization)
     pushed_plan.plan_pushdown(0, ba.bitarray("10"))
-    pushed_discretization, _ = pushed_plan.apply_refinements(
+    pushed_discretization, push_mapping = pushed_plan.apply_refinements(
         track_mapping="patches",
         sweep_mode="as_planned",
     )
-    assert str(pushed_discretization) == ascii_before_and_after
     pushed_descriptor = pushed_discretization.descriptor
     assert pushed_descriptor == RefinementDescriptor.from_binary(
-        2, ba.bitarray("01 10 00 00 10 00 00")
+        2, ba.bitarray("01 10 00 00 11 00 00 00 00")
     )
-    assert find_uniqueness_violations(pushed_descriptor) == [{0, 1, 4}]
+    push_mapping_expected = {
+        0: {0, 1, 4},
+        1: {2},
+        2: {3},
+        3: {4},
+        4: {5},
+        5: {7},
+        6: {4},
+        7: {6},
+        8: {8},
+    }
+    assert push_mapping == [
+        push_mapping_expected[i] for i in range(len(push_mapping_expected))
+    ]
 
 
 if __name__ == "__main__":

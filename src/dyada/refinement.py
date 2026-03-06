@@ -29,6 +29,7 @@ from dyada.markers import (
     get_next_largest_markered_index,
     get_defaultdict_for_markers,
 )
+from dyada.pushdown import apply_planned_pushdowns
 
 
 def is_lru_cached(func):
@@ -44,6 +45,7 @@ class PlannedAdaptiveRefinement:
         self._discretization = discretization
         # initialize planned refinement list and data structures used later
         self._planned_refinements: list[tuple[int, npt.NDArray[np.int8]]] = []
+        self._planned_pushdowns: list[tuple[int, ba.bitarray]] = []
         self._markers: MarkersType = get_defaultdict_for_markers(
             self._discretization.descriptor.get_num_dimensions()
         )
@@ -110,12 +112,8 @@ class PlannedAdaptiveRefinement:
             )
         if dimensions_to_push_down.count() == 0:
             return
-        if parent_index < 0 or parent_index >= len(descriptor):
-            raise IndexError("parent_index out of range")
 
         parent_refinement = descriptor[parent_index]
-        if parent_refinement.count() == 0:
-            raise ValueError("Cannot push down refinements from a leaf node")
         if (dimensions_to_push_down & ~parent_refinement).count() > 0:
             raise ValueError(
                 "Can only push down dimensions that are currently refined at parent_index"
@@ -124,19 +122,20 @@ class PlannedAdaptiveRefinement:
         children = descriptor.get_children(parent_index)
         if len(children) == 0:
             raise ValueError("parent_index has no children")
+        self._planned_pushdowns.append((parent_index, dimensions_to_push_down.copy()))
 
-        # A one-level pushdown only supports dimensions that are currently absent
-        # in all direct children; otherwise the request would imply >1 added level.
-        for child in children:
-            if (descriptor[child] & dimensions_to_push_down).count() > 0:
-                raise ValueError(
-                    "Cannot push down into a child that already refines a requested dimension"
-                )
-
-        np_dimensions_to_push_down = int8_ndarray_from_iterable(dimensions_to_push_down)
-        self._planned_refinements.append((parent_index, -np_dimensions_to_push_down))
-        for child in children:
-            self._planned_refinements.append((child, np_dimensions_to_push_down))
+    def _apply_pushdowns_direct(
+        self, track_mapping: Literal["boxes", "patches"]
+    ) -> tuple[Discretization, list[set[int]]]:
+        if self._planned_refinements:
+            raise NotImplementedError(
+                "Mixing plan_pushdown with additional planned refinements is not supported yet"
+            )
+        mapping_result = apply_planned_pushdowns(
+            self._discretization, self._planned_pushdowns, track_mapping
+        )
+        self._planned_pushdowns = []
+        return mapping_result
 
     def initialize_markers(self) -> None:
         # put initial markers
@@ -525,6 +524,8 @@ class PlannedAdaptiveRefinement:
             self.upwards_sweep()
             self.downwards_sweep()
         elif sweep_mode == "as_planned":
+            if self._planned_pushdowns:
+                return self._apply_pushdowns_direct(track_mapping)
             self.initialize_markers()
         else:
             raise ValueError(
