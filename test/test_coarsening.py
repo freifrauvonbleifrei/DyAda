@@ -451,17 +451,17 @@ _________
     assert index_mapping == [
         expected_index_mapping[i] for i in range(len(expected_index_mapping))
     ]
-    pushed_plan = PlannedAdaptiveRefinement(discretization)
-    pushed_plan.plan_pushdown(0, ba.bitarray("10"))
-    pushed_discretization, push_mapping = pushed_plan.apply_refinements(
+    down_plan = PlannedAdaptiveRefinement(discretization)
+    down_plan.plan_downsplit(0, ba.bitarray("10"))
+    down_discretization, down_mapping = down_plan.apply_refinements(
         track_mapping="patches",
         sweep_mode="as_planned",
     )
-    pushed_descriptor = pushed_discretization.descriptor
-    assert pushed_descriptor == RefinementDescriptor.from_binary(
+    down_descriptor = down_discretization.descriptor
+    assert down_descriptor == RefinementDescriptor.from_binary(
         2, ba.bitarray("01 10 00 00 11 00 00 00 00")
     )
-    push_mapping_expected = {
+    down_mapping_expected = {
         0: {0, 1, 4},
         1: {2},
         2: {3},
@@ -472,8 +472,8 @@ _________
         7: {6},
         8: {8},
     }
-    assert push_mapping == [
-        push_mapping_expected[i] for i in range(len(push_mapping_expected))
+    assert down_mapping == [
+        down_mapping_expected[i] for i in range(len(down_mapping_expected))
     ]
 
 

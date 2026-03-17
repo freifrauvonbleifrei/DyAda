@@ -29,7 +29,7 @@ from dyada.markers import (
     get_next_largest_markered_index,
     get_defaultdict_for_markers,
 )
-from dyada.pushdown import apply_planned_pushdowns
+from dyada.downsplit import apply_planned_downsplits
 
 
 def is_lru_cached(func):
@@ -45,7 +45,7 @@ class PlannedAdaptiveRefinement:
         self._discretization = discretization
         # initialize planned refinement list and data structures used later
         self._planned_refinements: list[tuple[int, npt.NDArray[np.int8]]] = []
-        self._planned_pushdowns: list[tuple[int, ba.bitarray]] = []
+        self._planned_downsplits: list[tuple[int, ba.bitarray]] = []
         self._markers: MarkersType = get_defaultdict_for_markers(
             self._discretization.descriptor.get_num_dimensions()
         )
@@ -98,7 +98,7 @@ class PlannedAdaptiveRefinement:
             )
         )
 
-    def plan_pushdown(self, parent_index: int, dimensions_to_push_down: ba.bitarray):
+    def plan_downsplit(self, parent_index: int, dimensions_to_downsplit: ba.bitarray):
         """Move selected parent refinements one level down to all direct children.
 
         This operation intentionally de-normalizes the tree: selected split bits
@@ -106,35 +106,35 @@ class PlannedAdaptiveRefinement:
         """
         descriptor = self._discretization.descriptor
         num_dimensions = descriptor.get_num_dimensions()
-        if len(dimensions_to_push_down) != num_dimensions:
+        if len(dimensions_to_downsplit) != num_dimensions:
             raise ValueError(
-                "dimensions_to_push_down length does not match discretization dimensionality"
+                "dimensions_to_downsplit length does not match discretization dimensionality"
             )
-        if dimensions_to_push_down.count() == 0:
+        if dimensions_to_downsplit.count() == 0:
             return
 
         parent_refinement = descriptor[parent_index]
-        if (dimensions_to_push_down & ~parent_refinement).count() > 0:
+        if (dimensions_to_downsplit & ~parent_refinement).count() > 0:
             raise ValueError(
-                "Can only push down dimensions that are currently refined at parent_index"
+                "Can only downsplit dimensions that are currently refined at parent_index"
             )
 
         children = descriptor.get_children(parent_index)
         if len(children) == 0:
             raise ValueError("parent_index has no children")
-        self._planned_pushdowns.append((parent_index, dimensions_to_push_down.copy()))
+        self._planned_downsplits.append((parent_index, dimensions_to_downsplit.copy()))
 
-    def _apply_pushdowns_direct(
+    def _apply_downsplits_direct(
         self, track_mapping: Literal["boxes", "patches"]
     ) -> tuple[Discretization, list[set[int]]]:
         if self._planned_refinements:
             raise NotImplementedError(
-                "Mixing plan_pushdown with additional planned refinements is not supported yet"
+                "Mixing plan_downsplit with additional planned refinements is not supported yet"
             )
-        mapping_result = apply_planned_pushdowns(
-            self._discretization, self._planned_pushdowns, track_mapping
+        mapping_result = apply_planned_downsplits(
+            self._discretization, self._planned_downsplits, track_mapping
         )
-        self._planned_pushdowns = []
+        self._planned_downsplits = []
         return mapping_result
 
     def initialize_markers(self) -> None:
@@ -524,8 +524,8 @@ class PlannedAdaptiveRefinement:
             self.upwards_sweep()
             self.downwards_sweep()
         elif sweep_mode == "as_planned":
-            if self._planned_pushdowns:
-                return self._apply_pushdowns_direct(track_mapping)
+            if self._planned_downsplits:
+                return self._apply_downsplits_direct(track_mapping)
             self.initialize_markers()
         else:
             raise ValueError(
