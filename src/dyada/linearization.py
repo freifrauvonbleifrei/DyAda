@@ -167,41 +167,40 @@ class TrackToken:
     t: int
 
 
-@dataclass
-class DimensionSeparatedLocalPosition:
-    # TODO separate masks from stack
-    local_position: ba.frozenbitarray
-    separated_dimensions_mask: ba.frozenbitarray
-    same_index_as: set[TrackToken] | None = None
-    unresolved_coarsen_mask: ba.frozenbitarray | None = None
+class CoarseningTracker:
+    """Tracks coarsening group mappings for children of a coarsening parent.
+    Stores masks once and uses a dict for O(1) group resolution.
+    """
 
-    @property
-    def remaining_positions_mask(self) -> ba.frozenbitarray:
-        remaining_positions = ba.frozenbitarray(
-            ~self.separated_dimensions_mask & ~self.unresolved_coarsen_mask
-            if self.unresolved_coarsen_mask
-            else ~self.separated_dimensions_mask
+    def __init__(
+        self,
+        separated_mask: ba.frozenbitarray,
+        unresolved_mask: ba.frozenbitarray | None,
+        positions: list[ba.frozenbitarray],
+    ):
+        self.separated_mask = separated_mask
+        self.unresolved_mask = unresolved_mask
+        self._remaining_mask = ba.frozenbitarray(
+            ~separated_mask & ~unresolved_mask if unresolved_mask else ~separated_mask
         )
-        return remaining_positions
+        self._group_pointers: dict[ba.frozenbitarray, TrackToken] = {}
+        self._positions = positions  # reversed, so pop() gives correct order
 
-    @property
-    def separated_positions(self) -> ba.frozenbitarray:
-        return ba.frozenbitarray(self.local_position[self.separated_dimensions_mask])
+    def __len__(self) -> int:
+        return len(self._positions)
 
-    @property
-    def remaining_positions(self) -> ba.frozenbitarray:
-        return ba.frozenbitarray(self.local_position[self.remaining_positions_mask])
+    def pop(self) -> tuple[ba.frozenbitarray, TrackToken | None]:
+        """Pop next position. Returns (local_position, same_index_as)."""
+        pos = self._positions.pop()
+        remaining = ba.frozenbitarray(pos[self._remaining_mask])
+        return pos, self._group_pointers.get(remaining)
 
-    @property
-    def unresolved_positions(self) -> ba.frozenbitarray:
-        return (
-            ba.frozenbitarray(self.local_position[self.unresolved_coarsen_mask])
-            if self.unresolved_coarsen_mask
-            else ba.frozenbitarray()
-        )
-
-
-CoarseningStack: TypeAlias = list[DimensionSeparatedLocalPosition]
+    def register_group(
+        self, local_position: ba.frozenbitarray, token: TrackToken
+    ) -> None:
+        """Register that a remaining-position group maps to the given token."""
+        remaining = ba.frozenbitarray(local_position[self._remaining_mask])
+        self._group_pointers[remaining] = token
 
 
 def indices_to_bitmask(
@@ -222,18 +221,16 @@ def get_initial_coarsening_stack(
     dimensions_to_coarsen: ba.frozenbitarray,
     dimensions_cannot_coarsen: ba.frozenbitarray | None = None,
     linearization: Linearization = MortonOrderLinearization(),
-) -> CoarseningStack:
-    """Returns a stack of coarsening mappings for all current children of a parent patch.
+) -> CoarseningTracker:
+    """Returns a CoarseningTracker for all current children of a parent patch.
 
     Args:
-        current_parent_refinement (ba.frozenbitarray): current parent's refinement, frozen to be hashable
-        dimensions_to_coarsen (tuple[int, ...] | ba.frozenbitarray): a sorted tuple of dimensions to coarsen or a frozenbitarray mask
-        dimensions_cannot_coarsen (ba.frozenbitarray): a frozenbitarray mask of dimensions that cannot be coarsened
-        linearization (Linearization, optional): Linearization. Defaults to MortonOrderLinearization().
+        current_parent_refinement: current parent's refinement, frozen to be hashable
+        dimensions_to_coarsen: a frozenbitarray mask of dimensions to coarsen
+        dimensions_cannot_coarsen: a frozenbitarray mask of dimensions that cannot be coarsened
+        linearization: Linearization. Defaults to MortonOrderLinearization().
     Returns:
-        CoarseningStack: a list of DimensionSeparatedLocalPosition entries, one per current child patch
-        reversed, so popping from the back gives the correct order.
-        The entries contain the separated positions for the coarsened dimensions and the remaining positions for the other dimensions.
+        CoarseningTracker with positions reversed so pop() gives the correct order.
     """
     if not isinstance(linearization, MortonOrderLinearization):
         raise NotImplementedError(
@@ -243,36 +240,33 @@ def get_initial_coarsening_stack(
         )
     assert len(dimensions_to_coarsen) == len(current_parent_refinement)
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
-    separate_dimensions = dimensions_to_coarsen
+    separated_mask = dimensions_to_coarsen
     if dimensions_cannot_coarsen is not None:
         current_parent_refinement = ba.frozenbitarray(
             current_parent_refinement | dimensions_cannot_coarsen
         )
-    initial_coarsening_stack: CoarseningStack = []
+    positions: list[ba.frozenbitarray] = []
     num_current_children = 2 ** current_parent_refinement.count()
     for child_index in range(num_current_children):
         binary_position = linearization.get_binary_position_from_index(
             (child_index,),
             (current_parent_refinement,),
         )
-        initial_coarsening_stack.append(
-            DimensionSeparatedLocalPosition(
-                local_position=ba.frozenbitarray(binary_position),
-                separated_dimensions_mask=separate_dimensions,
-                same_index_as=None,
-                unresolved_coarsen_mask=dimensions_cannot_coarsen,
-            )
-        )
+        positions.append(ba.frozenbitarray(binary_position))
 
-    initial_coarsening_stack.sort(
-        key=lambda entry: (
-            entry.unresolved_positions.to01()[::-1],
-            entry.separated_positions.to01()[::-1],
+    def _sort_key(pos: ba.frozenbitarray) -> tuple[str, str]:
+        unresolved = (
+            ba.frozenbitarray(pos[dimensions_cannot_coarsen]).to01()[::-1]
+            if dimensions_cannot_coarsen
+            else ""
         )
-    )
+        separated = ba.frozenbitarray(pos[separated_mask]).to01()[::-1]
+        return (unresolved, separated)
+
+    positions.sort(key=_sort_key)
     # reverse so we can pop() from the back
-    initial_coarsening_stack.reverse()
-    return initial_coarsening_stack
+    positions.reverse()
+    return CoarseningTracker(separated_mask, dimensions_cannot_coarsen, positions)
 
 
 def get_initial_coarsen_refine_stack(
@@ -281,7 +275,7 @@ def get_initial_coarsen_refine_stack(
     dimensions_to_refine: ba.frozenbitarray,
     dimensions_cannot_coarsen: ba.frozenbitarray | None = None,
     linearization: Linearization = MortonOrderLinearization(),
-) -> CoarseningStack:
+) -> CoarseningTracker:
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
     if dimensions_cannot_coarsen is not None:
         assert dimensions_cannot_coarsen.count() > 0
@@ -297,13 +291,3 @@ def get_initial_coarsen_refine_stack(
         dimensions_cannot_coarsen,
         linearization,
     )
-
-
-def inform_same_remaining_position_about_index(
-    coarsening_stack: CoarseningStack,
-    position_to_update: DimensionSeparatedLocalPosition,
-    mapped_to_indices: set[TrackToken],
-) -> None:
-    for i, entry in enumerate(coarsening_stack):
-        if entry.remaining_positions == position_to_update.remaining_positions:
-            coarsening_stack[i].same_index_as = mapped_to_indices
