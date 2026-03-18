@@ -254,14 +254,13 @@ def get_initial_coarsening_stack(
         )
         positions.append(ba.frozenbitarray(binary_position))
 
-    def _sort_key(pos: ba.frozenbitarray) -> tuple[str, str]:
-        unresolved = (
-            ba.frozenbitarray(pos[dimensions_cannot_coarsen]).to01()[::-1]
+    def _sort_key(pos: ba.frozenbitarray) -> str:
+        combined_mask = (
+            separated_mask | dimensions_cannot_coarsen
             if dimensions_cannot_coarsen
-            else ""
+            else separated_mask
         )
-        separated = ba.frozenbitarray(pos[separated_mask]).to01()[::-1]
-        return (unresolved, separated)
+        return pos[combined_mask].to01()[::-1]
 
     positions.sort(key=_sort_key)
     # reverse so we can pop() from the back
