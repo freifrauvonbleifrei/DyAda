@@ -5,6 +5,7 @@
 from abc import ABC, abstractmethod
 from itertools import product
 import bitarray as ba
+from bitarray.util import ba2int, int2ba
 from dataclasses import dataclass
 from typing import Sequence, TypeAlias
 
@@ -169,38 +170,80 @@ class TrackToken:
 
 class CoarseningTracker:
     """Tracks coarsening group mappings for children of a coarsening parent.
-    Stores masks once and uses a dict for O(1) group resolution.
+
+    Uses a counter instead of an explicit positions list.  The counter bits
+    are arranged as remaining (LSBs) | separated | unresolved (MSBs), all in
+    Morton order within each group.  Position bitarrays are computed on demand
+    by scattering counter bits to dimension positions via bitarray masking.
     """
 
     def __init__(
         self,
         separated_mask: ba.frozenbitarray,
         unresolved_mask: ba.frozenbitarray | None,
-        positions: list[ba.frozenbitarray],
+        remaining_mask: ba.frozenbitarray,
+        num_children: int,
     ):
         self.separated_mask = separated_mask
         self.unresolved_mask = unresolved_mask
-        self._remaining_mask = ba.frozenbitarray(
-            ~separated_mask & ~unresolved_mask if unresolved_mask else ~separated_mask
-        )
-        self._group_pointers: dict[ba.frozenbitarray, TrackToken] = {}
-        self._positions = positions  # reversed, so pop() gives correct order
+        self._remaining_mask = remaining_mask
+        self._num_children = num_children
+        self._counter = 0
+        self._num_remaining = remaining_mask.count()
+        self._num_separated = separated_mask.count()
+        self._num_unresolved = unresolved_mask.count() if unresolved_mask else 0
+        self._remaining_key_mask = (1 << self._num_remaining) - 1
+        self._separated_key_mask = (1 << self._num_separated) - 1
+        self._ndim = len(separated_mask)
+        self._group_pointers: dict[int, TrackToken] = {}
 
     def __len__(self) -> int:
-        return len(self._positions)
+        return self._num_children - self._counter
+
+    @staticmethod
+    def _int_to_ba_le(n: int, length: int) -> ba.bitarray:
+        """Convert int to bitarray with LSB first (little-endian bit order)."""
+        bits = int2ba(n, length=length)
+        bits.reverse()
+        return bits
+
+    def _to_position(self, k: int) -> ba.frozenbitarray:
+        """Convert counter value to position bitarray by scattering bits."""
+        pos = ba.bitarray(self._ndim)
+        if self._num_remaining > 0:
+            pos[self._remaining_mask] = self._int_to_ba_le(
+                k & self._remaining_key_mask, self._num_remaining
+            )
+        if self._num_separated > 0:
+            pos[self.separated_mask] = self._int_to_ba_le(
+                (k >> self._num_remaining) & self._separated_key_mask,
+                self._num_separated,
+            )
+        if self._num_unresolved > 0:
+            pos[self.unresolved_mask] = self._int_to_ba_le(
+                k >> (self._num_remaining + self._num_separated),
+                self._num_unresolved,
+            )
+        return ba.frozenbitarray(pos)
+
+    def _remaining_key(self, local_position: ba.frozenbitarray) -> int:
+        """Extract remaining-dimensions key from a position bitarray."""
+        if self._num_remaining == 0:
+            return 0
+        return ba2int(local_position[self._remaining_mask][::-1])
 
     def pop(self) -> tuple[ba.frozenbitarray, TrackToken | None]:
         """Pop next position. Returns (local_position, same_index_as)."""
-        pos = self._positions.pop()
-        remaining = ba.frozenbitarray(pos[self._remaining_mask])
-        return pos, self._group_pointers.get(remaining)
+        k = self._counter
+        self._counter += 1
+        pos = self._to_position(k)
+        return pos, self._group_pointers.get(k & self._remaining_key_mask)
 
     def register_group(
         self, local_position: ba.frozenbitarray, token: TrackToken
     ) -> None:
         """Register that a remaining-position group maps to the given token."""
-        remaining = ba.frozenbitarray(local_position[self._remaining_mask])
-        self._group_pointers[remaining] = token
+        self._group_pointers[self._remaining_key(local_position)] = token
 
 
 def indices_to_bitmask(
@@ -230,7 +273,7 @@ def get_initial_coarsening_stack(
         dimensions_cannot_coarsen: a frozenbitarray mask of dimensions that cannot be coarsened
         linearization: Linearization. Defaults to MortonOrderLinearization().
     Returns:
-        CoarseningTracker with positions reversed so pop() gives the correct order.
+        CoarseningTracker whose counter iterates children in the correct order.
     """
     if not isinstance(linearization, MortonOrderLinearization):
         raise NotImplementedError(
@@ -241,32 +284,27 @@ def get_initial_coarsening_stack(
     assert len(dimensions_to_coarsen) == len(current_parent_refinement)
     assert (dimensions_to_coarsen & ~current_parent_refinement).count() == 0
     separated_mask = dimensions_to_coarsen
+    effective_refinement = current_parent_refinement
     if dimensions_cannot_coarsen is not None:
-        current_parent_refinement = ba.frozenbitarray(
+        effective_refinement = ba.frozenbitarray(
             current_parent_refinement | dimensions_cannot_coarsen
         )
-    positions: list[ba.frozenbitarray] = []
-    num_current_children = 2 ** current_parent_refinement.count()
-    for child_index in range(num_current_children):
-        binary_position = linearization.get_binary_position_from_index(
-            (child_index,),
-            (current_parent_refinement,),
-        )
-        positions.append(ba.frozenbitarray(binary_position))
 
-    def _sort_key(pos: ba.frozenbitarray) -> tuple[str, str]:
-        unresolved = (
-            ba.frozenbitarray(pos[dimensions_cannot_coarsen]).to01()[::-1]
-            if dimensions_cannot_coarsen
-            else ""
+    # Remaining = refined and neither separated nor unresolved
+    if dimensions_cannot_coarsen is not None:
+        remaining_mask = ba.frozenbitarray(
+            effective_refinement & ~separated_mask & ~dimensions_cannot_coarsen
         )
-        separated = ba.frozenbitarray(pos[separated_mask]).to01()[::-1]
-        return (unresolved, separated)
+    else:
+        remaining_mask = ba.frozenbitarray(effective_refinement & ~separated_mask)
 
-    positions.sort(key=_sort_key)
-    # reverse so we can pop() from the back
-    positions.reverse()
-    return CoarseningTracker(separated_mask, dimensions_cannot_coarsen, positions)
+    num_children = 2 ** effective_refinement.count()
+    return CoarseningTracker(
+        separated_mask,
+        dimensions_cannot_coarsen,
+        remaining_mask,
+        num_children,
+    )
 
 
 def get_initial_coarsen_refine_stack(
