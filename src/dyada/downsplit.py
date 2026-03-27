@@ -13,7 +13,7 @@ from dyada.descriptor import (
 )
 from dyada.discretization import Discretization
 from dyada.linearization import (
-    get_initial_coarsening_stack,
+    get_initial_child_grouping,
 )
 
 
@@ -53,7 +53,7 @@ def apply_planned_downsplits(
 ) -> tuple[Discretization, list[set[int]]]:
     """Apply all planned downsplits in a single forward pass over the descriptor.
 
-    Uses the CoarseningTracker to group children of each downsplit node, then
+    Uses the ChildGroupingTracker to group children of each downsplit node, then
     emits intermediate nodes and re-ordered children into the target descriptor.
     """
     descriptor = discretization.descriptor
@@ -118,7 +118,7 @@ def apply_planned_downsplits(
         # Group children by remaining-position bits (dims NOT being pushed down).
         # Pass remaining_ref as separated_mask so the tracker sorts by remaining
         # bits first — making same-group members adjacent in pop order.
-        tracker = get_initial_coarsening_stack(
+        tracker = get_initial_child_grouping(
             ba.frozenbitarray(parent_ref),
             ba.frozenbitarray(remaining_ref),
             linearization=linearization,
