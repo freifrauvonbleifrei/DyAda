@@ -100,9 +100,9 @@ def apply_planned_downsplits(
         # Emit the parent with reduced ref
         _track(old_idx, _emit(remaining_ref))
 
-        # Collect old children: (local_position, old_start, subtree_size)
+        # Map each child's local position to (old_start, subtree_size)
         num_old_children = get_num_children_from_refinement(parent_ref)
-        children_info: list[tuple[ba.frozenbitarray, int, int]] = []
+        pos_to_info: dict[ba.frozenbitarray, tuple[int, int]] = {}
         child_old = old_idx + 1
         for child_local_idx in range(num_old_children):
             pos = ba.frozenbitarray(
@@ -111,20 +111,18 @@ def apply_planned_downsplits(
                 )
             )
             size = _subtree_size(descriptor, child_old)
-            children_info.append((pos, child_old, size))
+            pos_to_info[pos] = (child_old, size)
             child_old += size
         subtree_end = child_old
 
         # Group children by remaining-position bits (dims NOT being pushed down).
-        # Pass remaining_ref as separated_mask so the tracker sorts by remaining
+        # Pass remaining_ref as sort_dimensions so the tracker sorts by remaining
         # bits first — making same-group members adjacent in pop order.
         tracker = get_initial_child_grouping(
             ba.frozenbitarray(parent_ref),
             ba.frozenbitarray(remaining_ref),
             linearization=linearization,
         )
-
-        pos_to_info = {info[0]: (info[1], info[2]) for info in children_info}
 
         # Process groups: same_as is None for the first member of each group
         current_members: list[tuple[ba.frozenbitarray, int, int]] = []
