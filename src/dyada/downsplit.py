@@ -51,15 +51,14 @@ def apply_planned_downsplits(
     descriptor = discretization.descriptor
     nd = descriptor.get_num_dimensions()
     linearization = discretization._linearization
-    n = len(descriptor)
 
     merged_downsplits = _merged_planned_downsplits(planned_downsplits)
     if not merged_downsplits:
-        return discretization, [{i} for i in range(n)]
+        return discretization, [{i} for i in range(len(descriptor))]
 
     # Single forward DFS pass: walk old descriptor, emit new descriptor.
     new_data = ba.bitarray()
-    mapping: list[set[int]] = [set() for _ in range(n)]
+    mapping: list[set[int]] = [set() for _ in range(len(descriptor))]
 
     def _track(old_idx: int, new_idx: int) -> None:
         mapping[old_idx].add(new_idx)
@@ -195,8 +194,8 @@ def apply_planned_downsplits(
         if old_idx < ds_idx:
             _copy_range(old_idx, ds_idx)
         old_idx = _process_downsplit(ds_idx)
-    if old_idx < n:
-        _copy_range(old_idx, n)
+    if old_idx < len(descriptor):
+        _copy_range(old_idx, len(descriptor))
 
     new_descriptor = RefinementDescriptor(nd)
     new_descriptor._data = new_data
