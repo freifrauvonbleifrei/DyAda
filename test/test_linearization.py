@@ -6,13 +6,11 @@ import bitarray as ba
 import pytest
 
 from dyada.linearization import (
-    DimensionSeparatedLocalPosition,
     MortonOrderLinearization,
     binary_or_none_generator,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
     indices_to_bitmask,
-    inform_same_remaining_position_about_index,
 )
 
 
@@ -183,169 +181,142 @@ def test_binary_or_none_generator():
     assert generated == expected
 
 
+def _pop_all_positions(tracker):
+    """Pop all positions from a tracker, returning them in pop order."""
+    positions = []
+    while len(tracker) > 0:
+        pos, _ = tracker.pop()
+        positions.append(pos)
+    return positions
+
+
 def test_empty_coarsening_stack_initialization():
     fba = ba.frozenbitarray
-    initial_coarsening_stack = get_initial_coarsening_stack(
+    tracker = get_initial_coarsening_stack(
         current_parent_refinement=fba("111"),
         dimensions_to_coarsen=fba("000"),
     )
-    expected_coarsening_stack = [
-        DimensionSeparatedLocalPosition(fba("000"), fba("000")),
-        DimensionSeparatedLocalPosition(fba("100"), fba("000")),
-        DimensionSeparatedLocalPosition(fba("010"), fba("000")),
-        DimensionSeparatedLocalPosition(fba("110"), fba("000")),
-        DimensionSeparatedLocalPosition(fba("001"), fba("000")),
-        DimensionSeparatedLocalPosition(fba("101"), fba("000")),
-        DimensionSeparatedLocalPosition(fba("011"), fba("000")),
-        DimensionSeparatedLocalPosition(fba("111"), fba("000")),
+    assert tracker.separated_mask == fba("000")
+    assert tracker.unresolved_mask is None
+    expected_pop_order = [
+        fba("000"),
+        fba("100"),
+        fba("010"),
+        fba("110"),
+        fba("001"),
+        fba("101"),
+        fba("011"),
+        fba("111"),
     ]
-    expected_coarsening_stack.reverse()
-    assert initial_coarsening_stack == expected_coarsening_stack
+    assert _pop_all_positions(tracker) == expected_pop_order
 
 
 def test_all_coarsening_stack_initialization():
     fba = ba.frozenbitarray
-    initial_coarsening_stack = get_initial_coarsening_stack(
+    tracker = get_initial_coarsening_stack(
         current_parent_refinement=fba("111"),
         dimensions_to_coarsen=fba("111"),
     )
-
-    expected_coarsening_stack = [
-        DimensionSeparatedLocalPosition(fba("000"), fba("111")),
-        DimensionSeparatedLocalPosition(fba("100"), fba("111")),
-        DimensionSeparatedLocalPosition(fba("010"), fba("111")),
-        DimensionSeparatedLocalPosition(fba("110"), fba("111")),
-        DimensionSeparatedLocalPosition(fba("001"), fba("111")),
-        DimensionSeparatedLocalPosition(fba("101"), fba("111")),
-        DimensionSeparatedLocalPosition(fba("011"), fba("111")),
-        DimensionSeparatedLocalPosition(fba("111"), fba("111")),
+    assert tracker.separated_mask == fba("111")
+    expected_pop_order = [
+        fba("000"),
+        fba("100"),
+        fba("010"),
+        fba("110"),
+        fba("001"),
+        fba("101"),
+        fba("011"),
+        fba("111"),
     ]
-    expected_coarsening_stack.reverse()
-    assert initial_coarsening_stack == expected_coarsening_stack
+    assert _pop_all_positions(tracker) == expected_pop_order
 
 
 def test_coarsening_stack_2d():
-    current_coarsening_stack = get_initial_coarsening_stack(
+    tracker = get_initial_coarsening_stack(
         current_parent_refinement=ba.frozenbitarray("11"),
         dimensions_to_coarsen=indices_to_bitmask((0,), 2),
     )
-    expected_coarsening_stack = [
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("00"), ba.frozenbitarray("10")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("01"), ba.frozenbitarray("10")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("10"), ba.frozenbitarray("10")
-        ),
-        DimensionSeparatedLocalPosition(
-            ba.frozenbitarray("11"), ba.frozenbitarray("10")
-        ),
+    assert tracker.separated_mask == ba.frozenbitarray("10")
+    expected_pop_order = [
+        ba.frozenbitarray("00"),
+        ba.frozenbitarray("01"),
+        ba.frozenbitarray("10"),
+        ba.frozenbitarray("11"),
     ]
-    expected_coarsening_stack.reverse()
-    assert current_coarsening_stack == expected_coarsening_stack
+    assert _pop_all_positions(tracker) == expected_pop_order
 
 
 def test_coarsening_stack_3d():
     fba = ba.frozenbitarray
-    current_coarsening_stack = get_initial_coarsening_stack(
+    tracker = get_initial_coarsening_stack(
         current_parent_refinement=fba("111"),
         dimensions_to_coarsen=indices_to_bitmask((0, 1), 3),
     )
-    expected_coarsening_stack = [
-        DimensionSeparatedLocalPosition(fba("000"), fba("110")),
-        DimensionSeparatedLocalPosition(fba("001"), fba("110")),
-        DimensionSeparatedLocalPosition(fba("100"), fba("110")),
-        DimensionSeparatedLocalPosition(fba("101"), fba("110")),
-        DimensionSeparatedLocalPosition(fba("010"), fba("110")),
-        DimensionSeparatedLocalPosition(fba("011"), fba("110")),
-        DimensionSeparatedLocalPosition(fba("110"), fba("110")),
-        DimensionSeparatedLocalPosition(fba("111"), fba("110")),
-    ]
-    expected_coarsening_stack.reverse()
-    assert current_coarsening_stack == expected_coarsening_stack
+    assert tracker.separated_mask == fba("110")
 
-    first_item = current_coarsening_stack.pop()
-    assert first_item.separated_positions == ba.frozenbitarray("00")
-    assert first_item.remaining_positions == ba.frozenbitarray("0")
+    # Pop first item and register its group
+    first_pos, first_same = tracker.pop()
+    assert first_pos == fba("000")
+    assert first_same is None
 
-    first_item_update_index = 42
-    inform_same_remaining_position_about_index(
-        coarsening_stack=current_coarsening_stack,
-        position_to_update=first_item,
-        mapped_to_indices={first_item_update_index},
-    )
-    expected_index_stack_after_update = [
-        None,
-        {42},
-        None,
-        {42},
-        None,
-        {42},
-        None,
+    tracker.register_group(first_pos, 42)
+
+    # Remaining pops should resolve groups via the dict
+    expected = [
+        (fba("001"), None),
+        (fba("100"), 42),
+        (fba("101"), None),
+        (fba("010"), 42),
+        (fba("011"), None),
+        (fba("110"), 42),
+        (fba("111"), None),
     ]
-    expected_index_stack_after_update.reverse()
-    assert all(
-        current_coarsening_stack[i].same_index_as
-        == expected_index_stack_after_update[i]
-        for i in range(len(current_coarsening_stack))
-    )
+    for expected_pos, expected_same in expected:
+        pos, same = tracker.pop()
+        assert pos == expected_pos
+        assert same == expected_same
 
 
 def test_coarsen_refine_stack_cannot_coarsen_2d():
     fba = ba.frozenbitarray
-    coarsen_refine_stack = get_initial_coarsen_refine_stack(
+    tracker = get_initial_coarsen_refine_stack(
         current_parent_refinement=fba("01"),
         dimensions_to_coarsen=fba("00"),
         dimensions_to_refine=fba("00"),
         dimensions_cannot_coarsen=fba("10"),
     )
-    expected_coarsen_refine_stack = [
-        DimensionSeparatedLocalPosition(fba("11"), fba("00"), None, fba("10")),
-        DimensionSeparatedLocalPosition(fba("10"), fba("00"), None, fba("10")),
-        DimensionSeparatedLocalPosition(fba("01"), fba("00"), None, fba("10")),
-        DimensionSeparatedLocalPosition(fba("00"), fba("00"), None, fba("10")),
-    ]
-    assert coarsen_refine_stack == expected_coarsen_refine_stack
+    assert tracker.separated_mask == fba("00")
+    assert tracker.unresolved_mask == fba("10")
+    expected_pop_order = [fba("00"), fba("01"), fba("10"), fba("11")]
+    assert _pop_all_positions(tracker) == expected_pop_order
 
 
 def test_coarsen_refine_stack_3d():
     fba = ba.frozenbitarray
-    coarsen_refine_stack = get_initial_coarsen_refine_stack(
+    tracker = get_initial_coarsen_refine_stack(
         current_parent_refinement=ba.frozenbitarray("011"),
         dimensions_to_coarsen=indices_to_bitmask((2,), 3),
         dimensions_to_refine=indices_to_bitmask((0,), 3),
     )
+    assert tracker.separated_mask == fba("001")
 
-    expected_coarsen_refine_stack = [
-        DimensionSeparatedLocalPosition(fba("111"), fba("001")),
-        DimensionSeparatedLocalPosition(fba("011"), fba("001")),
-        DimensionSeparatedLocalPosition(fba("101"), fba("001")),
-        DimensionSeparatedLocalPosition(fba("001"), fba("001")),
-        DimensionSeparatedLocalPosition(fba("110"), fba("001")),
-        DimensionSeparatedLocalPosition(fba("010"), fba("001")),
-        DimensionSeparatedLocalPosition(fba("100"), fba("001")),
-        DimensionSeparatedLocalPosition(fba("000"), fba("001")),
+    # Pop first and register group
+    first_pos, first_same = tracker.pop()
+    assert first_pos == fba("000")
+    assert first_same is None
+    tracker.register_group(first_pos, 99)
+
+    # Only pos "001" shares remaining_positions "00" with first_pos "000"
+    expected = [
+        (fba("100"), None),
+        (fba("010"), None),
+        (fba("110"), None),
+        (fba("001"), 99),
+        (fba("101"), None),
+        (fba("011"), None),
+        (fba("111"), None),
     ]
-    assert coarsen_refine_stack == expected_coarsen_refine_stack
-
-    # make sure we can re-use the references again...
-    first_item = coarsen_refine_stack.pop()
-    inform_same_remaining_position_about_index(coarsen_refine_stack, first_item, {99})
-
-    expected_same_index_as = [
-        None,
-        None,
-        None,
-        {99},
-        None,
-        None,
-        None,
-    ]
-
-    for actual, expected in zip(
-        list(item.same_index_as for item in coarsen_refine_stack),
-        expected_same_index_as,
-    ):
-        assert actual == expected
+    for expected_pos, expected_same in expected:
+        pos, same = tracker.pop()
+        assert pos == expected_pos
+        assert same == expected_same

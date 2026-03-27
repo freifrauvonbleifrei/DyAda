@@ -15,7 +15,7 @@ from dyada.descriptor import (
 )
 from dyada.discretization import Discretization, branch_to_location_code
 from dyada.linearization import (
-    CoarseningStack,
+    CoarseningTracker,
     TrackToken,
     LocationCode,
     binary_or_none_generator,
@@ -23,7 +23,6 @@ from dyada.linearization import (
     get_initial_coarsen_refine_stack,
     location_code_from_history,
     location_code_from_branch,
-    inform_same_remaining_position_about_index,
 )
 from dyada.markers import MarkerType, MarkersMapProxyType
 
@@ -42,7 +41,7 @@ class AncestryBranch:
       new relationships (not determined by old descriptor)
     """
 
-    TrackInfo: TypeAlias = CoarseningStack
+    TrackInfo: TypeAlias = CoarseningTracker
 
     @dataclass
     class _AncestryBranchState:
@@ -236,11 +235,10 @@ class AncestryBranch:
             # update existing track info
             ancestor_track_info = self.track_info_mapping.get(parent_index)
             if ancestor_track_info is not None:
-                this_item = ancestor_track_info.pop()
-                if this_item.same_index_as is None:
-                    inform_about = {self.current_track_token}
-                    inform_same_remaining_position_about_index(
-                        ancestor_track_info, this_item, inform_about
+                local_position, same_index_as = ancestor_track_info.pop()
+                if same_index_as is None:
+                    ancestor_track_info.register_group(
+                        local_position, self.current_track_token
                     )
 
     def __init__(
@@ -339,7 +337,7 @@ class AncestryBranch:
             ancestor_location_code = branch_to_location_code(
                 ancestor_branch, self._discretization._linearization
             )
-            unresolved_coarsen_mask = track_info[0].unresolved_coarsen_mask
+            unresolved_coarsen_mask = track_info.unresolved_mask
             unresolved_iterable = None
             if unresolved_coarsen_mask is not None:
                 # shorten the ancestor location code for each unresolved coarsen dimension
@@ -358,7 +356,7 @@ class AncestryBranch:
                 self._discretization.descriptor[key]
             )
             while len(track_info) > 0:
-                index = track_info.pop()
+                local_position, same_index_as = track_info.pop()
                 # get their indices in the old discretization by their location code
                 missed_descendant_location_code = [
                     a.copy() for a in ancestor_location_code
@@ -372,15 +370,15 @@ class AncestryBranch:
                             missed_descendant_location_code[ud].append(
                                 unresolved_to_append[ud]
                             )
-                    missed_descendant_location_code[d].append(index.local_position[d])
+                    missed_descendant_location_code[d].append(local_position[d])
 
                 missed_descendant_index = self._discretization.get_index_from_location_code(
                     missed_descendant_location_code, get_box=False  # type: ignore
                 )
-                if index.same_index_as is None:
-                    map_to = set(self._mapping_state.old_indices_map_track_tokens[key])
+                if same_index_as is None:
+                    map_to = self._mapping_state.old_indices_map_track_tokens[key]
                 else:
-                    map_to = index.same_index_as
+                    map_to = [same_index_as]
 
                 assert isinstance(missed_descendant_index, int)
                 mapping[missed_descendant_index].update(map_to)
