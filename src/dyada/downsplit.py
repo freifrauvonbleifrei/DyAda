@@ -18,18 +18,10 @@ from dyada.linearization import (
 
 
 def _merged_planned_downsplits(
-    descriptor: RefinementDescriptor,
     planned_downsplits: list[tuple[int, ba.bitarray]],
 ) -> dict[int, ba.bitarray]:
-    num_dimensions = descriptor.get_num_dimensions()
     merged: dict[int, ba.bitarray] = {}
     for parent_index, dimensions_to_downsplit in planned_downsplits:
-        if parent_index < 0 or parent_index >= len(descriptor):
-            raise IndexError("parent_index out of range")
-        if len(dimensions_to_downsplit) != num_dimensions:
-            raise ValueError(
-                "dimensions_to_downsplit length does not match discretization dimensionality"
-            )
         existing = merged.get(parent_index)
         if existing is None:
             merged[parent_index] = dimensions_to_downsplit.copy()
@@ -61,7 +53,7 @@ def apply_planned_downsplits(
     linearization = discretization._linearization
     n = len(descriptor)
 
-    merged_downsplits = _merged_planned_downsplits(descriptor, planned_downsplits)
+    merged_downsplits = _merged_planned_downsplits(planned_downsplits)
     if not merged_downsplits:
         return discretization, [{i} for i in range(n)]
 
