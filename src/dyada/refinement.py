@@ -118,10 +118,6 @@ class PlannedAdaptiveRefinement:
             raise ValueError(
                 "Can only downsplit dimensions that are currently refined at parent_index"
             )
-
-        children = descriptor.get_children(parent_index)
-        if len(children) == 0:
-            raise ValueError("parent_index has no children")
         self._planned_downsplits.append((parent_index, dimensions_to_downsplit.copy()))
 
     def _apply_downsplits_direct(
