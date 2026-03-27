@@ -15,6 +15,27 @@ from dyada.refinement import (
 )
 
 
+def test_coarsen_1d():
+    discretization = Discretization(
+        MortonOrderLinearization(),
+        RefinementDescriptor.from_binary(1, ba.bitarray("1 1 0 0 1 0 0")),
+    )
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(1, ba.bitarray("1"))
+    p.plan_coarsening(4, ba.bitarray("1"))
+    new_discretization, _ = p.apply_refinements()
+    new_descriptor = new_discretization.descriptor
+    assert new_descriptor._data == ba.bitarray("1 0 0")
+
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_coarsening(0, ba.bitarray("1"))
+    new_discretization, _ = p.apply_refinements()
+    new_descriptor = new_discretization.descriptor
+    # TODO this returns an invalid "0 0 0" descriptor...
+    # add an error for trying to drop non-leaf children on coarsening?
+    # assert new_descriptor._data == ba.bitarray("0")
+
+
 def test_coarsen_simplest_2d():
     discretization = Discretization(
         MortonOrderLinearization(),
