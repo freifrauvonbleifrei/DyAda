@@ -170,9 +170,10 @@ class TrackToken:
 class ChildGroupingTracker:
     """Groups children of a parent node by a bitmask partition.
 
-    Children are sorted by `sort_mask` bits, so members of the same group
-    (sharing the same `sort_mask` bits) are adjacent in pop order.
-    Groups are distinguished by the complementary `group_mask` bits.
+    Children are sorted by `sort_mask` bits, so entries that share the same
+    `_group_mask` bits (the complement of `sort_mask` and `unresolved_mask`)
+    are adjacent in pop order. `pop()` and `register_group()` use
+    `_group_mask` to determine group membership.
 
     Used by coarsening (sort_mask = dims being removed, group by remaining dims)
     and downsplit (sort_mask = dims kept at parent, group by pushed-down dims).
