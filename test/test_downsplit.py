@@ -13,6 +13,7 @@ from dyada.refinement import (
     Discretization,
     PlannedAdaptiveRefinement,
 )
+from dyada.drawing import discretization_to_2d_ascii
 from dyada.linearization import MortonOrderLinearization
 from test_refinement import helper_check_mapping
 
@@ -330,3 +331,81 @@ def test_downsplit_only_dim_not_implemented():
     p.plan_downsplit(0, ba.bitarray("10"))
     with pytest.raises(ValueError):
         p.apply_refinements(sweep_mode="as_planned")
+
+
+def test_downsplit_nested_2d():
+    """Downsplit both root and its child in the same pass."""
+    descriptor = RefinementDescriptor.from_binary(
+        2, ba.bitarray("11 11 00 00 00 00 00 00 00")
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    assert descriptor.get_num_boxes() == 7
+    ascii_before_and_after = """\
+_________
+|   |   |
+|___|___|
+|_|_|   |
+|_|_|___|"""
+    assert (
+        discretization_to_2d_ascii(discretization, resolution=(8, 4))
+        == ascii_before_and_after
+    )
+
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_downsplit(0, ba.bitarray("10"))
+    p.plan_downsplit(1, ba.bitarray("10"))
+    new_disc, mapping = p.apply_refinements(
+        track_mapping="patches", sweep_mode="as_planned"
+    )
+    new_desc = new_disc.descriptor
+
+    # Leaf count and spatial discretization must be preserved
+    assert new_desc.get_num_boxes() == 7
+    assert validate_descriptor(new_desc)
+    assert (
+        discretization_to_2d_ascii(new_disc, resolution=(8, 4))
+        == ascii_before_and_after
+    )
+    assert new_desc == RefinementDescriptor.from_binary(
+        2, ba.bitarray("01 10 01 10 00 00 10 00 00 00 10 00 00")
+    )
+
+
+def test_downsplit_nested_3d():
+    descriptor = RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "111 111 000 000 000 000 000 000 000 000 000 000 000 000 000 000 000"
+        ),
+    )
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    num_boxes = descriptor.get_num_boxes()
+
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_downsplit(0, ba.bitarray("100"))
+    p.plan_downsplit(1, ba.bitarray("100"))
+    new_disc, _ = p.apply_refinements(track_mapping="patches", sweep_mode="as_planned")
+    new_desc = new_disc.descriptor
+
+    assert new_desc.get_num_boxes() == num_boxes
+    assert validate_descriptor(new_desc)
+    # Root becomes 011, each child gets 100 intermediate with nested downsplit
+    assert new_desc == RefinementDescriptor.from_binary(
+        3,
+        ba.bitarray(
+            "011"
+            " 100 011 100 000 000 100 000 000 100 000 000 100 000 000 000"
+            " 100 000 000"
+            " 100 000 000"
+            " 100 000 000"
+        ),
+    )
+
+
+def test_downsplit_invalid_track_mapping():
+    descriptor = RefinementDescriptor.from_binary(2, ba.bitarray("11 00 00 00 00"))
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_downsplit(0, ba.bitarray("10"))
+    with pytest.raises(ValueError, match="track_mapping"):
+        p.apply_refinements(track_mapping="invalid", sweep_mode="as_planned")
