@@ -9,9 +9,9 @@ import bitarray as ba
 from dyada.descriptor import (
     RefinementDescriptor,
     get_num_children_from_refinement,
-    hierarchical_to_box_index_mapping,
 )
 from dyada.discretization import Discretization
+from dyada.mappings import IndexMapping, hierarchical_to_box_index_mapping
 from dyada.linearization import (
     get_initial_child_grouping,
 )
@@ -48,7 +48,7 @@ def apply_planned_downsplits(
     discretization: Discretization,
     planned_downsplits: list[tuple[int, ba.bitarray]],
     track_mapping: Literal["boxes", "patches"],
-) -> tuple[Discretization, list[set[int]]]:
+) -> tuple[Discretization, IndexMapping]:
     """Apply all planned downsplits in a single forward pass over the descriptor.
 
     Uses the ChildGroupingTracker to group children of each downsplit node, then

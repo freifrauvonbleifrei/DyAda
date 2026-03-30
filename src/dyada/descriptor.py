@@ -513,23 +513,6 @@ def get_level_from_branch(branch: Branch) -> np.ndarray:
     return found_level
 
 
-def hierarchical_to_box_index_mapping(
-    hierarchical_mapping: list[set[int]],
-    key_descriptor: RefinementDescriptor,
-    value_descriptor: RefinementDescriptor,
-) -> list[set[int]]:
-    box_mapping = [
-        set(
-            value_descriptor.to_box_index(new_index)
-            for new_index in new_indices
-            if value_descriptor.is_box(new_index)
-        )
-        for old_index, new_indices in enumerate(hierarchical_mapping)
-        if key_descriptor.is_box(old_index)
-    ]
-    return box_mapping
-
-
 def find_uniqueness_violations(
     descriptor: RefinementDescriptor,
 ) -> list[set[int]]:

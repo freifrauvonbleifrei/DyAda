@@ -15,13 +15,17 @@ from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import (
     RefinementDescriptor,
     get_regular_refined,
-    hierarchical_to_box_index_mapping,
     int8_ndarray_from_iterable,
     find_uniqueness_violations,
 )
 from dyada.discretization import Discretization
 from dyada.linearization import TrackToken
-from dyada.mappings import correct_index_mapping, merge_mappings
+from dyada.mappings import (
+    IndexMapping,
+    correct_index_mapping,
+    hierarchical_to_box_index_mapping,
+    merge_mappings,
+)
 from dyada.markers import (
     MarkerType,
     MarkersType,
@@ -124,7 +128,7 @@ class PlannedAdaptiveRefinement:
 
     def _apply_downsplits_direct(
         self, track_mapping: Literal["boxes", "patches"]
-    ) -> tuple[Discretization, list[set[int]]]:
+    ) -> tuple[Discretization, IndexMapping]:
         if self._planned_refinements:
             raise NotImplementedError(
                 "Mixing plan_downsplit with additional planned refinements is not supported yet"
@@ -455,11 +459,9 @@ class PlannedAdaptiveRefinement:
 
     def create_new_discretization(
         self, track_mapping: Literal["boxes", "patches"] = "boxes"
-    ) -> tuple[Discretization, list[set[int]]]:
+    ) -> tuple[Discretization, IndexMapping]:
         old_descriptor = self._discretization.descriptor
-        self._index_mapping: list[set[int]] = [
-            set() for _ in range(len(old_descriptor))
-        ]
+        self._index_mapping: IndexMapping = [set() for _ in range(len(old_descriptor))]
 
         # start generating the new descriptor
         new_descriptor = RefinementDescriptor(old_descriptor.get_num_dimensions())
@@ -514,7 +516,7 @@ class PlannedAdaptiveRefinement:
         self,
         track_mapping: Literal["boxes", "patches"] = "boxes",
         sweep_mode: Literal["canonical", "as_planned"] = "canonical",
-    ) -> tuple[Discretization, list[set[int]]]:
+    ) -> tuple[Discretization, IndexMapping]:
         assert self._upward_queue.empty()
         if sweep_mode == "canonical":
             assert len(self._markers) == 0
@@ -541,7 +543,7 @@ def apply_single_refinement(
     box_index: int,
     dimensions_to_refine: Optional[ba.bitarray] = None,
     track_mapping: Literal["boxes", "patches"] = "boxes",
-) -> tuple[Discretization, list[set[int]]]:
+) -> tuple[Discretization, IndexMapping]:
     p = PlannedAdaptiveRefinement(discretization)
     p.plan_refinement(box_index, dimensions_to_refine)
     return p.apply_refinements(track_mapping=track_mapping)
@@ -551,7 +553,7 @@ def normalize_discretization(
     discretization: Discretization,
     track_mapping: Literal["boxes", "patches"] = "patches",
     max_normalization_rounds: int = 2**31 - 1,
-) -> tuple[Discretization, list[set[int]], int]:
+) -> tuple[Discretization, IndexMapping, int]:
     """
     Normalize the discretization so that it fulfills the uniqueness condition
     and we get a normalized omnitree.
@@ -559,7 +561,7 @@ def normalize_discretization(
     normalization_rounds = 0
     # find the tuples of indices where the uniqueness condition is violated
     violations = find_uniqueness_violations(discretization.descriptor)
-    mapping: list[set[int]] = []
+    mapping: IndexMapping = []
     while len(violations) > 0 and normalization_rounds < max_normalization_rounds:
         normalization_rounds += 1
         p = PlannedAdaptiveRefinement(discretization)

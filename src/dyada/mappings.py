@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 from dataclasses import dataclass, field
+from typing import TypeAlias
 
 from dyada.descriptor import RefinementDescriptor, Branch
 from dyada.discretization import Discretization
@@ -12,18 +13,36 @@ from dyada.markers import (
     get_next_largest_markered_index,
 )
 
+IndexMapping: TypeAlias = list[set[int]]
+
+
+def hierarchical_to_box_index_mapping(
+    hierarchical_mapping: IndexMapping,
+    key_descriptor: RefinementDescriptor,
+    value_descriptor: RefinementDescriptor,
+) -> IndexMapping:
+    return [
+        set(
+            value_descriptor.to_box_index(new_index)
+            for new_index in new_indices
+            if value_descriptor.is_box(new_index)
+        )
+        for old_index, new_indices in enumerate(hierarchical_mapping)
+        if key_descriptor.is_box(old_index)
+    ]
+
 
 def merge_mappings(
-    first_mapping: list[set[int]],
-    second_mapping: list[set[int]],
-) -> list[set[int]]:
+    first_mapping: IndexMapping,
+    second_mapping: IndexMapping,
+) -> IndexMapping:
     # if either mapping is empty, return the other one
     if not first_mapping:
         return second_mapping
     if not second_mapping:
         return first_mapping
     # merge the mappings
-    merged_mapping: list[set[int]] = [set() for _ in range(len(first_mapping))]
+    merged_mapping: IndexMapping = [set() for _ in range(len(first_mapping))]
     for k, v in enumerate(first_mapping):
         for v_i in v:
             merged_mapping[k] |= second_mapping[v_i]
@@ -32,7 +51,7 @@ def merge_mappings(
 
 @dataclass
 class _BranchCorrectionState:
-    index_mapping: list[set[int]]
+    index_mapping: IndexMapping
 
     unmodified_branch: Branch
     initial_branch_depth: int
@@ -49,7 +68,7 @@ class _BranchCorrectionState:
 
 
 def correct_index_mapping(
-    index_mapping: list[set[int]],
+    index_mapping: IndexMapping,
     old_discretization: Discretization,
     new_discretization: Discretization,
     markers: MarkersType | MarkersMapProxyType,
@@ -85,7 +104,7 @@ def correct_index_mapping(
 
 
 def _initialize_branch_state_with_dataclass(
-    index_mapping: list[set[int]],
+    index_mapping: IndexMapping,
     old_descriptor: RefinementDescriptor,
     marked_ancestor_index: int,
 ) -> _BranchCorrectionState:
@@ -231,7 +250,7 @@ def _compute_influence_range(
 
 
 def _forget_self_remembering_leaves(
-    index_mapping: list[set[int]],
+    index_mapping: IndexMapping,
     marked_ancestor_index: int,
     one_after_last_considered_index: int,
     leaves_to_forget_except: list[tuple[int, int]],
