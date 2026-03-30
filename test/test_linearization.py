@@ -7,6 +7,7 @@ import pytest
 
 from dyada.linearization import (
     MortonOrderLinearization,
+    TrackToken,
     binary_or_none_generator,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
@@ -259,16 +260,16 @@ def test_coarsening_stack_3d():
     assert first_pos == fba("000")
     assert first_same is None
 
-    tracker.register_group(first_pos, 42)
+    tracker.register_group(first_pos, TrackToken(42))
 
     # Remaining pops should resolve groups via the dict
     expected = [
         (fba("001"), None),
-        (fba("100"), 42),
+        (fba("100"), TrackToken(42)),
         (fba("101"), None),
-        (fba("010"), 42),
+        (fba("010"), TrackToken(42)),
         (fba("011"), None),
-        (fba("110"), 42),
+        (fba("110"), TrackToken(42)),
         (fba("111"), None),
     ]
     for expected_pos, expected_same in expected:
@@ -304,14 +305,14 @@ def test_coarsen_refine_stack_3d():
     first_pos, first_same = tracker.pop()
     assert first_pos == fba("000")
     assert first_same is None
-    tracker.register_group(first_pos, 99)
+    tracker.register_group(first_pos, TrackToken(99))
 
     # Only pos "001" shares remaining_positions "00" with first_pos "000"
     expected = [
         (fba("100"), None),
         (fba("010"), None),
         (fba("110"), None),
-        (fba("001"), 99),
+        (fba("001"), TrackToken(99)),
         (fba("101"), None),
         (fba("011"), None),
         (fba("111"), None),
