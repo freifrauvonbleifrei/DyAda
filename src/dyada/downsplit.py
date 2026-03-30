@@ -30,14 +30,6 @@ def _merged_planned_downsplits(
     return merged
 
 
-def _subtree_size(descriptor: RefinementDescriptor, index: int) -> int:
-    """Return the number of nodes in the subtree rooted at index (inclusive)."""
-    ref = descriptor[index]
-    it = descriptor.__iter__(start=index + 1)  # type: ignore
-    _, size = descriptor.skip_to_next_neighbor(it, ref)
-    return size
-
-
 def _can_absorb(
     members: list[tuple[ba.frozenbitarray, int, int]],
     dims_to_split: ba.bitarray,
@@ -110,9 +102,8 @@ def apply_planned_downsplits(
         dims_to_split: ba.bitarray,
     ) -> None:
         """Emit a merged node absorbing the intermediate and its children.
-
         The children's refinement is combined with the pushed-down dims.
-        Grandchildren are interleaved in merged Morton order.
+        Grandchildren are interleaved in merged order.
         """
         child_ref = descriptor[members[0][1]]
         merged_ref = ba.bitarray(child_ref) | dims_to_split
@@ -125,18 +116,16 @@ def apply_planned_downsplits(
         gc_entries: dict[ba.frozenbitarray, tuple[int, int]] = {}
         for local_pos, old_start, _ in members:
             old_child_ref = descriptor[old_start]
-            num_gc = get_num_children_from_refinement(old_child_ref)
-            gc_old = old_start + 1
-            for gc_idx in range(num_gc):
+            for gc_idx, (gc_start, gc_end) in enumerate(
+                descriptor.get_child_ranges(old_start)
+            ):
                 gc_pos = linearization.get_binary_position_from_index(
                     (gc_idx,), (old_child_ref,)
                 )
                 full_pos = ba.frozenbitarray(
                     (local_pos & dims_to_split) | (gc_pos & old_child_ref)
                 )
-                gc_size = _subtree_size(descriptor, gc_old)
-                gc_entries[full_pos] = (gc_old, gc_size)
-                gc_old += gc_size
+                gc_entries[full_pos] = (gc_start, gc_end - gc_start)
 
         # Emit in merged order
         num_merged_gc = get_num_children_from_refinement(merged_ref)
