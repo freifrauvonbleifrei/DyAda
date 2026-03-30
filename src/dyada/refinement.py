@@ -110,6 +110,8 @@ class PlannedAdaptiveRefinement:
             raise ValueError(
                 "dimensions_to_downsplit length does not match discretization dimensionality"
             )
+        if not (0 <= parent_index < len(descriptor)):
+            raise IndexError("parent_index out of bounds")
         if dimensions_to_downsplit.count() == 0:
             return
 
