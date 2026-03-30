@@ -173,19 +173,16 @@ def apply_planned_downsplits(
         _track(old_idx, _emit(remaining_ref))
 
         # Map each child's local position to (old_start, subtree_size)
-        num_old_children = get_num_children_from_refinement(parent_ref)
+        child_ranges = descriptor.get_child_ranges(old_idx)
         pos_to_info: dict[ba.frozenbitarray, tuple[int, int]] = {}
-        child_old = old_idx + 1
-        for child_local_idx in range(num_old_children):
+        for child_local_idx, (start, end) in enumerate(child_ranges):
             pos = ba.frozenbitarray(
                 linearization.get_binary_position_from_index(
                     (child_local_idx,), (parent_ref,)
                 )
             )
-            size = _subtree_size(descriptor, child_old)
-            pos_to_info[pos] = (child_old, size)
-            child_old += size
-        subtree_end = child_old
+            pos_to_info[pos] = (start, end - start)
+        subtree_end = child_ranges[-1][1]
 
         # Group children by remaining-position bits (dims NOT being pushed down).
         # Pass remaining_ref as sort_dimensions so the tracker sorts by remaining
