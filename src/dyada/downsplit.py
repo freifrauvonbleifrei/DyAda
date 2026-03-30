@@ -38,6 +38,20 @@ def _subtree_size(descriptor: RefinementDescriptor, index: int) -> int:
     return size
 
 
+def _can_absorb(
+    members: list[tuple[ba.frozenbitarray, int, int]],
+    dims_to_split: ba.bitarray,
+    descriptor: RefinementDescriptor,
+) -> bool:
+    """Check if grouped children can be absorbed into a single merged node."""
+    old_refs = [descriptor[m[1]] for m in members]
+    return (
+        len(set(ba.frozenbitarray(r) for r in old_refs)) == 1
+        and not (old_refs[0] & dims_to_split).any()
+        and old_refs[0].count() > 0
+    )
+
+
 def apply_planned_downsplits(
     discretization: Discretization,
     planned_downsplits: list[tuple[int, ba.bitarray]],
@@ -75,6 +89,73 @@ def apply_planned_downsplits(
         new_data.extend(descriptor._data[old_start * nd : old_end * nd])
         for offset in range(old_end - old_start):
             mapping[old_start + offset].add(new_start + offset)
+
+    def _walk(old_start: int, size: int) -> None:
+        """Copy or process a subtree, handling nested downsplits."""
+        old_end = old_start + size
+        i = old_start
+        while i < old_end:
+            if i in merged_downsplits:
+                i = _process_downsplit(i)
+            else:
+                run_end = i + 1
+                while run_end < old_end and run_end not in merged_downsplits:
+                    run_end += 1
+                _copy_range(i, run_end)
+                i = run_end
+
+    def _emit_absorbed(
+        members: list[tuple[ba.frozenbitarray, int, int]],
+        parent_old_idx: int,
+        dims_to_split: ba.bitarray,
+    ) -> None:
+        """Emit a merged node absorbing the intermediate and its children.
+
+        The children's refinement is combined with the pushed-down dims.
+        Grandchildren are interleaved in merged Morton order.
+        """
+        child_ref = descriptor[members[0][1]]
+        merged_ref = ba.bitarray(child_ref) | dims_to_split
+        new_merged_idx = _emit(merged_ref)
+        _track(parent_old_idx, new_merged_idx)
+        for _, old_start, _ in members:
+            _track(old_start, new_merged_idx)
+
+        # Collect grandchildren keyed by full position under merged_ref
+        gc_entries: dict[ba.frozenbitarray, tuple[int, int]] = {}
+        for local_pos, old_start, _ in members:
+            old_child_ref = descriptor[old_start]
+            num_gc = get_num_children_from_refinement(old_child_ref)
+            gc_old = old_start + 1
+            for gc_idx in range(num_gc):
+                gc_pos = linearization.get_binary_position_from_index(
+                    (gc_idx,), (old_child_ref,)
+                )
+                full_pos = ba.frozenbitarray(
+                    (local_pos & dims_to_split) | (gc_pos & old_child_ref)
+                )
+                gc_size = _subtree_size(descriptor, gc_old)
+                gc_entries[full_pos] = (gc_old, gc_size)
+                gc_old += gc_size
+
+        # Emit in merged order
+        num_merged_gc = get_num_children_from_refinement(merged_ref)
+        for m in range(num_merged_gc):
+            m_pos = ba.frozenbitarray(
+                linearization.get_binary_position_from_index((m,), (merged_ref,))
+            )
+            gc_old, gc_size = gc_entries[m_pos]
+            _walk(gc_old, gc_size)
+
+    def _emit_intermediate(
+        members: list[tuple[ba.frozenbitarray, int, int]],
+        parent_old_idx: int,
+        dims_to_split: ba.bitarray,
+    ) -> None:
+        """Emit an intermediate node followed by each child subtree."""
+        _track(parent_old_idx, _emit(ba.bitarray(dims_to_split)))
+        for _, old_start, sz in members:
+            _walk(old_start, sz)
 
     def _process_downsplit(old_idx: int) -> int:
         """Process a downsplit node, returning the old index after its subtree."""
@@ -115,62 +196,15 @@ def apply_planned_downsplits(
             linearization=linearization,
         )
 
-        # Process groups: same_as is None for the first member of each group
         current_members: list[tuple[ba.frozenbitarray, int, int]] = []
 
-        def _flush_group():
+        def _flush_group() -> None:
             if not current_members:
                 return
-            members = current_members
-            # Check if children can be merged (absorbed into one node)
-            old_refs = [descriptor[m[1]] for m in members]
-            can_merge = (
-                len(set(ba.frozenbitarray(r) for r in old_refs)) == 1
-                and not (old_refs[0] & dims_to_split).any()
-                and old_refs[0].count() > 0
-            )
-
-            if can_merge:
-                # Absorb: one merged node replaces intermediate + children
-                merged_ref = ba.bitarray(old_refs[0]) | dims_to_split
-                new_merged_idx = _emit(merged_ref)
-                _track(old_idx, new_merged_idx)
-                for _, old_start, _ in members:
-                    _track(old_start, new_merged_idx)
-
-                # Interleave grandchildren in merged Morton order
-                gc_entries: dict[ba.frozenbitarray, tuple[int, int]] = {}
-                for local_pos, old_start, _ in members:
-                    old_child_ref = descriptor[old_start]
-                    num_gc = get_num_children_from_refinement(old_child_ref)
-                    gc_old = old_start + 1
-                    for gc_idx in range(num_gc):
-                        gc_pos = linearization.get_binary_position_from_index(
-                            (gc_idx,), (old_child_ref,)
-                        )
-                        full_pos = ba.frozenbitarray(
-                            (local_pos & dims_to_split) | (gc_pos & old_child_ref)
-                        )
-                        gc_size = _subtree_size(descriptor, gc_old)
-                        gc_entries[full_pos] = (gc_old, gc_size)
-                        gc_old += gc_size
-
-                num_merged_gc = get_num_children_from_refinement(merged_ref)
-                for m in range(num_merged_gc):
-                    m_pos = ba.frozenbitarray(
-                        linearization.get_binary_position_from_index(
-                            (m,), (merged_ref,)
-                        )
-                    )
-                    gc_old, gc_size = gc_entries[m_pos]
-                    _copy_range(gc_old, gc_old + gc_size)
-
+            if _can_absorb(current_members, dims_to_split, descriptor):
+                _emit_absorbed(current_members, old_idx, dims_to_split)
             else:
-                # Cannot merge: emit intermediate, then each child subtree
-                _track(old_idx, _emit(ba.bitarray(dims_to_split)))
-                # Members are already in down-dim Morton order from the tracker
-                for _, old_start, sz in members:
-                    _copy_range(old_start, old_start + sz)
+                _emit_intermediate(current_members, old_idx, dims_to_split)
 
         current_key: ba.frozenbitarray | None = None
         while len(tracker) > 0:
@@ -186,16 +220,8 @@ def apply_planned_downsplits(
 
         return subtree_end
 
-    # Walk the full descriptor: copy contiguous non-downsplit regions in bulk,
-    # process downsplit nodes via _process_downsplit.
-    downsplit_indices = sorted(merged_downsplits.keys())
-    old_idx = 0
-    for ds_idx in downsplit_indices:
-        if old_idx < ds_idx:
-            _copy_range(old_idx, ds_idx)
-        old_idx = _process_downsplit(ds_idx)
-    if old_idx < len(descriptor):
-        _copy_range(old_idx, len(descriptor))
+    # Walk the full descriptor
+    _walk(0, len(descriptor))
 
     new_descriptor = RefinementDescriptor(nd)
     new_descriptor._data = new_data
