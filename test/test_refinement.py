@@ -219,6 +219,15 @@ def test_refine_random_increments():
             descriptor = new_descriptor
 
 
+def test_refinement_invalid_track_mapping():
+    descriptor = RefinementDescriptor(2, 0)
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_refinement(0, ba.bitarray("11"))
+    with pytest.raises(ValueError, match="track_mapping"):
+        p.apply_refinements(track_mapping="invalid")
+
+
 if __name__ == "__main__":
     here = abspath(__file__)
     pytest.main([here, "-s"])

@@ -330,3 +330,12 @@ def test_downsplit_only_dim_not_implemented():
     p.plan_downsplit(0, ba.bitarray("10"))
     with pytest.raises(ValueError):
         p.apply_refinements(sweep_mode="as_planned")
+
+
+def test_downsplit_invalid_track_mapping():
+    descriptor = RefinementDescriptor.from_binary(2, ba.bitarray("11 00 00 00 00"))
+    discretization = Discretization(MortonOrderLinearization(), descriptor)
+    p = PlannedAdaptiveRefinement(discretization)
+    p.plan_downsplit(0, ba.bitarray("10"))
+    with pytest.raises(ValueError, match="track_mapping"):
+        p.apply_refinements(track_mapping="invalid", sweep_mode="as_planned")
