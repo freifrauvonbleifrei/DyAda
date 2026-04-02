@@ -9,15 +9,15 @@ from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 from queue import PriorityQueue
-from typing import Generator, Optional, Union, Literal
+from typing import Generator, Optional, Literal
 
 from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import (
-    RefinementDescriptor,
     get_regular_refined,
     int8_ndarray_from_iterable,
     find_uniqueness_violations,
 )
+from dyada.descriptor_builder import DescriptorBuilder
 from dyada.discretization import Discretization
 from dyada.linearization import TrackToken
 from dyada.mappings import (
@@ -318,13 +318,13 @@ class PlannedAdaptiveRefinement:
                 )
 
     def modified_branch_generator(
-        self, starting_index: int, new_descriptor: RefinementDescriptor
+        self, starting_index: int, builder: DescriptorBuilder
     ) -> Generator[Refinement, None, None]:
         """Yields what every new entry in the new descriptor should be, and how to track
 
         Args:
             starting_index (int): where to start the branch
-            new_descriptor (RefinementDescriptor): read-only access to the new descriptor
+            builder (DescriptorBuilder): the target descriptor being built
 
         Yields:
             Generator[Refinement, None, None]: sequence of refinement actions
@@ -335,7 +335,7 @@ class PlannedAdaptiveRefinement:
         map_tracking_tokens_to_new_indices: dict[TrackToken, int] = {}
 
         while True:
-            current_new_index = len(new_descriptor)
+            current_new_index = len(builder)
             current_old_index, tracking_token, next_refinement, next_marker = (
                 abranch.get_current_location_info()
             )
@@ -372,31 +372,7 @@ class PlannedAdaptiveRefinement:
                 # on non-leaves, we grow the branch
                 abranch.grow(next_refinement)
 
-    def track_indices(self, old_index: int, new_index: int) -> None:
-        assert new_index > -1
-        self._index_mapping[old_index].add(new_index)
-
-    def extend_descriptor_and_track_indices(
-        self,
-        new_descriptor: RefinementDescriptor,
-        old_range_to_extend: Union[int, tuple[int, int]],
-        extension: ba.bitarray,
-    ) -> None:
-        previous_length = len(new_descriptor)
-        new_descriptor._data.extend(extension)
-        if isinstance(old_range_to_extend, int):
-            for new_index in range(previous_length, len(new_descriptor)):
-                self.track_indices(old_range_to_extend, new_index)
-        else:
-            for old_index, new_index in zip(
-                range(old_range_to_extend[0], old_range_to_extend[1]),
-                range(previous_length, len(new_descriptor)),
-            ):
-                self.track_indices(old_index, new_index)
-
-    def add_refined_data(
-        self, new_descriptor: RefinementDescriptor
-    ) -> RefinementDescriptor:
+    def add_refined_data(self, builder: DescriptorBuilder) -> None:
         old_descriptor = self._discretization.descriptor
         last_extended_index = -1
         one_after_last_extended_index = 0
@@ -407,14 +383,10 @@ class PlannedAdaptiveRefinement:
             if index_to_refine == -1:
                 break
 
-            self.extend_descriptor_and_track_indices(  # linearly copy up to marked
-                new_descriptor,
-                (one_after_last_extended_index, index_to_refine),
-                old_descriptor[one_after_last_extended_index:index_to_refine],
-            )
+            builder.copy_range(one_after_last_extended_index, index_to_refine)
             # only refine where there are markers
             for requested_refinement in self.modified_branch_generator(
-                index_to_refine, new_descriptor
+                index_to_refine, builder
             ):
                 match requested_refinement:
                     case self.Refinement(
@@ -423,16 +395,14 @@ class PlannedAdaptiveRefinement:
                         None,
                         int() as new_index,
                     ):
-                        # track only the index, namely the one of the previous (grand...)parent
-                        self.track_indices(old_index, new_index)
+                        builder.track(old_index, new_index)
                     case self.Refinement(
                         self.Refinement.Type.ExpandLeaf,
                         old_index,
                         ba.bitarray() as new_refinement,
                         np.ndarray() as new_marker,
                     ):
-                        self.extend_descriptor_and_track_indices(
-                            new_descriptor,
+                        builder.emit_for(
                             old_index,
                             get_regular_refined(new_marker),  # type: ignore
                         )
@@ -441,34 +411,21 @@ class PlannedAdaptiveRefinement:
                         old_index,
                         ba.bitarray() as new_refinement,
                     ):
-                        self.extend_descriptor_and_track_indices(
-                            new_descriptor, old_index, new_refinement
-                        )
+                        builder.emit_and_track(old_index, new_refinement)
                     case _:
                         raise RuntimeError("Logic error: should not be reached")
                 last_extended_index = max(last_extended_index, old_index)
             one_after_last_extended_index = last_extended_index + 1
 
-        # copy rest and return
-        self.extend_descriptor_and_track_indices(
-            new_descriptor,
-            (one_after_last_extended_index, len(old_descriptor)),
-            old_descriptor[one_after_last_extended_index : len(old_descriptor)],
-        )
-        return new_descriptor
+        # copy rest
+        builder.copy_range(one_after_last_extended_index, len(old_descriptor))
 
     def create_new_discretization(
         self, track_mapping: Literal["boxes", "patches"] = "boxes"
     ) -> tuple[Discretization, IndexMapping]:
         old_descriptor = self._discretization.descriptor
-        self._index_mapping: IndexMapping = [set() for _ in range(len(old_descriptor))]
 
-        # start generating the new descriptor
-        new_descriptor = RefinementDescriptor(old_descriptor.get_num_dimensions())
-        new_descriptor._data = ba.bitarray()
-
-        # we are not changing the old descriptor, and greedily build the new one
-        # so we can cache the box indices of both
+        # we are not changing the old descriptor, so we can cache the box indices
         if not is_lru_cached(old_descriptor.to_box_index):
             old_descriptor.to_box_index = lru_cache(maxsize=None)(
                 old_descriptor._to_box_index_recursive
@@ -476,6 +433,11 @@ class PlannedAdaptiveRefinement:
             old_descriptor._to_box_index_recursive = lru_cache(maxsize=None)(
                 old_descriptor._to_box_index_recursive
             )
+
+        builder = DescriptorBuilder(old_descriptor)
+        self.add_refined_data(builder)
+
+        new_descriptor = builder.build()
         new_descriptor.to_box_index = lru_cache(maxsize=None)(  # type: ignore
             new_descriptor._to_box_index_recursive
         )
@@ -483,34 +445,28 @@ class PlannedAdaptiveRefinement:
             new_descriptor._to_box_index_recursive
         )
 
-        new_descriptor = self.add_refined_data(new_descriptor)
         new_discretization = Discretization(
             self._discretization._linearization, new_descriptor
         )
         if track_mapping == "boxes":
-            # transform the mapping to box indices
-            self._index_mapping = hierarchical_to_box_index_mapping(
-                self._index_mapping,
+            return new_discretization, hierarchical_to_box_index_mapping(
+                builder.mapping,
                 old_descriptor,
                 new_descriptor,
             )
         elif track_mapping == "patches":
-            # may need to normalize in case refinement happened at non-leaves
             correct_index_mapping(
-                self._index_mapping,
+                builder.mapping,
                 self._discretization,
                 new_discretization,
                 self._markers,
             )
+            return new_discretization, builder.mapping
         else:
             raise ValueError(
                 "track_mapping must be either 'boxes' or 'patches', got "
                 + str(track_mapping)
             )
-        return (
-            new_discretization,
-            self._index_mapping,
-        )
 
     def apply_refinements(
         self,
