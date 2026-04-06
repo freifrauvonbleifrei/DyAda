@@ -11,8 +11,8 @@ from os.path import abspath
 from dyada.descriptor import (
     RefinementDescriptor,
     validate_descriptor,
-    hierarchical_to_box_index_mapping,
 )
+from dyada.mappings import hierarchical_to_box_index_mapping
 from dyada.discretization import (
     coordinates_from_box_index,
     coordinates_from_index,

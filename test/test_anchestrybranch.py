@@ -9,6 +9,7 @@ from os.path import abspath
 
 from dyada.ancestrybranch import AncestryBranch
 from dyada.descriptor import RefinementDescriptor
+from dyada.descriptor_builder import DescriptorBuilder
 from dyada.discretization import Discretization
 from dyada.drawing import discretization_to_2d_ascii
 from dyada.linearization import MortonOrderLinearization, TrackToken
@@ -208,21 +209,18 @@ _________
     p = PlannedAdaptiveRefinement(discretization)
     p._markers[0] = np.array([1, 0], dtype=np.int8)
     p._markers[6] = np.array([-1, 0], dtype=np.int8)
-    new_descriptor = RefinementDescriptor(2)
-    new_descriptor._data = ba.bitarray()
-    p._index_mapping = [set() for _ in range(len(discretization.descriptor))]
+
+    builder = DescriptorBuilder(discretization.descriptor)
     # call like in add_refined_data
-    generator = p.modified_branch_generator(
-        starting_index=0, new_descriptor=new_descriptor
-    )
+    generator = p.modified_branch_generator(starting_index=0, builder=builder)
     zeroth_refinement = next(generator)
     assert zeroth_refinement == p.Refinement(
         p.Refinement.Type.CopyOver, 0, ba.frozenbitarray("11"), None
     )
-    p.extend_descriptor_and_track_indices(
-        new_descriptor, zeroth_refinement.old_index, zeroth_refinement.new_refinement
+    builder.emit_and_track(
+        zeroth_refinement.old_index, zeroth_refinement.new_refinement
     )
-    assert p._index_mapping == [{0}, *[set()] * 8]
+    assert builder.mapping == [{0}, *[set()] * 8]
     first_refinement = next(generator)
     assert first_refinement.type == p.Refinement.Type.ExpandLeaf
     assert first_refinement.old_index == 1
@@ -230,12 +228,8 @@ _________
     assert np.array_equal(
         first_refinement.marker_or_ancestor, np.array([0, 0], dtype=np.int8)
     )
-    p.extend_descriptor_and_track_indices(
-        new_descriptor,
-        first_refinement.old_index,
-        ba.bitarray("00"),
-    )
-    assert p._index_mapping == [{0}, {1}, *[set()] * 7]
+    builder.emit_and_track(first_refinement.old_index, ba.bitarray("00"))
+    assert builder.mapping == [{0}, {1}, *[set()] * 7]
 
     second_refinement = next(generator)
     assert second_refinement.type == p.Refinement.Type.ExpandLeaf
@@ -244,32 +238,22 @@ _________
     assert np.array_equal(
         second_refinement.marker_or_ancestor, np.array([0, 0], dtype=np.int8)
     )
-    p.extend_descriptor_and_track_indices(
-        new_descriptor,
-        first_refinement.old_index,
-        ba.bitarray("00"),
-    )
+    builder.emit_and_track(first_refinement.old_index, ba.bitarray("00"))
 
     third_refinement = next(generator)
     assert third_refinement == p.Refinement(
         p.Refinement.Type.CopyOver, 2, ba.bitarray("10"), None
     )
-    p.extend_descriptor_and_track_indices(
-        new_descriptor,
-        third_refinement.old_index,
-        third_refinement.new_refinement,
-    )
+    builder.emit_and_track(third_refinement.old_index, third_refinement.new_refinement)
 
     fourth_refinement = next(generator)
     assert fourth_refinement == p.Refinement(
         p.Refinement.Type.CopyOver, 3, ba.bitarray("10"), None
     )
-    p.extend_descriptor_and_track_indices(
-        new_descriptor,
-        fourth_refinement.old_index,
-        fourth_refinement.new_refinement,
+    builder.emit_and_track(
+        fourth_refinement.old_index, fourth_refinement.new_refinement
     )
-    assert new_descriptor._data == ba.bitarray("11 00 00 10 10")
+    assert builder.data == ba.bitarray("11 00 00 10 10")
 
 
 if __name__ == "__main__":

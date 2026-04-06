@@ -9,9 +9,10 @@ import bitarray as ba
 from dyada.descriptor import (
     RefinementDescriptor,
     get_num_children_from_refinement,
-    hierarchical_to_box_index_mapping,
 )
+from dyada.descriptor_builder import DescriptorBuilder
 from dyada.discretization import Discretization
+from dyada.mappings import IndexMapping, hierarchical_to_box_index_mapping
 from dyada.linearization import (
     get_initial_child_grouping,
 )
@@ -48,14 +49,13 @@ def apply_planned_downsplits(
     discretization: Discretization,
     planned_downsplits: list[tuple[int, ba.bitarray]],
     track_mapping: Literal["boxes", "patches"],
-) -> tuple[Discretization, list[set[int]]]:
+) -> tuple[Discretization, IndexMapping]:
     """Apply all planned downsplits in a single forward pass over the descriptor.
 
     Uses the ChildGroupingTracker to group children of each downsplit node, then
     emits intermediate nodes and re-ordered children into the target descriptor.
     """
     descriptor = discretization.descriptor
-    nd = descriptor.get_num_dimensions()
     linearization = discretization._linearization
 
     merged_downsplits = _merged_planned_downsplits(planned_downsplits)
@@ -63,24 +63,7 @@ def apply_planned_downsplits(
         return discretization, [{i} for i in range(len(descriptor))]
 
     # Single forward DFS pass: walk old descriptor, emit new descriptor.
-    new_data = ba.bitarray()
-    mapping: list[set[int]] = [set() for _ in range(len(descriptor))]
-
-    def _track(old_idx: int, new_idx: int) -> None:
-        mapping[old_idx].add(new_idx)
-
-    def _emit(ref_bits: ba.bitarray | ba.frozenbitarray) -> int:
-        """Emit one node into the new descriptor, return its new index."""
-        new_idx = len(new_data) // nd
-        new_data.extend(ref_bits)
-        return new_idx
-
-    def _copy_range(old_start: int, old_end: int) -> None:
-        """Copy a contiguous range of nodes from old to new descriptor."""
-        new_start = len(new_data) // nd
-        new_data.extend(descriptor._data[old_start * nd : old_end * nd])
-        for offset in range(old_end - old_start):
-            mapping[old_start + offset].add(new_start + offset)
+    builder = DescriptorBuilder(descriptor)
 
     def _walk(old_start: int, size: int) -> None:
         """Copy or process a subtree, handling nested downsplits."""
@@ -93,7 +76,7 @@ def apply_planned_downsplits(
                 run_end = i + 1
                 while run_end < old_end and run_end not in merged_downsplits:
                     run_end += 1
-                _copy_range(i, run_end)
+                builder.copy_range(i, run_end)
                 i = run_end
 
     def _emit_absorbed(
@@ -107,10 +90,10 @@ def apply_planned_downsplits(
         """
         child_ref = descriptor[members[0][1]]
         merged_ref = ba.bitarray(child_ref) | dims_to_split
-        new_merged_idx = _emit(merged_ref)
-        _track(parent_old_idx, new_merged_idx)
+        new_merged_idx = builder.emit(merged_ref)
+        builder.track(parent_old_idx, new_merged_idx)
         for _, old_start, _ in members:
-            _track(old_start, new_merged_idx)
+            builder.track(old_start, new_merged_idx)
 
         # Collect grandchildren keyed by full position under merged_ref
         gc_entries: dict[ba.frozenbitarray, tuple[int, int]] = {}
@@ -142,7 +125,7 @@ def apply_planned_downsplits(
         dims_to_split: ba.bitarray,
     ) -> None:
         """Emit an intermediate node followed by each child subtree."""
-        _track(parent_old_idx, _emit(ba.bitarray(dims_to_split)))
+        builder.track(parent_old_idx, builder.emit(ba.bitarray(dims_to_split)))
         for _, old_start, sz in members:
             _walk(old_start, sz)
 
@@ -159,7 +142,7 @@ def apply_planned_downsplits(
             )
 
         # Emit the parent with reduced ref
-        _track(old_idx, _emit(remaining_ref))
+        builder.emit_and_track(old_idx, remaining_ref)
 
         # Map each child's local position to (old_start, subtree_size)
         child_ranges = descriptor.get_child_ranges(old_idx)
@@ -209,15 +192,14 @@ def apply_planned_downsplits(
     # Walk the full descriptor
     _walk(0, len(descriptor))
 
-    new_descriptor = RefinementDescriptor(nd)
-    new_descriptor._data = new_data
+    new_descriptor = builder.build()
     new_discretization = Discretization(linearization, new_descriptor)
 
     if track_mapping == "patches":
-        return new_discretization, mapping
+        return new_discretization, builder.mapping
     elif track_mapping == "boxes":
         return new_discretization, hierarchical_to_box_index_mapping(
-            mapping, descriptor, new_descriptor
+            builder.mapping, descriptor, new_descriptor
         )
     else:
         raise ValueError(
