@@ -421,7 +421,9 @@ class PlannedAdaptiveRefinement:
         builder.copy_range(one_after_last_extended_index, len(old_descriptor))
 
     def create_new_discretization(
-        self, track_mapping: Literal["boxes", "patches"] = "boxes"
+        self,
+        track_mapping: Literal["boxes", "patches"] = "boxes",
+        force_mapping_correction: bool = False,
     ) -> tuple[Discretization, IndexMapping]:
         old_descriptor = self._discretization.descriptor
 
@@ -455,12 +457,17 @@ class PlannedAdaptiveRefinement:
                 new_descriptor,
             )
         elif track_mapping == "patches":
-            correct_index_mapping(
-                builder.mapping,
-                self._discretization,
-                new_discretization,
-                self._markers,
+            needs_correction = not all(
+                np.all(int8_ndarray_from_iterable(old_descriptor[idx]) + marker == 0)
+                for idx, marker in self._markers.items()
             )
+            if needs_correction or force_mapping_correction:
+                correct_index_mapping(
+                    builder.mapping,
+                    self._discretization,
+                    new_discretization,
+                    self._markers,
+                )
             return new_discretization, builder.mapping
         else:
             raise ValueError(
@@ -472,6 +479,7 @@ class PlannedAdaptiveRefinement:
         self,
         track_mapping: Literal["boxes", "patches"] = "boxes",
         sweep_mode: Literal["canonical", "as_planned"] = "canonical",
+        force_mapping_correction: bool = False,
     ) -> tuple[Discretization, IndexMapping]:
         assert self._upward_queue.empty()
         if sweep_mode == "canonical":
@@ -491,7 +499,9 @@ class PlannedAdaptiveRefinement:
 
         assert len(self._planned_refinements) == 0
 
-        return self.create_new_discretization(track_mapping)
+        return self.create_new_discretization(
+            track_mapping, force_mapping_correction=force_mapping_correction
+        )
 
 
 def apply_single_refinement(
