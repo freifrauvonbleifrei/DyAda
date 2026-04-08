@@ -94,6 +94,10 @@ class Discretization:
         self._descriptor = descriptor
 
     @property
+    def linearization(self):
+        return self._linearization
+
+    @property
     def descriptor(self):
         return self._descriptor
 
