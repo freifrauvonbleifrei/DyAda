@@ -64,49 +64,63 @@ class DescriptorBuilder:
 def compose_descriptors(
     base: RefinementDescriptor,
     sub_descriptors: dict[int, RefinementDescriptor],
-) -> RefinementDescriptor:
-    """Build a descriptor by splicing sub-descriptors into leaves of a base."""
-    nd = base.get_num_dimensions()
-    num_boxes = sum(1 for ref in base if ref.count() == 0)
+) -> tuple[RefinementDescriptor, IndexMapping, dict[int, IndexMapping]]:
+    """Build a descriptor by grafting sub-descriptors into leaves of a base.
 
-    for box_idx, sub in sub_descriptors.items():
-        if not 0 <= box_idx < num_boxes:
-            raise ValueError(f"Box index {box_idx} out of range [0, {num_boxes})")
+    Returns:
+        A tuple of ``(combined_descriptor, base_mapping, sub_mappings)``
+    """
+    nd = base.get_num_dimensions()
+    num_boxes = base.get_num_boxes()
+
+    for base_box_idx, sub in sub_descriptors.items():
+        if not 0 <= base_box_idx < num_boxes:
+            raise ValueError(f"Box index {base_box_idx} out of range [0, {num_boxes})")
         if sub.get_num_dimensions() != nd:
             raise ValueError(
-                f"Sub-descriptor at box {box_idx} has {sub.get_num_dimensions()} "
+                f"Sub-descriptor at box {base_box_idx} has {sub.get_num_dimensions()} "
                 f"dimensions, expected {nd}"
             )
 
-    # Single forward pass: walk the base descriptor in DFS order.
-    # For each node, either copy it or splice in the sub-descriptor.
-    result = ba.bitarray()
-    box_counter = 0
+    # box-index keys to hierarchical-index keys
+    hier_subs = {
+        base.to_hierarchical_index(base_box_idx): (base_box_idx, sub)
+        for base_box_idx, sub in sub_descriptors.items()
+    }
 
-    for ref in base:
-        is_leaf = ref.count() == 0
-        if is_leaf and box_counter in sub_descriptors:
-            result.extend(sub_descriptors[box_counter]._data)
-            box_counter += 1
+    builder = DescriptorBuilder(base)
+    node_mappings: dict[int, IndexMapping] = {}
+
+    for base_node, ref in enumerate(base):
+        if base_node in hier_subs:
+            base_box_idx, sub = hier_subs[base_node]
+            new_start = len(builder)
+            builder.emit_for(base_node, sub._data)
+            node_mappings[base_box_idx] = [
+                {new_start + sub_node} for sub_node in range(len(sub))
+            ]
         else:
-            result.extend(ref)
-            if is_leaf:
-                box_counter += 1
+            builder.emit_and_track(base_node, ref)
 
-    desc = RefinementDescriptor(nd)
-    desc._data = result
-    validate_descriptor(desc)
-    return desc
+    desc = builder.build()
+    if __debug__:
+        validate_descriptor(desc)
+    return desc, builder.mapping, node_mappings
 
 
 def compose_grid(
     grid_levels: Sequence[int],
     sub_descriptors: Sequence[RefinementDescriptor | None],
-) -> RefinementDescriptor:
+) -> tuple[RefinementDescriptor, dict[int, IndexMapping]]:
     """Build a descriptor from sub-descriptors arranged on a regular grid.
 
     The base grid has level=grid_levels.
     Sub-descriptors are given as a flat sequence in Fortran order.
+
+    Returns:
+        A tuple of ``(combined_descriptor, node_mappings)`` where
+        ``node_mappings[flat_idx]`` maps each sub-descriptor node index
+        to its set of combined-descriptor node indices.
     """
     nd = len(grid_levels)
     grid_shape = tuple(1 << lv for lv in grid_levels)
@@ -122,6 +136,7 @@ def compose_grid(
 
     # Map Fortran-order flat index to grid coordinate, then to Z order box index.
     z_subs: dict[int, RefinementDescriptor] = {}
+    flat_to_z: dict[int, int] = {}
     for flat_idx, sub in enumerate(sub_descriptors):
         if sub is None:
             continue
@@ -131,7 +146,15 @@ def compose_grid(
                 f"{sub.get_num_dimensions()} dimensions, expected {nd}"
             )
         coord = flat_to_coord(flat_idx, grid_shape)
-        z_subs[grid_coord_to_z_index(coord, grid_levels)] = sub
+        z_idx = grid_coord_to_z_index(coord, grid_levels)
+        z_subs[z_idx] = sub
+        flat_to_z[flat_idx] = z_idx
 
     base = RefinementDescriptor(nd, list(grid_levels))
-    return compose_descriptors(base, z_subs)
+    desc, _, z_mappings = compose_descriptors(base, z_subs)
+
+    # Re-key mappings from Z-order box index to flat index.
+    flat_mappings = {
+        flat_idx: z_mappings[z_idx] for flat_idx, z_idx in flat_to_z.items()
+    }
+    return desc, flat_mappings
