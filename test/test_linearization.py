@@ -9,10 +9,14 @@ from dyada.linearization import (
     MortonOrderLinearization,
     TrackToken,
     binary_or_none_generator,
+    flat_to_coord,
     get_initial_coarsening_stack,
     get_initial_coarsen_refine_stack,
+    grid_coord_to_z_index,
     indices_to_bitmask,
 )
+from dyada.descriptor import RefinementDescriptor
+from dyada.discretization import Discretization, coordinates_from_box_index
 
 
 def test_get_position_morton_order():
@@ -321,3 +325,93 @@ def test_coarsen_refine_stack_3d():
         pos, same = tracker.pop()
         assert pos == expected_pos
         assert same == expected_same
+
+
+def test_flat_to_coord_1d():
+    assert flat_to_coord(0, (4,)) == (0,)
+    assert flat_to_coord(3, (4,)) == (3,)
+
+
+def test_flat_to_coord_3d():
+    assert flat_to_coord(0, (2, 2, 2)) == (0, 0, 0)
+    assert flat_to_coord(1, (2, 2, 2)) == (1, 0, 0)
+    assert flat_to_coord(2, (2, 2, 2)) == (0, 1, 0)
+    assert flat_to_coord(5, (2, 2, 2)) == (1, 0, 1)
+    assert flat_to_coord(7, (2, 2, 2)) == (1, 1, 1)
+
+
+def test_flat_to_coord_anisotropic():
+    assert flat_to_coord(0, (4, 2)) == (0, 0)
+    assert flat_to_coord(3, (4, 2)) == (3, 0)
+    assert flat_to_coord(4, (4, 2)) == (0, 1)
+    assert flat_to_coord(7, (4, 2)) == (3, 1)
+
+
+def test_z_index_2d_anisotropic():
+    assert grid_coord_to_z_index((0, 0), [2, 1]) == 0
+    assert grid_coord_to_z_index((1, 0), [2, 1]) == 1
+    assert grid_coord_to_z_index((2, 0), [2, 1]) == 2
+    assert grid_coord_to_z_index((3, 0), [2, 1]) == 3
+    assert grid_coord_to_z_index((0, 1), [2, 1]) == 4
+    assert grid_coord_to_z_index((1, 1), [2, 1]) == 5
+    assert grid_coord_to_z_index((2, 1), [2, 1]) == 6
+    assert grid_coord_to_z_index((3, 1), [2, 1]) == 7
+
+
+def test_z_index_3d():
+    assert grid_coord_to_z_index((0, 0, 0), [1, 1, 1]) == 0
+    assert grid_coord_to_z_index((1, 0, 0), [1, 1, 1]) == 1
+    assert grid_coord_to_z_index((0, 1, 0), [1, 1, 1]) == 2
+    assert grid_coord_to_z_index((1, 1, 0), [1, 1, 1]) == 3
+    assert grid_coord_to_z_index((0, 0, 1), [1, 1, 1]) == 4
+    assert grid_coord_to_z_index((1, 1, 1), [1, 1, 1]) == 7
+
+
+def test_z_index_round_trip_with_flat():
+    """Z-index of flat_to_coord should produce a permutation of [0..total)."""
+    for levels in ([1, 1], [2, 1], [1, 2], [2, 2], [1, 1, 1], [2, 1, 1]):
+        shape = tuple(1 << lv for lv in levels)
+        total = 1
+        for s in shape:
+            total *= s
+        z_indices = [
+            grid_coord_to_z_index(flat_to_coord(i, shape), levels) for i in range(total)
+        ]
+        assert sorted(z_indices) == list(range(total))
+
+
+@pytest.mark.parametrize(
+    "grid_levels",
+    [
+        # 2D
+        [1, 1],
+        [2, 1],
+        [2, 3],
+        # 3D
+        [1, 1, 1],
+        [1, 1, 2],
+        [2, 2, 1],
+        [2, 1, 2],
+        # 4D
+        [1, 1, 1, 1],
+        [1, 2, 1, 2],
+        # 5D
+        [1, 2, 1, 1, 1],
+    ],
+)
+def test_z_index_matches_descriptor(grid_levels):
+    """Validate grid_coord_to_z_index against dyada's actual descriptor."""
+    nd = len(grid_levels)
+    desc = RefinementDescriptor(nd, list(grid_levels))
+    disc = Discretization(MortonOrderLinearization(), desc)
+    num_boxes = desc.get_num_boxes()
+    grid_shape = tuple(1 << lv for lv in grid_levels)
+
+    for box_idx in range(num_boxes):
+        interval = coordinates_from_box_index(disc, box_idx)
+        coord = tuple(int(interval.lower_bound[d] * grid_shape[d]) for d in range(nd))
+        z = grid_coord_to_z_index(coord, grid_levels)
+        assert z == box_idx, (
+            f"grid_levels={grid_levels}, coord={coord}: "
+            f"expected z={box_idx}, got z={z}"
+        )
