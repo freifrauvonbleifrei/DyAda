@@ -337,17 +337,18 @@ def grid_coord_to_z_index(
 ) -> int:
     """Convert a spatial grid coordinate to a Z-ordered box index.
 
-    For a regular grid with level = grid_levels, returns the Z-order index.
-    Dimension 0 is the most contiguous (Fortran order).
+    For a regular grid with per-dimension levels, returns the Z-order
+    index matching dyada's DFS descriptor ordering.  Dimension 0 is the
+    most contiguous (Fortran order).
     """
     nd = len(grid_levels)
     max_level = max(grid_levels)
     code = 0
-    for bit in range(max_level - 1, -1, -1):
+    for level in range(max_level):
         for d in range(nd - 1, -1, -1):
-            if bit < grid_levels[d]:
-                code <<= 1
-                code |= (coord[d] >> bit) & 1
+            if level < grid_levels[d]:
+                bit = (coord[d] >> (grid_levels[d] - 1 - level)) & 1
+                code = (code << 1) | bit
     return code
 
 
