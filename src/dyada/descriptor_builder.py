@@ -2,9 +2,12 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import bitarray as ba
 
-from dyada.descriptor import RefinementDescriptor
+import bitarray as ba
+from typing import Sequence
+
+from dyada.descriptor import RefinementDescriptor, validate_descriptor
+from dyada.linearization import grid_coord_to_z_index, flat_to_coord
 from dyada.mappings import IndexMapping
 
 
@@ -56,3 +59,79 @@ class DescriptorBuilder:
         desc = RefinementDescriptor(self._nd)
         desc._data = self.data
         return desc
+
+
+def compose_descriptors(
+    base: RefinementDescriptor,
+    sub_descriptors: dict[int, RefinementDescriptor],
+) -> RefinementDescriptor:
+    """Build a descriptor by splicing sub-descriptors into leaves of a base."""
+    nd = base.get_num_dimensions()
+    num_boxes = sum(1 for ref in base if ref.count() == 0)
+
+    for box_idx, sub in sub_descriptors.items():
+        if not 0 <= box_idx < num_boxes:
+            raise ValueError(f"Box index {box_idx} out of range [0, {num_boxes})")
+        if sub.get_num_dimensions() != nd:
+            raise ValueError(
+                f"Sub-descriptor at box {box_idx} has {sub.get_num_dimensions()} "
+                f"dimensions, expected {nd}"
+            )
+
+    # Single forward pass: walk the base descriptor in DFS order.
+    # For each node, either copy it or splice in the sub-descriptor.
+    result = ba.bitarray()
+    box_counter = 0
+
+    for ref in base:
+        is_leaf = ref.count() == 0
+        if is_leaf and box_counter in sub_descriptors:
+            result.extend(sub_descriptors[box_counter]._data)
+            box_counter += 1
+        else:
+            result.extend(ref)
+            if is_leaf:
+                box_counter += 1
+
+    desc = RefinementDescriptor(nd)
+    desc._data = result
+    validate_descriptor(desc)
+    return desc
+
+
+def compose_grid(
+    grid_levels: Sequence[int],
+    sub_descriptors: Sequence[RefinementDescriptor | None],
+) -> RefinementDescriptor:
+    """Build a descriptor from sub-descriptors arranged on a regular grid.
+
+    The base grid has level=grid_levels.
+    Sub-descriptors are given as a flat sequence in Fortran order.
+    """
+    nd = len(grid_levels)
+    grid_shape = tuple(1 << lv for lv in grid_levels)
+    total_cells = 1
+    for s in grid_shape:
+        total_cells *= s
+
+    if len(sub_descriptors) != total_cells:
+        raise ValueError(
+            f"Expected {total_cells} sub-descriptors for grid "
+            f"{'x'.join(str(s) for s in grid_shape)}, got {len(sub_descriptors)}"
+        )
+
+    # Map Fortran-order flat index to grid coordinate, then to Z order box index.
+    z_subs: dict[int, RefinementDescriptor] = {}
+    for flat_idx, sub in enumerate(sub_descriptors):
+        if sub is None:
+            continue
+        if sub.get_num_dimensions() != nd:
+            raise ValueError(
+                f"Sub-descriptor at flat index {flat_idx} has "
+                f"{sub.get_num_dimensions()} dimensions, expected {nd}"
+            )
+        coord = flat_to_coord(flat_idx, grid_shape)
+        z_subs[grid_coord_to_z_index(coord, grid_levels)] = sub
+
+    base = RefinementDescriptor(nd, list(grid_levels))
+    return compose_descriptors(base, z_subs)
