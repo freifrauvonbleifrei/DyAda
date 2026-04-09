@@ -70,16 +70,15 @@ def compose_descriptors(
     Returns:
         A tuple of ``(combined_descriptor, base_mapping, sub_mappings)``
     """
-    nd = base.get_num_dimensions()
-    num_boxes = base.get_num_boxes()
-
-    for base_box_idx, sub in sub_descriptors.items():
-        if not 0 <= base_box_idx < num_boxes:
-            raise ValueError(f"Box index {base_box_idx} out of range [0, {num_boxes})")
-        if sub.get_num_dimensions() != nd:
+    for box_idx, sub in sub_descriptors.items():
+        if not 0 <= box_idx < base.get_num_boxes():
             raise ValueError(
-                f"Sub-descriptor at box {base_box_idx} has {sub.get_num_dimensions()} "
-                f"dimensions, expected {nd}"
+                f"Box index {box_idx} out of range [0, {base.get_num_boxes()})"
+            )
+        if sub.get_num_dimensions() != base.get_num_dimensions():
+            raise ValueError(
+                f"Sub-descriptor at box {box_idx} has "
+                f"{sub.get_num_dimensions()} dimensions, expected {base.get_num_dimensions()}"
             )
 
     # box-index keys to hierarchical-index keys
@@ -89,15 +88,15 @@ def compose_descriptors(
     }
 
     builder = DescriptorBuilder(base)
-    node_mappings: dict[int, IndexMapping] = {}
+    sub_mappings: dict[int, IndexMapping] = {}
 
     for base_node, ref in enumerate(base):
         if base_node in hier_subs:
             base_box_idx, sub = hier_subs[base_node]
             new_start = len(builder)
             builder.emit_for(base_node, sub._data)
-            node_mappings[base_box_idx] = [
-                {new_start + sub_node} for sub_node in range(len(sub))
+            sub_mappings[base_box_idx] = [
+                {i} for i in range(new_start, new_start + len(sub))
             ]
         else:
             builder.emit_and_track(base_node, ref)
@@ -105,7 +104,7 @@ def compose_descriptors(
     desc = builder.build()
     if __debug__:
         validate_descriptor(desc)
-    return desc, builder.mapping, node_mappings
+    return desc, builder.mapping, sub_mappings
 
 
 def compose_grid(
@@ -118,8 +117,8 @@ def compose_grid(
     Sub-descriptors are given as a flat sequence in Fortran order.
 
     Returns:
-        A tuple of ``(combined_descriptor, node_mappings)`` where
-        ``node_mappings[flat_idx]`` maps each sub-descriptor node index
+        A tuple of ``(combined_descriptor, sub_mappings)`` where
+        ``sub_mappings[flat_idx]`` maps each sub-descriptor node index
         to its set of combined-descriptor node indices.
     """
     nd = len(grid_levels)
