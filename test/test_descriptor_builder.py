@@ -132,29 +132,29 @@ _________
 def test_2d_grid_coordinates_match_spatial():
     sub = RefinementDescriptor(2, [1, 1])
     subs = [None] * 8
-    subs[7] = sub
+    subs[2] = sub
     combined, mappings = compose_grid([2, 1], subs)
-    assert list(mappings.keys()) == [7]
+    assert list(mappings.keys()) == [2]
     assert str(_disc(combined)) == (
         "_________________\n"
-        "|   |   |   |_|_|\n"
-        "|___|___|___|_|_|\n"
         "|   |   |   |   |\n"
-        "|___|___|___|___|"
+        "|___|___|___|___|\n"
+        "|   |   |_|_|   |\n"
+        "|___|___|_|_|___|"
     )
 
 
 def test_2d_ascii_multiple_cells():
     sub_x = RefinementDescriptor(2, [2, 1])
     sub_y = RefinementDescriptor(2, [1, 2])
-    combined, mappings = compose_grid([1, 1], [sub_x, None, None, sub_y])
-    assert sorted(mappings.keys()) == [0, 3]
+    combined, mappings = compose_grid([1, 1], [sub_x, None, sub_y, None])
+    assert sorted(mappings.keys()) == [0, 2]
     assert str(_disc(combined)) == (
         "_________________\n"
-        "|       |___|___|\n"
-        "|       |___|___|\n"
-        "|       |___|___|\n"
-        "|_______|___|___|\n"
+        "|___|___|       |\n"
+        "|___|___|       |\n"
+        "|___|___|       |\n"
+        "|___|___|_______|\n"
         "| | | | |       |\n"
         "|_|_|_|_|       |\n"
         "| | | | |       |\n"
