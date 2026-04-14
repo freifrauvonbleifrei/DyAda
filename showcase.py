@@ -1,6 +1,5 @@
 from queue import PriorityQueue
 from typing import Callable
-import bitarray as ba
 import numpy as np
 import numpy.typing as npt
 from dyada import (
@@ -12,6 +11,7 @@ from dyada import (
     MortonOrderLinearization,
     RefinementDescriptor
 )
+from dyada.linearization import indices_to_bitmask
 from dyada.drawing_util import (
     side_corners_generator,
 )
@@ -55,19 +55,19 @@ def refine(
             bar = f"{'█' * prog + '░' * (20 - prog)}"
             print(f"refining... [{bar}] len:{current:5} progress: ({pct:6.1%})")
         p = PlannedAdaptiveRefinement(discretization)
-        first_priority, first_dim, first_box_index = priority_queue.get()
+        primary_priority, primary_dim, primary_box_index = priority_queue.get()
 
-        p.plan_refinement(first_box_index, dim_to_refinement(first_dim))
-        indices_to_refine: set[int] = {first_box_index}
+        p.plan_refinement(primary_box_index, indices_to_bitmask([primary_dim],4))
+        indices_to_refine: set[int] = {primary_box_index}
 
         while len(discretization) + len(
                 indices_to_refine) * 4 < max_num_boxes and not priority_queue.empty():
-            second_priority, second_dim, second_box_index = priority_queue.get()
-            if second_priority > cutoff_percentage * first_priority:
-                priority_queue.put((second_priority, second_dim, second_box_index))
+            secondary_priority, secondary_dim, secondary_box_index = priority_queue.get()
+            if secondary_priority > cutoff_percentage * primary_priority:
+                priority_queue.put((secondary_priority, secondary_dim, secondary_box_index))
                 break
-            indices_to_refine.add(second_box_index)
-            p.plan_refinement(second_box_index, dim_to_refinement(second_dim))
+            indices_to_refine.add(secondary_box_index)
+            p.plan_refinement(secondary_box_index, indices_to_bitmask([secondary_dim],4))
         discretization, index_mapping = p.apply_refinements(track_mapping="boxes")
         new_priority_queue: PriorityQueue = PriorityQueue()
 
@@ -88,17 +88,6 @@ def refine(
                     new_priority_queue.put((-importance, dim, box_index))
         priority_queue = new_priority_queue
     return discretization, priority_queue
-
-
-def dim_to_refinement(index: int) -> ba.bitarray:
-    """
-    Compute the refinement for a given axis.
-    :param index: The dimension index (0 indexed) in which to refine.
-    :return: The refinement bitarray.
-    """
-    out = ba.bitarray(4)
-    out[index] = 1
-    return out
 
 
 def check_inside_rotating_cube(
@@ -124,7 +113,7 @@ def check_inside_rotating_tetraeder(
         points: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.bool_]:
     """
-    Check which points are contained inside the area.
+    Check which points are contained inside the Volume.
     :param points: The points for which to check. The points are being mutated. The points should have the shape: [number_of_points,4]
     :return: which points are contained in the area. This array has the shape: [number_of_points]
     """
@@ -159,8 +148,8 @@ def calc_importance(interval: CoordinateInterval,
     points = np.mgrid[*[slice(0, 1, 1 / points_per_axis)] * 4]
     size = interval[1] - interval[0]
     for i in range(4):
-        points[i, ...] *= size[i]
-        points[i, ...] += interval[0][i]
+        points[i] *= size[i]
+        points[i] += interval[0][i]
     vals = check_inside(points.reshape([4, -1]).T).reshape(points.shape[1:])
     out = [(np.var(vals, axis=d).mean() * size[d] ** 2, d) for d in range(4)]
     return out
@@ -206,8 +195,7 @@ def plot_all_boxes_3d(
 
         def inc(self, val: float):
             self.time += val
-            while self.time > 1:
-                self.time -= 1
+            self.time %= 1
             self.slider.set_val(self.time)
 
     s = Stime(fig.add_axes((0.1, 0.0, 0.6, 0.1)))
