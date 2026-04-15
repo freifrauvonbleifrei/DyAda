@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Theresa Pollinger, L.Kenner
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+import argparse
 from queue import PriorityQueue
 from typing import Callable
 import numpy as np
@@ -55,19 +59,19 @@ def refine(
             bar = f"{'█' * prog + '░' * (20 - prog)}"
             print(f"refining... [{bar}] len:{current:5} progress: ({pct:6.1%})")
         p = PlannedAdaptiveRefinement(discretization)
-        primary_priority, primary_dim, primary_box_index = priority_queue.get()
+        first_priority, first_dim, first_box_index = priority_queue.get()
 
-        p.plan_refinement(primary_box_index, indices_to_bitmask([primary_dim],4))
-        indices_to_refine: set[int] = {primary_box_index}
+        p.plan_refinement(first_box_index, indices_to_bitmask([first_dim], 4))
+        indices_to_refine: set[int] = {first_box_index}
 
         while len(discretization) + len(
                 indices_to_refine) * 4 < max_num_boxes and not priority_queue.empty():
-            secondary_priority, secondary_dim, secondary_box_index = priority_queue.get()
-            if secondary_priority > cutoff_percentage * primary_priority:
-                priority_queue.put((secondary_priority, secondary_dim, secondary_box_index))
+            next_priority, next_dim, next_box_index = priority_queue.get()
+            if next_priority > cutoff_percentage * first_priority:
+                priority_queue.put((next_priority, next_dim, next_box_index))
                 break
-            indices_to_refine.add(secondary_box_index)
-            p.plan_refinement(secondary_box_index, indices_to_bitmask([secondary_dim],4))
+            indices_to_refine.add(next_box_index)
+            p.plan_refinement(next_box_index, indices_to_bitmask([next_dim], 4))
         discretization, index_mapping = p.apply_refinements(track_mapping="boxes")
         new_priority_queue: PriorityQueue = PriorityQueue()
 
@@ -145,7 +149,7 @@ def calc_importance(interval: CoordinateInterval,
     :param points_per_axis: In how many points the interval should be split.
     :return: A List of Tuples containing: (importance, dimension (0 indexed))
     """
-    points = np.mgrid[*[slice(0, 1, 1 / points_per_axis)] * 4]
+    points = np.mgrid[[slice(0, 1, 1 / points_per_axis)] * 4]
     size = interval[1] - interval[0]
     for i in range(4):
         points[i] *= size[i]
@@ -223,7 +227,7 @@ def plot_all_boxes_3d(
             )
         return []
 
-    return animation.FuncAnimation(fig=fig, func=update, cache_frame_data=False), b, s
+    return animation.FuncAnimation(fig=fig, func=update, cache_frame_data=False,frames=100), b, s
 
 
 def draw_cuboid_on_axis(
@@ -252,10 +256,18 @@ def draw_cuboid_on_axis(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", "--save",action='store_true')
+    save = parser.parse_args().save
+
     disc = Discretization(
         MortonOrderLinearization(),
         RefinementDescriptor(4, 0),
     )
     disc, _ = refine(disc, 4096, check_inside_rotating_cube, 0.5)
     anim, button, slider = plot_all_boxes_3d(disc, check_inside_rotating_cube, wireframe=True)
-    plt.show()
+
+    if save:
+        anim.save("showcase.gif")
+    else:
+        plt.show()
