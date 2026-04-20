@@ -113,7 +113,11 @@ class RefinementDescriptor:
     described in https://arxiv.org/abs/2508.06316 .
     """
 
-    def __init__(self, num_dimensions: int, base_resolution_level=0):
+    def __init__(
+        self,
+        num_dimensions: int,
+        base_resolution_level: Union[int, Sequence[int]] = 0,
+    ):
         self._num_dimensions = num_dimensions
         if isinstance(base_resolution_level, int):
             base_resolution_level = [base_resolution_level] * self._num_dimensions
