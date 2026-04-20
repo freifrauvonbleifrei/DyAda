@@ -13,7 +13,7 @@ from dyada import (
     CoordinateInterval,
     PlannedAdaptiveRefinement,
     MortonOrderLinearization,
-    RefinementDescriptor
+    RefinementDescriptor,
 )
 from dyada.linearization import indices_to_bitmask
 from dyada.drawing_util import (
@@ -27,11 +27,11 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 def refine(
-        discretization: Discretization,
-        max_num_boxes: int,
-        check_inside: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool]],
-        cutoff_percentage: float,
-        progress: bool = True
+    discretization: Discretization,
+    max_num_boxes: int,
+    check_inside: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]],
+    cutoff_percentage: float,
+    progress: bool = True,
 ) -> tuple[Discretization, PriorityQueue]:
     """
     Refine "check_inside" using a Dyada discretization.
@@ -64,8 +64,10 @@ def refine(
         p.plan_refinement(first_box_index, indices_to_bitmask([first_dim], 4))
         indices_to_refine: set[int] = {first_box_index}
 
-        while len(discretization) + len(
-                indices_to_refine) * 4 < max_num_boxes and not priority_queue.empty():
+        while (
+            len(discretization) + len(indices_to_refine) * 4 < max_num_boxes
+            and not priority_queue.empty()
+        ):
             next_priority, next_dim, next_box_index = priority_queue.get()
             if next_priority > cutoff_percentage * first_priority:
                 priority_queue.put((next_priority, next_dim, next_box_index))
@@ -95,8 +97,8 @@ def refine(
 
 
 def check_inside_rotating_cube(
-        points: npt.NDArray[np.float64]
-) -> npt.NDArray[np.bool]:
+    points: npt.NDArray[np.float64],
+) -> npt.NDArray[np.bool_]:
     """
     Check which points are contained inside the area.
     :param points: The points for which to check. The points are being mutated. The points should have the shape: [number_of_points,4]
@@ -108,13 +110,13 @@ def check_inside_rotating_cube(
     temp_x = points[:, 0] - 0.5
     temp_y = points[:, 1] - 0.5
     points[:, 0] = temp_x * cos_w + temp_y * sin_w + 0.5
-    points[:, 1] = - temp_x * sin_w + temp_y * cos_w + 0.5
+    points[:, 1] = -temp_x * sin_w + temp_y * cos_w + 0.5
     points[:, 2] = points[:, 2] - 0.25 + sin_w * 1 / 4
     return np.all((points[:, :3] <= 1 / 2) & (points[:, :3] >= 0.2), axis=1)
 
 
 def check_inside_rotating_tetraeder(
-        points: npt.NDArray[np.float64]
+    points: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.bool_]:
     """
     Check which points are contained inside the Volume.
@@ -128,20 +130,21 @@ def check_inside_rotating_tetraeder(
     temp_y = points[:, 1] - 0.5
     temp_z = points[:, 2]
     points[:, 0] = temp_x * cos_w + temp_y * sin_w + 0.25
-    points[:, 1] = - temp_x * sin_w + temp_y * cos_w + 0.25
+    points[:, 1] = -temp_x * sin_w + temp_y * cos_w + 0.25
     points[:, 2] = -1 / 2 - sin_w * 1 / 8 + temp_z
     return (
-            (points[:, 0] >= 0) &
-            (points[:, 1] >= 0) &
-            (2 * points[:, 0] + points[:, 1] - points[:, 2] <= 0) &
-            (points[:, 2] + points[:, 1] - 1 / 2 <= 0)
+        (points[:, 0] >= 0)
+        & (points[:, 1] >= 0)
+        & (2 * points[:, 0] + points[:, 1] - points[:, 2] <= 0)
+        & (points[:, 2] + points[:, 1] - 1 / 2 <= 0)
     )
 
 
-def calc_importance(interval: CoordinateInterval,
-                    check_inside: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool]],
-                    points_per_axis: float | int = 10.0) -> list[
-    tuple[float, int]]:
+def calc_importance(
+    interval: CoordinateInterval,
+    check_inside: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]],
+    points_per_axis: float | int = 10.0,
+) -> list[tuple[float, int]]:
     """
     Calculate the importance of refinement along each axis.
     :param interval: The interval to test for refinement
@@ -160,10 +163,10 @@ def calc_importance(interval: CoordinateInterval,
 
 
 def plot_all_boxes_3d(
-        discretization: Discretization,
-        check_inside: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool]],
-        wireframe: bool = False,
-        **kwargs,
+    discretization: Discretization,
+    check_inside: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.bool_]],
+    wireframe: bool = False,
+    **kwargs,
 ):
     level_indices = list(discretization.get_all_boxes_level_indices())
     coordinates = [get_coordinates_from_level_index(box_li) for box_li in level_indices]
@@ -173,8 +176,9 @@ def plot_all_boxes_3d(
     inside = check_inside(mid)
     fig = plt.figure()
     # noinspection PyTypeChecker
-    ax1: Axes3D = fig.add_axes((0, 0.1, 1, 0.9),
-                               projection="3d")  # because matplotlib uses dynamic typing, the typechecker breaks here
+    ax1: Axes3D = fig.add_axes(
+        (0, 0.1, 1, 0.9), projection="3d"
+    )  # because matplotlib uses dynamic typing, the typechecker breaks here
 
     class Bpause:
         def __init__(self, ax: Axes):
@@ -206,13 +210,15 @@ def plot_all_boxes_3d(
 
     def update(_):
         # noinspection PyProtectedMember
-        view = ax1._get_view()  # the use of the protected function is just for convenience.
+        view = (
+            ax1._get_view()
+        )  # the use of the protected function is just for convenience.
         ax1.clear()
         # noinspection PyProtectedMember
         ax1._set_view(view)
-        ax1.set_xlabel('X axis')
-        ax1.set_ylabel('Y axis')
-        ax1.set_zlabel('Z axis')
+        ax1.set_xlabel("X axis")
+        ax1.set_ylabel("Y axis")
+        ax1.set_zlabel("Z axis")
         if not b.pause:
             s.inc(0.01)
 
@@ -227,16 +233,22 @@ def plot_all_boxes_3d(
             )
         return []
 
-    return animation.FuncAnimation(fig=fig, func=update, cache_frame_data=False,frames=100), b, s
+    return (
+        animation.FuncAnimation(
+            fig=fig, func=update, cache_frame_data=False, frames=100
+        ),
+        b,
+        s,
+    )
 
 
 def draw_cuboid_on_axis(
-        ax: plt.Axes,
-        interval: CoordinateInterval,
-        time: float,
-        inside: bool,
-        wireframe: bool,
-        **kwargs,
+    ax: plt.Axes,
+    interval: CoordinateInterval,
+    time: float,
+    inside: bool,
+    wireframe: bool,
+    **kwargs,
 ) -> plt.Axes:
     """
     Plot a cuboid of given position and size on a given axis.
@@ -244,10 +256,12 @@ def draw_cuboid_on_axis(
     if not (interval[0][3] <= time <= interval[1][3]):
         return ax
     if wireframe or inside:
-        faces = list(side_corners_generator(interval.lower_bound[:-1], interval.upper_bound[:-1]))
+        faces = list(
+            side_corners_generator(interval.lower_bound[:-1], interval.upper_bound[:-1])
+        )
         cuboid = Poly3DCollection(
             faces,
-            facecolors=(0.58, 0.4, 0.6, 1.) if inside else (0, 0, 0, 0),
+            facecolors=(0.58, 0.4, 0.6, 1.0) if inside else (0, 0, 0, 0),
             edgecolors=(0.0, 0.1, 0.1, 0.04) if wireframe else (0, 0, 0, 0),
             **kwargs,
         )
@@ -257,7 +271,7 @@ def draw_cuboid_on_axis(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--save",action='store_true')
+    parser.add_argument("-s", "--save", action="store_true")
     save = parser.parse_args().save
 
     disc = Discretization(
@@ -265,7 +279,9 @@ if __name__ == "__main__":
         RefinementDescriptor(4, 0),
     )
     disc, _ = refine(disc, 4096, check_inside_rotating_cube, 0.5)
-    anim, button, slider = plot_all_boxes_3d(disc, check_inside_rotating_cube, wireframe=True)
+    anim, button, slider = plot_all_boxes_3d(
+        disc, check_inside_rotating_cube, wireframe=True
+    )
 
     if save:
         anim.save("showcase.gif")
