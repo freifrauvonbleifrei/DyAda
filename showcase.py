@@ -22,8 +22,8 @@ from dyada.drawing_util import (
 from matplotlib import pyplot as plt, animation
 from matplotlib.axes import Axes
 from matplotlib.widgets import Button, Slider
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from mpl_toolkits.mplot3d import Axes3D  # type: ignore
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # type: ignore
 
 
 def refine(
