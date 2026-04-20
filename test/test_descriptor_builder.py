@@ -11,6 +11,7 @@ from dyada.linearization import MortonOrderLinearization
 from dyada.descriptor_builder import (
     compose_descriptors,
     compose_grid,
+    decompose_descriptor,
 )
 
 
@@ -293,3 +294,166 @@ def test_negative_box_index():
     sub = RefinementDescriptor(2, [1, 1])
     with pytest.raises(ValueError, match="out of range"):
         compose_descriptors(base, {-1: sub})
+
+
+_SOURCE_11_11 = "11 11 00 00 00 00 00 00 00"
+
+
+def test_decompose_single_cut_2d():
+    source = RefinementDescriptor.from_binary(
+        2, ba.bitarray(_SOURCE_11_11.replace(" ", ""))
+    )
+    parent, subs, pmap, smaps = decompose_descriptor(source, [1])
+
+    expected = RefinementDescriptor(2, [1, 1])
+    assert parent._data == expected._data
+    assert [sd._data for sd in subs] == [expected._data]
+
+    assert len(pmap) == len(source)
+    assert pmap[0] == {0}
+    assert all(pmap[j] == {1} for j in range(1, 6))
+    assert [pmap[j] for j in range(6, 9)] == [{2}, {3}, {4}]
+
+    assert set(smaps[0]) == {1, 2, 3, 4, 5}
+    assert [smaps[0][j] for j in range(1, 6)] == [{0}, {1}, {2}, {3}, {4}]
+
+
+def test_decompose_compose_roundtrip():
+    source = RefinementDescriptor.from_binary(
+        2, ba.bitarray(_SOURCE_11_11.replace(" ", ""))
+    )
+    cuts = [1]
+    parent, subs, pmap, _ = decompose_descriptor(source, cuts)
+    subs_by_box = {
+        parent.to_box_index(next(iter(pmap[ci]))): subs[k] for k, ci in enumerate(cuts)
+    }
+    rebuilt, _, _ = compose_descriptors(parent, subs_by_box)
+    assert rebuilt._data == source._data
+
+
+def _random_descriptor(nd, rng, max_depth=4, leaf_prob=0.3):
+    """DFS-build a random descriptor: each node either a leaf or a random
+    non-zero refinement."""
+    bits = ba.bitarray()
+
+    def _build(depth):
+        if depth >= max_depth or rng.random() < leaf_prob:
+            bits.extend([0] * nd)
+            return
+        while True:
+            ref = ba.bitarray([rng.randint(0, 1) for _ in range(nd)])
+            if ref.any():
+                break
+        bits.extend(ref)
+        for _ in range(1 << ref.count()):
+            _build(depth + 1)
+
+    _build(0)
+    return RefinementDescriptor.from_binary(nd, bits)
+
+
+@pytest.mark.parametrize("_run", range(25))
+def test_decompose_roundtrip_mapping_is_identity(_run):
+    """Random descriptor + two random non-leaf cuts.  Either decompose
+    rejects because the cuts overlap (ancestor/descendant), or the
+    round-trip through ``compose_descriptors`` sends every source index
+    back to itself — the composed mapping is the identity."""
+    import random
+
+    rng = random.Random()
+    source = _random_descriptor(3, rng)
+    non_leaves = [i for i, ref in enumerate(source) if ref.count() > 0]
+    if len(non_leaves) < 2:
+        pytest.skip("not enough non-leaf nodes")
+    a, b = rng.sample(non_leaves, 2)
+    a_end = source.get_child_ranges(a)[-1][1]
+    b_end = source.get_child_ranges(b)[-1][1]
+    overlap = (a < b < a_end) or (b < a < b_end)
+
+    try:
+        parent, subs, pmap, smaps = decompose_descriptor(source, [a, b])
+    except ValueError as e:
+        assert overlap, f"decompose raised {e!r} but cuts ({a}, {b}) do not overlap"
+        return
+    assert not overlap, f"decompose accepted overlapping cuts ({a}, {b})"
+
+    cuts = [a, b]
+    subs_by_box = {
+        parent.to_box_index(next(iter(pmap[ci]))): subs[k] for k, ci in enumerate(cuts)
+    }
+    rebuilt, compose_base_map, compose_sub_maps = compose_descriptors(
+        parent, subs_by_box
+    )
+    assert rebuilt._data == source._data
+
+    for i in range(len(source)):
+        containing = next((k for k in range(len(cuts)) if i in smaps[k]), None)
+        if containing is None:
+            landed = compose_base_map[next(iter(pmap[i]))]
+        else:
+            ci = cuts[containing]
+            sub_idx = next(iter(smaps[containing][i]))
+            box_in_parent = parent.to_box_index(next(iter(pmap[ci])))
+            landed = compose_sub_maps[box_in_parent][sub_idx]
+        assert landed == {i}, f"source index {i} did not round-trip: {landed}"
+
+
+def test_decompose_multiple_disjoint_cuts_3d():
+    base = RefinementDescriptor(3, [1, 1, 1])
+    sub = RefinementDescriptor(3, [1, 1, 1])
+    source, _, _ = compose_descriptors(base, {0: sub, 3: sub})
+
+    cuts = [i for i, ref in enumerate(source) if ref.count() == 3 and i != 0]
+    assert len(cuts) == 2
+
+    parent, subs, pmap, _ = decompose_descriptor(source, cuts)
+
+    assert parent._data == base._data
+    assert [sd._data for sd in subs] == [sub._data, sub._data]
+    assert all(len(pmap[ci]) == 1 for ci in cuts)
+
+    subs_by_box = {
+        parent.to_box_index(next(iter(pmap[ci]))): subs[k] for k, ci in enumerate(cuts)
+    }
+    rebuilt, _, _ = compose_descriptors(parent, subs_by_box)
+    assert rebuilt._data == source._data
+
+
+def test_decompose_preserves_input_order():
+    base = RefinementDescriptor(2, [1, 1])
+    sub = RefinementDescriptor(2, [1, 1])
+    source, _, _ = compose_descriptors(base, {0: sub, 3: sub})
+    sub_roots = [i for i, ref in enumerate(source) if ref.count() == 2 and i != 0]
+    cuts = [sub_roots[1], sub_roots[0]]  # descending input order
+    _, _, _, smaps = decompose_descriptor(source, cuts)
+    assert smaps[0][cuts[0]] == {0}
+    assert smaps[1][cuts[1]] == {0}
+    assert set(smaps[0]).isdisjoint(smaps[1])
+
+
+def test_decompose_rejects_overlap():
+    source = RefinementDescriptor.from_binary(
+        2, ba.bitarray(_SOURCE_11_11.replace(" ", ""))
+    )
+    with pytest.raises(ValueError, match="inside another cut"):
+        decompose_descriptor(source, [0, 1])
+
+
+def test_decompose_rejects_leaf_cut():
+    source = RefinementDescriptor(2, [1, 1])
+    with pytest.raises(ValueError, match="is a leaf"):
+        decompose_descriptor(source, [2])
+
+
+def test_decompose_rejects_duplicates():
+    source = RefinementDescriptor.from_binary(
+        2, ba.bitarray(_SOURCE_11_11.replace(" ", ""))
+    )
+    with pytest.raises(ValueError, match="duplicates"):
+        decompose_descriptor(source, [1, 1])
+
+
+def test_decompose_rejects_out_of_range():
+    source = RefinementDescriptor(2, [1, 1])
+    with pytest.raises(ValueError, match="out of range"):
+        decompose_descriptor(source, [99])

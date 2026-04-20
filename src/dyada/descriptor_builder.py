@@ -107,6 +107,80 @@ def compose_descriptors(
     return desc, builder.mapping, sub_mappings
 
 
+def decompose_descriptor(
+    source: RefinementDescriptor,
+    cut_indices: Sequence[int],
+) -> tuple[
+    RefinementDescriptor,
+    list[RefinementDescriptor],
+    IndexMapping,
+    list[dict[int, set[int]]],
+]:
+    """Inverse of :func:`compose_descriptors` — extract sub-descriptors rooted
+    at the given hierarchical indices.
+
+    Each ``cut_indices[k]`` must be a valid hierarchical index of ``source``.
+    Its full subtree is removed and returned as ``sub_descriptors[k]``;
+    in ``parent_descriptor`` the cut node becomes a leaf.
+    Cuts must not overlap (no cut index may be inside another cut's subtree)
+    and must be unique.
+
+    Returns:
+        ``(parent_descriptor, sub_descriptors, parent_mapping, sub_mappings)``
+    """
+    n = len(source)
+    d_zeros = source.d_zeros
+
+    if len(set(cut_indices)) != len(cut_indices):
+        raise ValueError("cut_indices contains duplicates")
+    for ci in cut_indices:
+        if not 0 <= ci < n:
+            raise ValueError(f"cut index {ci} out of range [0, {n})")
+        if source[ci] == d_zeros:
+            raise ValueError(
+                f"cut index {ci} is a leaf; cannot extract an empty subtree"
+            )
+
+    # Walk cuts in ascending order, compute each subtree's end, reject overlaps.
+    cut_spans: dict[int, int] = {}  # insertion-ordered ↔ ascending
+    prev_end = 0
+    for ci in sorted(cut_indices):
+        if ci < prev_end:
+            raise ValueError(
+                f"cut index {ci} lies inside another cut's subtree "
+                f"(ending at {prev_end})"
+            )
+        prev_end = cut_spans[ci] = source.get_child_ranges(ci)[-1][1]
+
+    parent_builder = DescriptorBuilder(source)
+    sub_builders = {ci: DescriptorBuilder(source) for ci in cut_spans}
+
+    prev = 0
+    for ci, ce in cut_spans.items():
+        if prev < ci:
+            parent_builder.copy_range(prev, ci)
+        leaf_idx = parent_builder.emit_and_track(ci, d_zeros)
+        # Every index inside the cut subtree collapses into this new leaf.
+        for s in parent_builder.mapping[ci + 1 : ce]:
+            s.add(leaf_idx)
+        sub_builders[ci].copy_range(ci, ce)
+        prev = ce
+    if prev < n:
+        parent_builder.copy_range(prev, n)
+
+    parent_desc = parent_builder.build()
+    sub_descriptors = [sub_builders[ci].build() for ci in cut_indices]
+    if __debug__:
+        validate_descriptor(parent_desc)
+        for sd in sub_descriptors:
+            validate_descriptor(sd)
+    # Source indices ci..ce-1 map 1:1 to sub indices 0..ce-ci-1.
+    sub_mappings = [
+        {j: {j - ci} for j in range(ci, cut_spans[ci])} for ci in cut_indices
+    ]
+    return parent_desc, sub_descriptors, parent_builder.mapping, sub_mappings
+
+
 def compose_grid(
     grid_levels: Sequence[int],
     sub_descriptors: Sequence[RefinementDescriptor | None],
