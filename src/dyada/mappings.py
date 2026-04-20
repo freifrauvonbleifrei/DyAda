@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Theresa Pollinger
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TypeAlias
 
@@ -255,10 +256,34 @@ def _forget_self_remembering_leaves(
     one_after_last_considered_index: int,
     leaves_to_forget_except: list[tuple[int, int]],
 ) -> None:
+    """For each ``index`` in the considered range, discard every ``new_leaf``
+    from ``index_mapping[index]`` unless ``index`` is the ``old_leaf`` paired
+    with ``new_leaf`` — and that pair is the *only* one referencing it
+    """
+    if not leaves_to_forget_except:
+        return
+
+    # new_leaf → set of old_leaves paired with it (handles possible duplicates).
+    paired_old_leaves: dict[int, set[int]] = defaultdict(set)
+    for ol, nl in leaves_to_forget_except:
+        paired_old_leaves[nl].add(ol)
+    forget_set = set(paired_old_leaves.keys())
+
+    protected_for_index: dict[int, set[int]] = {}
+    for nl, ols in paired_old_leaves.items():
+        if len(ols) == 1:
+            (ol,) = ols
+            protected_for_index.setdefault(ol, set()).add(nl)
+
     for index in range(marked_ancestor_index, one_after_last_considered_index):
-        for old_leaf, new_leaf in leaves_to_forget_except:
-            if index != old_leaf:
-                index_mapping[index].discard(new_leaf)
+        sm = index_mapping[index]
+        if not sm:
+            continue
+        protected = protected_for_index.get(index)
+        if protected is None:
+            sm.difference_update(forget_set)
+        else:
+            sm.difference_update(forget_set - protected)
 
 
 def _find_matching_new_index(
