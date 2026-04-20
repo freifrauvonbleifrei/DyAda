@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Theresa Pollinger
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Runs showcase.py -s, which refines an adaptive 4D discretization for a
+# rotating cube and renders the result as an animated gif.
+# The produced `showcase.gif` is uploaded as a workflow artifact.
+
+name: Python Showcase
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  showcase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Set up Python "3.12"
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[drawing,matplotlib]
+      - name: Run showcase.py -s
+        run: python showcase.py -s
+      - name: Upload showcase.gif artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: showcase-gif
+          path: showcase.gif
+          if-no-files-found: error
