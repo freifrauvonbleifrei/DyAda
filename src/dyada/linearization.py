@@ -255,7 +255,7 @@ def get_initial_child_grouping(
     if not isinstance(linearization, MortonOrderLinearization):
         raise NotImplementedError(
             "Initial child grouping only implemented for "
-            "Morton order linearization, other linearizations may need "
+            "Morton/Z order linearization, other linearizations may need "
             "different signature."
         )
     assert len(sort_dimensions) == len(current_parent_refinement)
@@ -329,3 +329,33 @@ def get_initial_coarsen_refine_stack(
         dimensions_cannot_coarsen,
         linearization,
     )
+
+
+def grid_coord_to_z_index(
+    coord: Sequence[int],
+    grid_levels: Sequence[int],
+) -> int:
+    """Convert a spatial grid coordinate to a Z-ordered box index.
+
+    For a regular grid with per-dimension levels, returns the Z-order
+    index matching dyada's DFS descriptor ordering.  Dimension 0 is the
+    most contiguous (Fortran order).
+    """
+    nd = len(grid_levels)
+    max_level = max(grid_levels)
+    code = 0
+    for level in range(max_level):
+        for d in range(nd - 1, -1, -1):
+            if level < grid_levels[d]:
+                bit = (coord[d] >> (grid_levels[d] - 1 - level)) & 1
+                code = (code << 1) | bit
+    return code
+
+
+def flat_to_coord(flat_index: int, shape: Sequence[int]) -> tuple[int, ...]:
+    """Convert a Fortran-order flat index to a grid coordinate tuple."""
+    coord = []
+    for s in shape:
+        coord.append(flat_index % s)
+        flat_index //= s
+    return tuple(coord)
