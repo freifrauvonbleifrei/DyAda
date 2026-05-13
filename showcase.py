@@ -100,9 +100,9 @@ def check_inside_rotating_cube(
     points: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.bool_]:
     """
-    Check which points are contained inside the area.
+    Check which points are contained inside the volume.
     :param points: The points for which to check. The points are being mutated. The points should have the shape: [number_of_points,4]
-    :return: which points are contained in the area. This array has the shape: [number_of_points]
+    :return: which points are contained in the volume. This array has the shape: [number_of_points]
     """
 
     sin_w = np.sin(points[:, 3] * np.pi * 4)
@@ -119,9 +119,9 @@ def check_inside_rotating_tetraeder(
     points: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.bool_]:
     """
-    Check which points are contained inside the Volume.
+    Check which points are contained inside the volume.
     :param points: The points for which to check. The points are being mutated. The points should have the shape: [number_of_points,4]
-    :return: which points are contained in the area. This array has the shape: [number_of_points]
+    :return: which points are contained in the volume. This array has the shape: [number_of_points]
     """
 
     sin_w = np.sin(points[:, 3] * np.pi * 2)
