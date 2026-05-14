@@ -210,7 +210,12 @@ But the `index_mapping` in the above snippets helps you figure out how your
 function data has moved: `new_indices = index_mapping[old_index]`.
 
 For a full workflow based on `dyada`, have a look at the project
-[thingies_with_omnitrees](https://github.com/freifrauvonbleifrei/thingies_with_omnitrees).
+[thingies_with_omnitrees](https://github.com/freifrauvonbleifrei/thingies_with_omnitrees),
+or at [showcase.py](./showcase.py), which generates this animation of a 4d
+spacetime cube (a cube in spatial dimensions, with time-dependent rotation and translation).
+
+![showcase animation](./docs/gfx/showcase.gif)
+
 
 ## Contributing
 
